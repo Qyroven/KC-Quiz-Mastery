@@ -24,7 +24,7 @@ PROVIDER_MODULES = {
 
 def test_base_install_has_no_provider_or_dotenv_dependency() -> None:
     project = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text())
-    assert project["project"]["version"] == "0.4.0"
+    assert project["project"]["version"] == "0.5.0"
     assert project["project"]["dependencies"] == ["pydantic>=2.10,<3", "pypdfium2"]
     assert project["project"]["optional-dependencies"]["legacy-api"] == [
         "openai>=2,<3", "python-dotenv",
@@ -66,11 +66,11 @@ def test_native_help_has_no_legacy_generation_or_environment_setup(capsys) -> No
 def test_version_uses_installed_distribution_metadata(monkeypatch, capsys) -> None:
     from learning_authoring.cli import main
 
-    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.4.0")
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.5.0")
     with pytest.raises(SystemExit) as exc:
         main(["--version"])
     assert exc.value.code == 0
-    assert capsys.readouterr().out.strip() == "learning-authoring 0.4.0"
+    assert capsys.readouterr().out.strip() == "learning-authoring 0.5.0"
 
 
 def test_native_command_rejects_explicit_env_before_reading_file(tmp_path, capsys) -> None:

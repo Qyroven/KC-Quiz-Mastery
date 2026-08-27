@@ -289,7 +289,7 @@
       </div>
     </div>
     <div class="journey-wrap">
-      <nav class="journey" aria-label="Connected authoring journey">
+      <nav class="journey" aria-label="Authoring and learning journey">
         <div class="stage">
           <button class="route" type="button" data-route="extraction" data-src="{{EXTRACTOR_HREF}}" data-title="Extraction review" data-status="{{EXTRACTOR_STATUS_LABEL}}" data-status-class="{{EXTRACTOR_STATUS_CLASS}}" data-description="{{EXTRACTOR_STATUS_DESCRIPTION}}">
             <span class="route-index">01</span><span class="route-copy"><strong>Extraction</strong><span>{{EXTRACTOR_STATUS_LABEL}}</span></span>
@@ -307,10 +307,19 @@
             <span class="route-index">03</span><span class="route-copy"><strong>Quiz</strong><span>{{QUESTION_COUNT}} questions · {{QUIZ_STATUS_LABEL}}</span></span>
           </button>
         </div>
-        <span class="connector roadmap-link" aria-hidden="true">⋯</span>
-        <div class="roadmap-stage {{MASTERY_STATUS_CLASS}}" aria-disabled="true">
-          <span class="route-index">R</span><span class="route-copy"><strong>Mastery · Roadmap</strong><span>{{MASTERY_STATUS_LABEL}}</span></span>
+        <span class="connector" aria-hidden="true">→</span>
+        <!-- LEARNING_ENABLED -->
+        <div class="stage">
+          <button class="route" type="button" data-route="learning" data-src="{{LEARNING_HREF}}" data-title="Learning · Evidence & Mastery" data-status="{{MASTERY_STATUS_LABEL}}" data-status-class="{{MASTERY_STATUS_CLASS}}" data-description="{{MASTERY_STATUS_DESCRIPTION}}">
+            <span class="route-index">04</span><span class="route-copy"><strong>Học &amp; Mastery</strong><span>Làm bài → Evidence → Học tiếp</span></span>
+          </button>
         </div>
+        <!-- /LEARNING_ENABLED -->
+        <!-- LEARNING_DISABLED -->
+        <div class="roadmap-stage {{MASTERY_STATUS_CLASS}}" aria-disabled="true">
+          <span class="route-index">04</span><span class="route-copy"><strong>Learning · MVP</strong><span>{{MASTERY_STATUS_LABEL}}</span></span>
+        </div>
+        <!-- /LEARNING_DISABLED -->
       </nav>
     </div>
   </header>
@@ -336,7 +345,7 @@
     </section>
   </main>
 
-  <p class="publish-note"><strong>Publish boundary:</strong> portal chỉ chứa {{REVIEW_VIEW_COUNT}} review HTML đã chọn và {{PAGE_COUNT}} ảnh trang cần cho giao diện. Source PDF, raw candidate files, prompt/request packages, provider envelopes, credentials và run khác không được đóng gói. Mastery không thuộc active path vì {{MASTERY_STATUS_DESCRIPTION}}</p>
+  <p class="publish-note">{{REVIEW_VIEW_COUNT}} review views · {{PAGE_COUNT}} ảnh trang · Output gốc giữ nguyên. {{MASTERY_STATUS_DESCRIPTION}} Source PDF, raw candidates và thông tin xác thực không được đóng gói.</p>
 
   <script>
     (function () {

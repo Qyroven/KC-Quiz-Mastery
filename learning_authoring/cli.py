@@ -42,7 +42,7 @@ PORTAL_BUILD_RECORD = "portal-build-record.json"
 NATIVE_COMMANDS = (
     "source-preflight", "agent-init", "agent-context", "agent-schema", "agent-task",
     "agent-import", "batch-plan", "batch-preflight", "review", "approve", "kc-review",
-    "quiz-review", "portal-build", "status",
+    "quiz-review", "portal-build", "learning-register", "status",
 )
 LEGACY_API_COMMANDS = frozenset({
     "doctor", "extract", "batch-extract", "kc-preview", "kc-generate",
@@ -432,6 +432,10 @@ def _parser() -> argparse.ArgumentParser:
     portal_build.add_argument("--kc-scroll-review", default="kc-scroll.html")
     portal_build.add_argument("--quiz-review", default="quiz-review.html")
     portal_build.add_argument(
+        "--with-learning", action="store_true",
+        help="include local practice, evidence and provisional mastery (requires local Node.js)",
+    )
+    portal_build.add_argument(
         "--review-supabase-url",
         help="exact public Supabase project URL for shared review",
     )
@@ -439,6 +443,13 @@ def _parser() -> argparse.ArgumentParser:
         "--review-supabase-publishable-key",
         help="public Supabase publishable/legacy anon browser key (never service-role)",
     )
+
+    learning_register = subcommands.add_parser(
+        "learning-register",
+        help="export insert-only learning snapshot SQL offline; never connects to a database",
+    )
+    learning_register.add_argument("run_dir", type=_path)
+    learning_register.add_argument("output_sql", type=_path)
 
     status = subcommands.add_parser("status", help="show canonical run artifacts")
     status.add_argument("run_dir", type=_path)
@@ -586,7 +597,7 @@ def _portal_manifest_for_run(root: Path, output_dir: Path) -> dict[str, Any]:
     if (
         manifest.get("schema_version") not in {
             "learning-authoring-showcase.v1", "learning-authoring-showcase.v2",
-            "learning-authoring-showcase.v3",
+            "learning-authoring-showcase.v3", "learning-authoring-showcase.v4",
         }
         or manifest.get("managed_by") not in {MANAGED_BY, LEGACY_MANAGED_BY}
         or manifest.get("source_run") != root.name
@@ -947,6 +958,7 @@ def main(argv: list[str] | None = None) -> int:
                     quiz=args.quiz_review,
                 ),
                 review_backend=review_backend,
+                include_learning=args.with_learning,
             )
             _record_portal_build(args.run_dir, output_dir, manifest)
         except PublishSafetyError as exc:
@@ -975,6 +987,16 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
         )
+        return 0
+    if args.command == "learning-register":
+        from learning_authoring.learning import export_learning_registration
+
+        try:
+            result = export_learning_registration(args.run_dir, args.output_sql)
+        except (PublishSafetyError, ValueError, OSError) as exc:
+            print(json.dumps({"exported": False, "error": str(exc)}), file=sys.stderr)
+            return 1
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command == "status":
         print(json.dumps(_status(args.run_dir), ensure_ascii=False, indent=2))

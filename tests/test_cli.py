@@ -108,14 +108,18 @@ def test_portal_build_defaults_to_run_local_connected_portal(
     run_dir = _fake_run(tmp_path, page_count=1)
     captured: dict[str, object] = {}
 
-    def fake_build(run, output, *, review_files, review_backend=None):
+    def fake_build(run, output, *, review_files, review_backend=None, include_learning=False):
         captured.update(
             run=run,
             output=output,
             review_files=review_files,
             review_backend=review_backend,
+            include_learning=include_learning,
         )
-        return build_showcase(run, output, review_files=review_files, review_backend=review_backend)
+        return build_showcase(
+            run, output, review_files=review_files, review_backend=review_backend,
+            include_learning=include_learning,
+        )
 
     monkeypatch.setattr("learning_authoring.cli.build_showcase", fake_build)
 

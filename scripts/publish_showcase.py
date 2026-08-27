@@ -76,6 +76,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--review-supabase-url")
     parser.add_argument("--review-supabase-publishable-key")
+    parser.add_argument("--with-learning", action="store_true")
     return parser
 
 
@@ -105,6 +106,7 @@ def main() -> int:
             quiz=args.quiz_review,
         ),
         review_backend=review_backend,
+        include_learning=args.with_learning,
     )
     total_bytes = sum(int(entry["bytes"]) for entry in manifest["files"])
     print(f"Built {args.output_dir.resolve()}")

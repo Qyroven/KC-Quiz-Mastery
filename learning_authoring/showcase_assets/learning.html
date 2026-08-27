@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <meta
+      name="description"
+      content="Luyện tập theo KC, xem bằng chứng và chọn bước học tiếp theo."
+    />
+    <title>Learning · KC Quiz Mastery</title>
+    <link rel="stylesheet" href="learning-style.css" />
+    <script defer src="review-config.js"></script>
+    <script defer src="learning-data.js"></script>
+    <script defer src="learning-core.js"></script>
+    <script defer src="learning-runtime.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#question-panel">Đến câu hỏi</a>
+    <header class="app-header">
+      <div class="topbar">
+        <a
+          class="brand"
+          href="index.html"
+          target="_top"
+          aria-label="Về Learning Authoring"
+          ><span class="mark" aria-hidden="true"></span>Learning<span
+            class="brand-tag"
+            >MVP</span
+          ></a
+        >
+        <span class="source-name" id="source-name">KC · Quiz · Evidence</span>
+        <a class="text-link authoring-link" href="index.html" target="_top"
+          >Authoring ↗</a
+        >
+        <button class="person-button" id="identity-toggle" type="button">
+          Nhập tên
+        </button>
+      </div>
+    </header>
+    <main class="workspace">
+      <section class="intro" aria-labelledby="learning-title">
+        <div>
+          <p class="eyebrow">KHÔNG CHỈ LÀ ĐIỂM SỐ</p>
+          <h1 id="learning-title">Học tiếp, từ bằng chứng.</h1>
+          <p class="muted">
+            Làm bài, hiểu kết quả và chọn bước tiếp theo cho từng kiến thức.
+          </p>
+        </div>
+        <ol class="learning-path" aria-label="Hành trình học">
+          <li>Lần thử</li>
+          <li>Kết quả</li>
+          <li>Bằng chứng</li>
+          <li>Bước tiếp</li>
+        </ol>
+      </section>
+      <div class="storage-bar" id="storage-bar" role="status">
+        <span id="storage-label">Đang mở bộ học…</span
+        ><button id="refresh-state" class="quiet-button" type="button" hidden>
+          Cập nhật
+        </button>
+      </div>
+      <section
+        id="identity-panel"
+        class="identity-panel"
+        hidden
+        aria-labelledby="identity-title"
+      >
+        <div>
+          <h2 id="identity-title">Bạn muốn được gọi là gì?</h2>
+          <p id="identity-help" class="muted">
+            Tên hiển thị không phải tài khoản. Lịch sử học gắn với phiên trên
+            trình duyệt này.
+          </p>
+        </div>
+        <form id="identity-form">
+          <label class="sr-only" for="learner-name">Tên hiển thị</label
+          ><input
+            id="learner-name"
+            name="display_name"
+            maxlength="80"
+            autocomplete="name"
+            placeholder="Tên của bạn"
+            required
+          /><button id="save-identity" class="primary" type="submit">
+            Bắt đầu học
+          </button>
+        </form>
+      </section>
+      <div
+        id="operation-status"
+        class="operation-status"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
+      <div id="error-panel" class="error-panel" role="alert" hidden>
+        <div>
+          <strong>Chưa thể hoàn tất</strong>
+          <p id="error-message"></p>
+        </div>
+        <button id="retry-operation" class="secondary" type="button">
+          Thử lại
+        </button>
+      </div>
+      <div id="learning-app" class="learning-grid" hidden>
+        <aside class="learning-sidebar" aria-label="Chọn nội dung học">
+          <section class="nav-card">
+            <div class="section-head">
+              <h2>Kiến thức của bạn</h2>
+              <span id="kc-count" class="tiny-badge"></span>
+            </div>
+            <label for="kc-select" class="field-label">Chọn KC</label
+            ><select id="kc-select"></select>
+            <div id="kc-summary" class="kc-summary"></div>
+            <div class="section-head questions-head">
+              <h3>Câu hỏi</h3>
+              <span id="question-count" class="muted small"></span>
+            </div>
+            <nav
+              id="question-list"
+              class="question-list"
+              aria-label="Câu hỏi trong KC"
+            ></nav>
+          </section>
+          <section class="policy-note">
+            <span class="small-cap">MASTERY TẠM THỜI</span>
+            <p>
+              Đủ bằng chứng không đồng nghĩa đã thành thạo lâu dài. Gợi ý, lần
+              làm lại và chất lượng câu hỏi đều được giữ trong lịch sử.
+            </p>
+            <a href="#evidence-panel" class="text-link"
+              >Xem bằng chứng của từng KC ↓</a
+            >
+          </section>
+        </aside>
+        <div class="learning-main">
+          <section
+            id="question-panel"
+            class="question-card"
+            aria-labelledby="question-title"
+            tabindex="-1"
+          ></section>
+          <section
+            id="next-action"
+            class="next-card"
+            aria-labelledby="next-title"
+          ></section>
+          <section
+            id="feedback-panel"
+            class="feedback-card"
+            aria-label="Góp ý về câu hỏi"
+          ></section>
+        </div>
+        <section
+          id="evidence-panel"
+          class="evidence-card"
+          aria-labelledby="evidence-title"
+        >
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">BẰNG CHỨNG → MASTERY TẠM THỜI</p>
+              <h2 id="evidence-title">Điều các lần thử đang cho biết</h2>
+            </div>
+            <button id="grading-toggle" type="button" class="secondary" hidden>
+              Chờ chấm rubric
+            </button>
+          </div>
+          <p class="muted small">
+            Tổng hợp theo mục tiêu đo (slot), không cộng dồn các biến thể của
+            cùng một câu và không dùng phần trăm mastery.
+          </p>
+          <div id="evidence-summary" class="evidence-summary"></div>
+          <details class="history-details">
+            <summary>Lịch sử lần thử <span id="history-count"></span></summary>
+            <div id="attempt-history" class="attempt-history"></div>
+          </details>
+        </section>
+        <section
+          id="grading-panel"
+          class="grading-card"
+          hidden
+          aria-labelledby="grading-title"
+        >
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">CHỈ NGƯỜI ĐƯỢC CẤP QUYỀN</p>
+              <h2 id="grading-title">Chấm theo rubric đã đóng băng</h2>
+            </div>
+            <button id="refresh-queue" class="secondary" type="button">
+              Cập nhật hàng chờ
+            </button>
+          </div>
+          <div id="grading-queue"></div>
+        </section>
+      </div>
+      <footer class="page-foot">
+        <span id="run-label"></span
+        ><span>Learning MVP · Không thay đổi bản authoring</span>
+      </footer>
+      <noscript
+        ><p class="error-panel">
+          Cần bật JavaScript để làm bài. Chưa có lần thử nào được lưu.
+        </p></noscript
+      >
+    </main>
+  </body>
+</html>

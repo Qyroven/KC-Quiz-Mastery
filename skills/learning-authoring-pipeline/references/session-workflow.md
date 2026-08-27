@@ -51,7 +51,7 @@ agent-context <run-dir> [--context-file <file>] [--context-text <text>]
 agent-schema {extraction,kc,quiz,quiz-review}
 agent-task <stage> <run-dir> [stage configuration]
 agent-import <stage> <run-dir> <candidate-json> --task-package <frozen-task-json>
-portal-build <run-dir> [--output-dir <portal-dir>]
+portal-build <run-dir> --with-learning [--output-dir <portal-dir>]
 ```
 
 Command flags are versioned runtime details. Get them from `--help`; never guess a missing flag or
@@ -288,12 +288,16 @@ After the initial check is recorded, follow [review-and-publish.md](review-and-p
 installed runtime's deterministic builder:
 
 ```bash
-<la> portal-build <run-dir> --output-dir <fresh-portal-dir>
+<la> portal-build <run-dir> --with-learning --output-dir <fresh-portal-dir>
 ```
 
 This command must derive the source title, page count, stage statuses, and review entrypoints from
 the exact run. Do not reuse a checked-in snapshot or hard-coded demo copy. `portal-build` is part of
 the installed CLI, so a personal skill or `uvx` journey does not require a repository checkout.
+
+The Learning view starts with no learner records. It uses the existing Quiz/slot/KC payloads,
+not another generation step; read [learning-mvp.md](learning-mvp.md) for grading, evidence,
+storage and optional backend setup. Do not create synthetic attempts as if they were real data.
 
 Building this local directory is part of the default journey. Deploying it is not. If the installed
 runtime lacks `portal-build`, report a runtime-version mismatch rather than improvising a portal or
@@ -305,13 +309,15 @@ Report:
 
 - source filename/hash and run directory;
 - Extraction's actual status (`PROPOSED` for the default new journey), KC `PROPOSED` with its real upstream status, Quiz
-  `EXPERIMENTAL_UNAPPROVED`, and Mastery `NOT_IMPLEMENTED`;
+  `EXPERIMENTAL_UNAPPROVED`, and Learning/Mastery `PROVISIONAL_EVIDENCE_MVP` when enabled;
 - context input count/hash, mapped versus document-level evidence and any unresolved inputs;
 - the frozen KC selection/language/limits and actual slot/question counts per KC;
 - hint coverage, initial-check PASS/REVIEW/REJECT counts, reviewer mode, inspected source scope,
   and concrete remaining concerns; missing or stale reviews must be explicit;
 - candidate archive paths and confirmation that exact bytes were preserved;
 - the connected local portal directory, manifest, and entrypoints;
+- local-only versus shared learner persistence, pending rubric-grading limitations, and the fact
+  that mastery has not been calibrated with learners;
 - `execution_mode: agent_subscription_session` and `provider_api_calls: 0`;
 - local preparation/import timings when available;
 - model tokens/cost as unavailable unless the host session supplies authoritative figures.

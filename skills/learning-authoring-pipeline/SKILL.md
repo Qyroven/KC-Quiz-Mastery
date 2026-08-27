@@ -1,9 +1,9 @@
 ---
 name: learning-authoring-pipeline
-description: Run a course PDF with optional free-form lecturer context through a continuous subscription-native draft journey producing proposed Extraction and KC, assessment-slot Quiz with adaptive hints, an independent initial semantic check, and a connected local review portal. Use for new or resumed authoring runs, later human review, or explicitly authorized static publishing; never use it as a provider-API workflow.
+description: Run a PDF with optional lecturer context through subscription-native Extraction, KC, Quiz with hints and an initial check, then a connected review and Learning MVP. Use for authoring, review, local learner practice or explicitly authorized publishing; never for provider-API generation.
 metadata:
   author: Qyroven
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # Learning Authoring Pipeline
@@ -19,11 +19,14 @@ honest review-needed statuses remain present, but they are not pause points. Do 
 reinvoke the skill between stages.
 
 This workflow requires local file and shell access, PDF inspection, Python 3.12, and either `uv` or
-an installed `learning-authoring` CLI.
+an installed `learning-authoring` CLI. The Learning package builder also needs local Node.js for
+the same exact content hashes as the review UI; it makes no model or database request.
 
 Read [session-workflow.md](references/session-workflow.md) before starting or resuming a run. Read
 [review-and-publish.md](references/review-and-publish.md) before building the connected portal,
 performing a later human approval, or publishing static results.
+Read [learning-mvp.md](references/learning-mvp.md) when building the default Learning-enabled
+portal, configuring shared learner persistence, or explaining evidence/mastery behavior.
 
 ## Non-negotiable boundaries
 
@@ -79,11 +82,16 @@ performing a later human approval, or publishing static results.
   initial PASS. This is an initial check, not human approval or proof of independence/quality.
   Preserve REVIEW/REJECT findings without silently fixing or dropping questions; continue to the
   portal. Unsupported/missing evidence must be declared, not guessed into a PASS.
-- The Quiz UI's hint state is a local preview only. Do not present it as durable learner events,
-  calibrated difficulty, mastery, training data, or an implemented learning-feedback loop.
+- The Authoring Quiz review remains a preview, not a learner attempt. The separate Learning view
+  records real user actions locally, or in an explicitly configured Supabase project. Do not
+  invent attempts, imply shared persistence for local-only mode, or treat failed saves as success.
 - Report subscription usage and cost as unavailable unless the host itself supplies authoritative
   figures. Local import timing is not model-generation timing.
-- Mastery is `NOT_IMPLEMENTED`. Do not generate, simulate, or present a Mastery stage as connected.
+- Learning is an evidence-based MVP, not a calibrated competency model. Never generate a mastery
+  score from source content. Only actual graded attempts can affect provisional states;
+  hints and repeated items remain distinguishable. Feedback never directly changes a grade.
+- Short-text answers require rubric grading by authorized staff; no string-match or unconfigured
+  model call may stand in for semantic grading. Pending answers are not incorrect or mastered.
 
 ## Runtime selection
 
@@ -102,8 +110,9 @@ mutation. The subscription-native commands must include `agent-init`, `agent-con
 `--task-package`, the `quiz-review` stage and its `--reviewer-mode`, and a default Quiz schema with
 explicit `hints` and `hint_absence_reason`. If the installed version does not expose them, stop and report a runtime-version
 mismatch instead of falling back to an API command or stale portal files.
-Version 1.4 requires runtime 0.4.0 or a compatible newer version, including KC
-`context_audit`. Check `--version` and `agent-schema kc`; an outdated cached CLI
+Version 1.5 requires runtime 0.5.0 or a compatible newer version, including KC
+`context_audit`, `portal-build --with-learning`, and `learning-register`. Check `--version`,
+`agent-schema kc`, and command help; an outdated cached CLI
 must be updated before proceeding. The default install needs neither an OpenAI
 SDK nor dotenv; legacy provider extras are not part of this skill.
 
@@ -119,7 +128,8 @@ PDF
   -> frozen KC selection/language/optional assessment limits
   -> host assessment slots + Quiz + hints (same stage) -> import: EXPERIMENTAL_UNAPPROVED
   -> independent initial review -> PASS / REVIEW / REJECT (never approval)
-  -> connected local portal for this exact run
+  -> connected review + local Learning portal for this exact run
+  -> when a person uses it: attempt + hints -> grade -> evidence -> provisional mastery -> next action
 ```
 
 Use each emitted task package as the complete authoring instruction for its stage. Read its prompt,
@@ -146,8 +156,12 @@ derived from the new run state.
 
 The connected portal is a deterministic static view over one completed local run. Build it after
 Quiz and the initial check in the default journey and verify that its manifest and entrypoints resolve to that run's
-generated artifacts. It must not contain stale showcase copy or content-specific hardcoding.
+generated artifacts. Use `portal-build --with-learning`; the builder never pre-fills learner
+history. Existing raw output is reused unchanged when adding Learning to a completed run.
+It must not contain stale showcase copy or content-specific hardcoding.
 
 Vercel is only a static result surface. Deploy only when the user explicitly requests publication
 and the exact Vercel target is authorized. Publish only the generated allowlisted portal directory;
 never deploy this skill, the repository runtime, a run directory, or source/candidate material.
+Shared review/Learning use Supabase only for authenticated persistence and deterministic grading;
+that is distinct from, and never permission for, a model-provider API call.

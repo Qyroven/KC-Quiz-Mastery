@@ -1,8 +1,8 @@
 interface:
   display_name: "Learning Authoring Pipeline"
-  short_description: "Author PDF to Quiz with hints and initial review"
+  short_description: "Author courses and preview learner evidence"
   brand_color: "#1261A0"
-  default_prompt: "Use $learning-authoring-pipeline to process the attached course PDF and optional lecturer context through proposed Extraction and KC, adaptive Quiz with useful hints, and an independent initial semantic check, then build the connected local portal without pausing for human review."
+  default_prompt: "Use $learning-authoring-pipeline to author the attached PDF and optional lecturer context into Extraction, KC and Quiz with hints, perform an initial check, and build the connected local review and Learning MVP without inventing approval or learner activity."
 
 policy:
   allow_implicit_invocation: true

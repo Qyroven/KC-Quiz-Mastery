@@ -11,7 +11,8 @@ PDF
   -> proposed KC + optional lecturer context, through the PROPOSED_DEMO_ONLY upstream boundary
   -> assessment slots, experimental Quiz and adaptive hints in the same generation stage
   -> independent initial semantic check (no auto-approval or repair)
-  -> connected local review portal
+  -> connected review + Learning MVP portal
+  -> learner attempt + hints -> grading -> evidence -> provisional mastery -> next action
 ```
 
 The default Agent Skill invocation completes that draft journey without pausing at human review
@@ -27,7 +28,7 @@ deployed there.
 | Extractor | Implemented: source binding, structured candidate import, deterministic audit, review UI, explicit human approval |
 | KC | Implemented as contract-valid proposed output with local review; there is no KC approval command yet |
 | Quiz | Experimental and unapproved; adaptive hints, structural/form checks and a source-bound initial semantic review; not certified teaching quality |
-| Mastery | **Not implemented** |
+| Learning / Mastery | MVP: versioned attempts, hint-aware evidence, provisional slot/KC states and next action; not calibrated learner ability |
 | VLearn importer | Not implemented |
 | Connected local portal | Implemented as an allowlisted build from one run; Vercel deployment is a separate, explicit action |
 
@@ -56,7 +57,7 @@ provider credential, creates no provider-billed request, and records `provider_a
 Provider token usage and dollar cost are unavailable because subscription clients do not expose
 those values to this local runtime.
 
-Current package: runtime **0.4.0**, skill **1.4.0**. The default installation does
+Current package: runtime **0.5.0**, skill **1.5.0**. The default installation does
 not install the OpenAI SDK or dotenv. Native commands do not read `.env`, create
 a provider client, or make a model API request. Historical API adapters remain
 isolated behind the optional `legacy-api` extra; they are not part of the skill
@@ -177,8 +178,9 @@ and the continuous journey proceeds to the portal even with REVIEW/REJECT items.
 
 The review UI reveals authored hints progressively and displays semantic findings separately from
 surface-form warnings. Any shared Quiz revision invalidates the baseline semantic check, including
-cross-variant findings. Hint use/answer exposure is **in-page preview state only**: durable learner
-events, mastery updates and the learning/system feedback loops are not implemented here.
+cross-variant findings. Hint use/answer exposure in the **Authoring review** is preview state only.
+The separate Learning view records real attempts and computes provisional evidence-based states.
+The system-improvement loop is only being instrumented, not automatically training or rewriting content.
 
 Rubric provenance: these are operational criteria and engineering safeguards, not a claim that a
 paper proves this implementation produces reliable quizzes. The emphasis on task-specific checks, judge
@@ -186,7 +188,8 @@ limitations and human calibration follows [OpenAI evaluation guidance](https://d
 
 ## Install and invoke in a repository checkout
 
-Requirements: Git, Python 3.12, and `uv`. Clone the public repository and prepare the local
+Requirements: Git, Python 3.12, `uv`, and Node.js for Learning/shared-review content hashes.
+Node runs locally; it is not a model service. Clone the public repository and prepare the local
 runtime:
 
 ```bash
@@ -316,7 +319,8 @@ review-compatible artifacts without editing the model's candidate.
 | Quiz | `quiz/quiz-input.json`, `quiz/quiz-proposed.json`, `quiz/quiz-form-audit.json`, `quiz-review.html` | Experimental slots, questions and hints; surface-form flags are not approval |
 | Initial semantic check | `quiz/quiz-semantic-audit.json`, `quiz/quiz-semantic-metadata.json` | Independent findings bound to the original inputs; not an approved Quiz bank |
 
-Without a shared-review backend, the portal remains read-only and never mutates the model output.
+Without a shared-review backend, Authoring review remains read-only. The optional Learning view
+can persist practice on the same browser only. Neither mode mutates model output.
 When `portal-build` is explicitly configured with a Supabase project URL and public publishable
 key, Extraction, KC, and Quiz share one append-only review layer: `Sửa` creates a JSON revision,
 while `Duyệt` and `Từ chối` record a decision pinned to the exact raw/revision payload hash. These
@@ -329,15 +333,60 @@ directory. It derives source identity, page inventory, stage statuses, and entry
 instead of checked-in demo copy:
 
 ```bash
-learning-authoring portal-build /absolute/run \
+learning-authoring portal-build /absolute/run --with-learning \
   --output-dir /absolute/connected-portal
 cd /absolute/connected-portal
 python3 -m http.server 3010
 ```
 
 Inspect `showcase-manifest.json`, then open the portal. A proposed or experimental artifact must
-never be presented as approved. Mastery remains an explicit `NOT_IMPLEMENTED` boundary, not a
-working component.
+never be presented as approved. `--with-learning` adds a fourth active step with real attempts
+and provisional mastery. Omitting it builds the backward-compatible Authoring-only portal and
+labels Learning `NOT_ENABLED`; it does not create fake learner records.
+
+### Learning MVP and its two loops
+
+```text
+Authoring: PDF -> Extraction -> KC (+ lecturer context) -> Quiz + hints + key/rubric
+Learning:  response + hint use -> grade -> evidence -> provisional KC state -> next action
+```
+
+Objective responses are graded against the frozen key. Short-text responses remain pending until
+an explicitly authorized staff member grades the authored rubric; there is no keyword grader or
+hosted LLM fallback. Invalid/incomplete submissions are not recorded as wrong answers.
+
+`evidence-rules.v1` distinguishes unhinted correct work, assisted work, difficulty and missing
+evidence. It measures coverage of the actual assessment slots, not a fixed number of questions
+per KC. Repeated items after answer exposure are practice-only. Initial-check non
+`PASS`, stale or rejected content cannot inflate trusted evidence. States are provisional,
+not a mastery probability, psychometric calibration or proof of competency.
+
+The learner loop chooses relevant review material or another unattempted question. Separately,
+like/dislike and explanatory feedback are stored with item/version and optional attempt references.
+Feedback does not change a grade, auto-edit a question or retrain a model. These records support
+later tracing, human review, regression testing and explicit versioned releases.
+
+Local mode is labelled **local-only**. Shared mode uses name-only anonymous Supabase identities,
+not verified accounts; clearing browser storage loses that device's identity and there is no
+automatic cross-device recovery. A failed shared save is an error, never a silent local fallback.
+Learners can read only their own private histories; content reviewers do not thereby become graders.
+Because the public review portal contains answers, this is formative practice, not a secure exam.
+
+To enable shared Learning after registering an existing review run, apply
+`supabase/migrations/202608280001_learning_mvp.sql` once, then export this run's immutable items:
+
+```bash
+learning-authoring learning-register /absolute/run /absolute/private-registration.sql
+```
+
+Apply that SQL through an authorized database administrator session. Do not publish it or use a
+service key in the browser. The command performs no database writes and no model calls. Staff
+grading is separately allowlisted in `learning_staff`; a typed display name never grants that role.
+An operator must verify the existing authenticated user ID before granting it; without a staff
+grant, short-text submissions stay pending while objective questions remain fully usable.
+Local practice requires Web Locks on HTTPS/localhost to prevent cross-tab history loss; if the
+browser lacks that feature it stays read-only instead of risking lost hint/evidence records.
+All historical responses and feedback remain pinned to their source/KC/Quiz/context versions.
 
 ### Optional shared review without a login form
 
@@ -408,7 +457,9 @@ The deployed portal does not run Extraction/KC/Quiz and cannot invoke the skill.
 read-only or, when explicitly configured as above, persist append-only human review events and
 revisions through Supabase. Its stage labels remain honest: Extraction is `HUMAN_APPROVED` only when
 the approval pair verifies; otherwise it is `PROPOSED`. KC is `PROPOSED`, Quiz is
-`EXPERIMENTAL_UNAPPROVED`, and Mastery is `NOT_IMPLEMENTED`.
+`EXPERIMENTAL_UNAPPROVED`. Learning, when enabled, is `PROVISIONAL_EVIDENCE_MVP`, with local or
+shared persistence explicitly identified. Supabase traffic is storage/deterministic grading,
+not a provider LLM API; no OpenAI/Anthropic/Gemini key is required.
 
 ## Development checks
 

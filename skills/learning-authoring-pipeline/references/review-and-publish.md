@@ -12,7 +12,8 @@ The status vocabulary is:
 - KC: `PROPOSED` and human-review-needed.
 - Quiz: `EXPERIMENTAL_UNAPPROVED` and human-review-needed.
 - Quiz initial check (separate axis): `PASS`, `REVIEW`, `REJECT`, `NOT_REVIEWED`, or `STALE`.
-- Mastery: `NOT_IMPLEMENTED`.
+- Learning/Mastery: `PROVISIONAL_EVIDENCE_MVP` when built with `--with-learning`, otherwise
+  `NOT_ENABLED`. This does not certify the course or a learner's competency.
 
 Schema validation means the JSON matches the machine contract. Geometry/form audits are diagnostic.
 Neither is proof of semantic correctness or learning value. Never use `validated`, `approved`, or
@@ -22,8 +23,9 @@ human approval or certification of every upstream page/KC. Incomplete source, se
 explicit limitation cannot be presented as PASS. Check that the report binds the current input
 hashes; modified questions, KCs, source, or context invalidate earlier review.
 
-Hints are authored support separate from the answer explanation. The local learner preview records
-only its current hint/answer display state. It does not persist learner evidence or compute mastery.
+Hints are authored support separate from the answer explanation. The Authoring reviewer preview
+records only current hint/answer display state. Durable attempts belong to the separate Learning
+view; see [learning-mvp.md](learning-mvp.md). Do not conflate those modes.
 Human edits remain separate revisions; they invalidate the original semantic status until reviewed
 again. In particular, a shared-review approval is not an automatic rerun of the semantic check.
 
@@ -55,7 +57,7 @@ build:
 
 ```bash
 <la> portal-build --help
-<la> portal-build <run-dir> --output-dir <fresh-portal-dir>
+<la> portal-build <run-dir> --with-learning --output-dir <fresh-portal-dir>
 ```
 
 The CLI resolves the current run's review artifacts; do not pass paths from a prior run or rewrite
@@ -66,7 +68,7 @@ PDF/source identity
   -> Extraction review: PROPOSED (or verified HUMAN_APPROVED on a later rebuild)
   -> KC reviews: PROPOSED; upstream PROPOSED_DEMO_ONLY in the default journey
   -> Quiz review: EXPERIMENTAL_UNAPPROVED
-  -> Mastery: NOT_IMPLEMENTED, displayed only as an explicit boundary
+  -> Learning: attempts/hints -> grading -> evidence -> provisional mastery -> next action
 ```
 
 Inspect `<fresh-portal-dir>/showcase-manifest.json` and verify:
@@ -78,13 +80,14 @@ Inspect `<fresh-portal-dir>/showcase-manifest.json` and verify:
 - every entrypoint exists and opens the matching current-run review;
 - the page inventory is derived from the manifest rather than a fixed count;
 - no stale course title, run name, content string, page number, or KC ID is embedded in the shell;
-- Mastery has no link or claim that implies implementation.
+- Learning starts with no fabricated attempts or mastery; its configured storage mode is clear.
 
 Treat the manifest as an allowlist. The local package may contain only:
 
 - the connected static portal and selected review HTML/CSS/JS;
 - rendered page images those UIs require;
 - semantic JSON required by the selected UIs and declared by the builder;
+- the Learning UI and version-pinned Quiz/KC data used for practice (not a private examination);
 - redacted metrics declared by the builder.
 
 It must never contain:
@@ -95,6 +98,7 @@ It must never contain:
 - raw agent candidates, provider envelopes, checkpoints, response IDs, or task/prompt packages;
 - private answer-material companion files from `agent-session/review-materials/`;
 - reviewer identity/notes unless explicitly required;
+- learner response history, feedback, private staff lists, or SQL registration files;
 - unrelated historical runs.
 
 Serve the fresh directory locally if the user wants to inspect it immediately. Return the portal
@@ -112,6 +116,12 @@ Name-only anonymous review is suitable for a link shared with known collaborator
 additional CAPTCHA or invite-token boundary before treating it as unrestricted public write access.
 
 ## Publish to Vercel only with separate authorization
+
+For shared Learning, also apply the Learning migration and register immutable snapshots using the
+offline `learning-register` command. A browser key does not confer staff grading permission.
+Do not infer a trusted grader from a display name or expose learner responses to public reviewers.
+Read `learning-mvp.md` before enabling this backend. Updating the app never authorizes overwriting
+historical attempts.
 
 Do not infer deployment permission from a request to run the pipeline, build the connected local
 portal, or review locally. Publish only when the user explicitly requests Vercel publication and

@@ -323,7 +323,7 @@ def test_build_showcase_derives_non_45_metadata_and_uses_explicit_reviews(
         "extractor": "PROPOSED",
         "kc": "PROPOSED",
         "quiz": "EXPERIMENTAL_UNAPPROVED",
-        "mastery": "NOT_IMPLEMENTED",
+        "mastery": "NOT_ENABLED",
     }
     stored = json.loads((output_dir / MANIFEST_NAME).read_text(encoding="utf-8"))
     assert stored["source_run"] == "demo"
@@ -349,8 +349,9 @@ def test_build_showcase_derives_non_45_metadata_and_uses_explicit_reviews(
     assert 'data-kc-scroll-src="kc-continuous.html#1"' in portal
     assert 'class="stage-position">1 / 3' in portal
     assert "4 review views" in portal
-    assert "Mastery · Roadmap" in portal
-    assert "ROADMAP · NOT IMPLEMENTED" in portal
+    assert "Learning · MVP" in portal
+    assert "MVP · CHƯA BẬT" in portal
+    assert 'data-route="learning"' not in portal
     assert "day16" not in portal.lower()
     assert "pilot gần nhất" not in portal
     assert "45 ảnh trang" not in portal
@@ -558,7 +559,7 @@ def test_build_showcase_uses_packaged_connected_template(tmp_path: Path) -> None
     build_showcase(run_dir, output_dir)
 
     portal = (output_dir / "index.html").read_text(encoding="utf-8")
-    assert 'aria-label="Connected authoring journey"' in portal
+    assert 'aria-label="Authoring and learning journey"' in portal
     assert 'data-route="extraction"' in portal
     assert 'data-route="kc"' in portal
     assert 'data-route="quiz"' in portal

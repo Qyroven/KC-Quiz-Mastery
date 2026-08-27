@@ -108,6 +108,10 @@ DEFAULT_REVIEW_FILES = ReviewFiles()
 STATIC_TEMPLATE_FILES = ("index.html", "vercel.json", "robots.txt", "review-runtime.js")
 GENERATED_TEMPLATE_FILES = ("review-config.js",)
 TEMPLATE_FILES = STATIC_TEMPLATE_FILES + GENERATED_TEMPLATE_FILES
+LEARNING_TEMPLATE_FILES = (
+    "learning.html", "learning-core.js", "learning-runtime.js", "learning-style.css",
+)
+LEARNING_GENERATED_FILES = ("learning-data.js",)
 FORBIDDEN_NAME_PARTS = (
     ".env",
     "api-response",
@@ -189,13 +193,22 @@ QUIZ_EXPERIMENTAL = StageStatus(
         "Contract hoặc form checks không chứng minh chất lượng ngữ nghĩa."
     ),
 )
-MASTERY_ROADMAP = StageStatus(
-    code="NOT_IMPLEMENTED",
-    label="ROADMAP · NOT IMPLEMENTED",
+LEARNING_DISABLED = StageStatus(
+    code="NOT_ENABLED",
+    label="MVP · CHƯA BẬT",
     css_class="roadmap",
     description=(
-        "Mastery hiện chỉ là roadmap: chưa có generator, contract, review UI "
-        "hoặc approved artifact."
+        "Bản này chỉ chứa Authoring review. Build với --with-learning để thêm "
+        "lượt làm, evidence và mastery ban đầu; không tạo sẵn kết quả người học."
+    ),
+)
+LEARNING_MVP = StageStatus(
+    code="PROVISIONAL_EVIDENCE_MVP",
+    label="MVP · EVIDENCE BAN ĐẦU",
+    css_class="proposed",
+    description=(
+        "Làm quiz và dùng hint → chấm → evidence → trạng thái từng KC → học tiếp. "
+        "Mastery là quy tắc ban đầu, chưa hiệu chuẩn; feedback chất lượng nằm riêng."
     ),
 )
 
@@ -969,20 +982,23 @@ def _portal_replacements(
     summary: RunSummary,
     run_name: str,
     artifacts: tuple[ReviewArtifact, ...],
+    include_learning: bool = False,
 ) -> dict[str, str]:
     entrypoints = {artifact.entrypoint: artifact.source_name for artifact in artifacts}
     statuses = {
         "EXTRACTOR": summary.extraction_status,
         "KC": summary.kc_status,
         "QUIZ": summary.quiz_status,
-        "MASTERY": MASTERY_ROADMAP,
+        "MASTERY": LEARNING_MVP if include_learning else LEARNING_DISABLED,
     }
     replacements = {
         "{{SOURCE_FILENAME}}": metadata.filename,
         "{{SOURCE_RUN}}": run_name,
         "{{PAGE_COUNT}}": str(metadata.page_count),
         "{{REVIEW_VIEW_COUNT}}": str(len(artifacts)),
-        "{{WORKFLOW_STAGE_COUNT}}": str(len({artifact.stage for artifact in artifacts})),
+        "{{WORKFLOW_STAGE_COUNT}}": str(
+            len({artifact.stage for artifact in artifacts}) + int(include_learning)
+        ),
         "{{KC_UPSTREAM_EXTRACTION_STATUS}}": summary.kc_upstream_extraction_status,
         "{{LEAF_KC_COUNT}}": str(summary.leaf_kc_count),
         "{{KC_GROUP_COUNT}}": str(summary.kc_group_count),
@@ -992,6 +1008,7 @@ def _portal_replacements(
         "{{KC_RECALL_HREF}}": f"{entrypoints['kc_recall']}#1",
         "{{KC_SCROLL_HREF}}": f"{entrypoints['kc_scroll']}#1",
         "{{QUIZ_HREF}}": entrypoints["quiz_experiment"],
+        "{{LEARNING_HREF}}": "learning.html",
     }
     for key, status in statuses.items():
         replacements[f"{{{{{key}_STATUS_CLASS}}}}"] = status.css_class
@@ -1008,6 +1025,7 @@ def _render_portal(
     summary: RunSummary,
     run_name: str,
     artifacts: tuple[ReviewArtifact, ...],
+    include_learning: bool = False,
 ) -> None:
     """Render the controlled portal template with escaped run metadata."""
 
@@ -1021,10 +1039,17 @@ def _render_portal(
         summary=summary,
         run_name=run_name,
         artifacts=artifacts,
+        include_learning=include_learning,
     ).items():
         if placeholder not in content:
             raise PublishSafetyError(f"Portal template is missing {placeholder}")
         content = content.replace(placeholder, html.escape(value, quote=True))
+    # Only controlled template blocks are conditional; course text never becomes HTML.
+    for block, enabled in (
+        ("LEARNING_ENABLED", include_learning), ("LEARNING_DISABLED", not include_learning),
+    ):
+        pattern = rf"<!-- {block} -->(.*?)<!-- /{block} -->"
+        content = re.sub(pattern, r"\1" if enabled else "", content, flags=re.S)
     unresolved = sorted(set(PORTAL_PLACEHOLDER_PATTERN.findall(content)))
     if unresolved:
         raise PublishSafetyError(f"Unresolved portal placeholders: {unresolved}")
@@ -1076,10 +1101,14 @@ def _record(path: Path, root: Path) -> dict[str, object]:
 def _expected_paths(
     page_images: tuple[PageImage, ...],
     artifacts: tuple[ReviewArtifact, ...],
+    *,
+    include_learning: bool = False,
 ) -> set[str]:
     paths = set(TEMPLATE_FILES)
     paths.update(artifact.source_name for artifact in artifacts)
     paths.update(image.image_ref for image in page_images)
+    if include_learning:
+        paths.update(LEARNING_TEMPLATE_FILES + LEARNING_GENERATED_FILES)
     return paths
 
 
@@ -1133,6 +1162,7 @@ def build_showcase(
     template_dir: Path | None = None,
     review_files: ReviewFiles = DEFAULT_REVIEW_FILES,
     review_backend: ReviewBackendConfig | None = None,
+    include_learning: bool = False,
 ) -> dict[str, object]:
     """Create a connected static portal from exact allowlisted inputs."""
 
@@ -1153,7 +1183,14 @@ def build_showcase(
     artifacts = _review_artifacts(review_files)
     extraction_state = _derive_extraction_state(run_dir, metadata)
     summary = _derive_run_summary(run_dir, metadata, extraction_state, review_files)
-    expected_paths = _expected_paths(metadata.page_images, artifacts)
+    learning_package = None
+    if include_learning:
+        from learning_authoring.learning import build_learning_package
+
+        learning_package = build_learning_package(run_dir, review_files=review_files)
+    expected_paths = _expected_paths(
+        metadata.page_images, artifacts, include_learning=include_learning,
+    )
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     staging_dir = Path(
         tempfile.mkdtemp(prefix=f".{output_dir.name}-staging-", dir=output_dir.parent)
@@ -1167,6 +1204,7 @@ def build_showcase(
             summary=summary,
             run_name=run_dir.name,
             artifacts=artifacts,
+            include_learning=include_learning,
         )
         _render_vercel_config(
             template_dir / "vercel.json",
@@ -1184,6 +1222,12 @@ def build_showcase(
             run_name=run_dir.name,
             backend=review_backend,
         )
+        if learning_package is not None:
+            from learning_authoring.learning import write_learning_data
+
+            for name in LEARNING_TEMPLATE_FILES:
+                _copy_file(DEFAULT_TEMPLATE_DIR / name, staging_dir / name)
+            write_learning_data(learning_package, staging_dir / "learning-data.js")
         for artifact in artifacts:
             _copy_review_html(
                 run_dir / artifact.source_name,
@@ -1214,13 +1258,13 @@ def build_showcase(
             "extractor": summary.extraction_status.code,
             "kc": summary.kc_status.code,
             "quiz": summary.quiz_status.code,
-            "mastery": MASTERY_ROADMAP.code,
+            "mastery": (LEARNING_MVP if include_learning else LEARNING_DISABLED).code,
         }
         from learning_authoring.quiz_review_state import load_quiz_semantic_state
 
         semantic_state = load_quiz_semantic_state(run_dir)
         manifest: dict[str, object] = {
-            "schema_version": "learning-authoring-showcase.v3",
+            "schema_version": "learning-authoring-showcase.v4",
             "managed_by": MANAGED_BY,
             "source_run": run_dir.name,
             "source": {
@@ -1267,7 +1311,18 @@ def build_showcase(
                 "raw_artifacts_mutable": False,
             },
             "entrypoints": {"portal": "index.html"}
-            | {artifact.entrypoint: artifact.source_name for artifact in artifacts},
+            | {artifact.entrypoint: artifact.source_name for artifact in artifacts}
+            | ({"learning": "learning.html"} if include_learning else {}),
+            "learning": {
+                "enabled": include_learning,
+                "mode": ("shared" if review_backend else "local_only")
+                if include_learning else None,
+                "policy_version": learning_package["versions"]["policy_version"]
+                if learning_package else None,
+                "model_provider_calls": 0,
+                "calibrated_mastery": False,
+                "feedback_changes_grades": False,
+            },
             "files": file_records,
         }
         (staging_dir / MANIFEST_NAME).write_text(
