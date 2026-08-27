@@ -136,16 +136,6 @@ FORBIDDEN_CONTENT_MARKERS = (
     b"file://",
     b"\\\\Users\\\\",
 )
-QUIZ_STATUS_BANNER = """
-<aside id="showcase-quiz-status" role="status" aria-label="Quiz publish status"
-  style="position:fixed;left:16px;bottom:16px;z-index:2147483647;max-width:440px;
-  padding:12px 15px;border:1px solid #f1b75d;border-radius:12px;background:#fff7e8;
-  color:#794900;box-shadow:0 12px 32px rgba(42,31,12,.18);font:600 13px/1.4
-  -apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif">
-  <strong style="display:block;color:#9b5700">Showcase · Quiz experimental / unapproved</strong>
-  Contract và form checks không chứng minh semantic validity. Không dùng như output production.
-</aside>
-""".strip()
 PORTAL_PLACEHOLDER_PATTERN = re.compile(r"\{\{[A-Z0-9_]+\}\}")
 SAFE_REVIEW_FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.html")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
@@ -809,7 +799,6 @@ def _copy_file(source: Path, destination: Path) -> None:
 def _copy_review_html(
     source: Path,
     destination: Path,
-    artifact: ReviewArtifact,
     *,
     run_dir: Path,
 ) -> None:
@@ -818,13 +807,6 @@ def _copy_review_html(
     content = _read_review_html(source, run_dir=run_dir)
     for pattern in LOCAL_PATH_PATTERNS:
         content = pattern.sub("[local-path-redacted]", content)
-    if artifact.stage == "quiz":
-        body_match = re.search(r"<body(?:\s[^>]*)?>", content, flags=re.IGNORECASE)
-        if body_match is None:
-            raise PublishSafetyError(f"Quiz review has no body element: {source}")
-        content = (
-            content[: body_match.end()] + "\n" + QUIZ_STATUS_BANNER + content[body_match.end() :]
-        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(content, encoding="utf-8")
 
@@ -1038,7 +1020,6 @@ def build_showcase(
             _copy_review_html(
                 run_dir / artifact.source_name,
                 staging_dir / artifact.source_name,
-                artifact,
                 run_dir=run_dir,
             )
         for image in metadata.page_images:

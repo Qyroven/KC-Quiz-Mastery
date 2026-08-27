@@ -352,8 +352,8 @@ def test_build_showcase_derives_non_45_metadata_and_uses_explicit_reviews(
     assert b"/private/tmp/" not in combined
     assert b"sk-" not in combined
     quiz_page = (output_dir / review_files.quiz).read_text(encoding="utf-8")
-    assert "Quiz experimental / unapproved" in quiz_page
-    assert "không chứng minh semantic validity" in quiz_page
+    assert "showcase-quiz-status" not in quiz_page
+    assert "Quiz experimental / unapproved" not in quiz_page
 
 
 def test_build_showcase_verifies_human_approval_without_publishing_reviewer(
