@@ -109,6 +109,8 @@ def test_recall_view_is_source_first_and_uses_dynamic_source_pages(source) -> No
     assert "No KC</button>" not in html
     assert "KCG-001" in html and "Concepts" in html
     assert "Leaf KCs" in html
+    assert "One or more extracted blocks are not linked to a KC" in html
+    assert "but no KC uses it as evidence" not in html
 
 
 def test_scroll_view_is_separate_and_uses_floating_kc_cards(source) -> None:
