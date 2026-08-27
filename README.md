@@ -2,8 +2,8 @@
 
 This repository packages a standalone learning-authoring workflow as a portable Agent Skill. A
 user gives a coding agent a course PDF; the same subscribed agent session produces reviewable
-Extraction, Knowledge Component (KC), and experimental Quiz artifacts. The skill does **not** call
-a model-provider API.
+Extraction, Knowledge Component (KC), and experimental Quiz artifacts. The public Agent Skill
+requires no provider API key and makes no model-provider API call.
 
 ```text
 PDF
@@ -50,10 +50,10 @@ attached PDF or PDF path
   -> connected local portal after Quiz
 ```
 
-The skill never invokes the provider-backed `doctor`, `extract`, `kc-generate`, or
-`quiz-generate` commands. Agent-session metrics therefore record `provider_api_calls: 0`; provider
-token usage and dollar cost are unavailable because subscription clients do not expose those
-values to this local runtime.
+The public Agent Skill uses only the subscription-native agent-session commands. It requires no
+provider credential, creates no provider-billed request, and records `provider_api_calls: 0`.
+Provider token usage and dollar cost are unavailable because subscription clients do not expose
+those values to this local runtime.
 
 The full draft journey is continuous, but it is not one-click auto-approval. In a new run the skill
 keeps Extraction `PROPOSED`, deliberately invokes the runtime's
@@ -204,27 +204,6 @@ review-compatible artifacts without editing the model's candidate.
 
 Local Quiz Approve/Edit/Reject controls are review notes stored by the browser. They do not mutate
 the model output or create an approved Quiz artifact.
-
-## Optional legacy provider-API mode
-
-The repository retains older OpenAI-compatible provider commands for regression and comparison.
-They are **not** used by the Agent Skill and are not required for the subscription-session path.
-Only configure this mode when intentionally making provider-billed requests.
-
-```bash
-cp .env.example .env
-# add credentials locally; never commit .env
-
-uv run learning-authoring --env-file .env doctor
-uv run learning-authoring --env-file .env extract /path/to/source.pdf /path/to/run
-uv run learning-authoring --env-file .env kc-generate /path/to/run
-uv run learning-authoring --env-file .env quiz-generate /path/to/run \
-  --include-all-kcs --variants-per-kc 2
-```
-
-Provider API responses, checkpoints, prompt packages, request previews, tokens, and reported cost
-belong to this optional legacy path. Their presence in historical ignored run directories does not
-mean the Agent Skill made an API call.
 
 ## Connected local review
 
