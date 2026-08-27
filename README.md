@@ -202,8 +202,11 @@ review-compatible artifacts without editing the model's candidate.
 | KC | `kc-proposed.json`, KC review HTML, agent-session metadata | Contract-valid but still proposed KCs |
 | Quiz | `quiz/quiz-input.json`, `quiz/quiz-proposed.json`, `quiz/quiz-form-audit.json`, `quiz-review.html` | Experimental Quiz output and surface-form flags; not an approved Quiz bank |
 
-Local Quiz Approve/Edit/Reject controls are review notes stored by the browser. They do not mutate
-the model output or create an approved Quiz artifact.
+Without a shared-review backend, the portal remains read-only and never mutates the model output.
+When `portal-build` is explicitly configured with a Supabase project URL and public publishable
+key, Extraction, KC, and Quiz share one append-only review layer: `Sửa` creates a JSON revision,
+while `Duyệt` and `Từ chối` record a decision pinned to the exact raw/revision payload hash. These
+decisions are collaborative review records, not canonical pipeline approval.
 
 ## Connected local review
 
@@ -221,6 +224,39 @@ python3 -m http.server 3010
 Inspect `showcase-manifest.json`, then open the portal. A proposed or experimental artifact must
 never be presented as approved. Mastery remains an explicit `NOT_IMPLEMENTED` boundary, not a
 working component.
+
+### Optional shared review without a login form
+
+The static portal can use Supabase Anonymous Auth: a reviewer only enters a display name on the
+first write action; Supabase creates an authenticated anonymous session in the background so RLS
+can bind every event to one browser identity. Never expose a Supabase service-role/secret key.
+
+After enabling Anonymous Sign-Ins, apply both migrations in order, register the run, and seed its
+exact immutable review targets. The checked-in Day 1 sequence is:
+
+```text
+supabase/migrations/202608270001_shared_review.sql
+supabase/migrations/202608270002_harden_shared_review.sql
+supabase/seed.sql
+supabase/day01-review-targets.sql
+```
+
+The second migration revokes direct event inserts. A security-definer RPC verifies the registered
+target, baseline hash, stage payload shape, latest revision, payload size, and a small write-rate
+limit before it appends an event. Changed source/output must use a new run ID once review history
+exists. Then build with:
+
+```bash
+learning-authoring portal-build /absolute/run \
+  --output-dir /absolute/connected-portal \
+  --review-supabase-url https://PROJECT_REF.supabase.co \
+  --review-supabase-publishable-key sb_publishable_PUBLIC_BROWSER_KEY
+```
+
+The publishable key is intentionally browser-visible and constrained by RLS/RPC validation. The
+service-role key must remain server-only and is rejected by the portal builder. This name-only flow
+is intended for a shared review link among known collaborators; add CAPTCHA or an invite-token
+boundary before advertising it as an unrestricted public service.
 
 ## Vercel is an optional static result layer
 
@@ -246,8 +282,9 @@ does not copy:
 - request previews or prompt packages;
 - unrelated run directories.
 
-The deployed portal is a read-only result for PM review. It does not run Extraction/KC/Quiz and it
-cannot invoke the skill. Its stage labels remain honest: Extraction is `HUMAN_APPROVED` only when
+The deployed portal does not run Extraction/KC/Quiz and cannot invoke the skill. It can remain
+read-only or, when explicitly configured as above, persist append-only human review events and
+revisions through Supabase. Its stage labels remain honest: Extraction is `HUMAN_APPROVED` only when
 the approval pair verifies; otherwise it is `PROPOSED`. KC is `PROPOSED`, Quiz is
 `EXPERIMENTAL_UNAPPROVED`, and Mastery is `NOT_IMPLEMENTED`.
 

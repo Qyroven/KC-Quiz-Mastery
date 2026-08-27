@@ -10,6 +10,7 @@ from scripts.publish_showcase import (
     DEFAULT_REVIEW_FILES,
     MANIFEST_NAME,
     PublishSafetyError,
+    ReviewBackendConfig,
     ReviewFiles,
     build_showcase,
 )
@@ -326,7 +327,13 @@ def test_build_showcase_derives_non_45_metadata_and_uses_explicit_reviews(
     }
     stored = json.loads((output_dir / MANIFEST_NAME).read_text(encoding="utf-8"))
     assert stored["source_run"] == "demo"
-    assert len(stored["files"]) == 3 + len(_review_names(review_files)) + 7
+    assert len(stored["files"]) == 5 + len(_review_names(review_files)) + 7
+    assert stored["shared_review"] == {
+        "enabled": False,
+        "provider": None,
+        "identity": None,
+        "raw_artifacts_mutable": False,
+    }
     portal = (output_dir / "index.html").read_text(encoding="utf-8")
     assert "unseen-seven-page-deck.pdf" in portal
     assert "7 ảnh trang" in portal
@@ -354,6 +361,59 @@ def test_build_showcase_derives_non_45_metadata_and_uses_explicit_reviews(
     quiz_page = (output_dir / review_files.quiz).read_text(encoding="utf-8")
     assert "showcase-quiz-status" not in quiz_page
     assert "Quiz experimental / unapproved" not in quiz_page
+    assert '<script src="review-config.js"></script>' in quiz_page
+    assert '<script src="review-runtime.js"></script>' in quiz_page
+    review_config = (output_dir / "review-config.js").read_text(encoding="utf-8")
+    assert '"enabled":false' in review_config
+    vercel = (output_dir / "vercel.json").read_text(encoding="utf-8")
+    assert "connect-src 'none'" in vercel
+
+
+def test_build_showcase_enables_shared_supabase_review(tmp_path: Path) -> None:
+    run_dir = _fake_run(tmp_path, 2)
+    output_dir = tmp_path / "showcase-dist"
+    backend = ReviewBackendConfig(
+        supabase_url="https://abcdefghij.supabase.co/",
+        supabase_publishable_key="sb_publishable_" + "a" * 32,
+    )
+
+    manifest = build_showcase(run_dir, output_dir, review_backend=backend)
+
+    assert manifest["shared_review"] == {
+        "enabled": True,
+        "provider": "supabase",
+        "identity": "anonymous_auth_with_display_name",
+        "raw_artifacts_mutable": False,
+    }
+    config = (output_dir / "review-config.js").read_text(encoding="utf-8")
+    assert '"enabled":true' in config
+    assert '"runId":"demo"' in config
+    assert "https://abcdefghij.supabase.co" in config
+    assert "sb_publishable_" in config
+    vercel = (output_dir / "vercel.json").read_text(encoding="utf-8")
+    assert "connect-src https://abcdefghij.supabase.co" in vercel
+    assert "connect-src 'none'" not in vercel
+    runtime = (output_dir / "review-runtime.js").read_text(encoding="utf-8")
+    assert "/rest/v1/rpc/append_review_event" in runtime
+    assert "/rest/v1/rpc/get_review_target_events" in runtime
+    assert 'request("/rest/v1/review_events' not in runtime
+    assert "revisionMatchesAdapter" in runtime
+
+
+def test_build_showcase_rejects_supabase_service_role_key(tmp_path: Path) -> None:
+    run_dir = _fake_run(tmp_path, 1)
+    header = "eyJhbGciOiJub25lIn0"
+    payload = "eyJyb2xlIjoic2VydmljZV9yb2xlIn0"
+
+    with pytest.raises(PublishSafetyError, match="service-role"):
+        build_showcase(
+            run_dir,
+            tmp_path / "showcase-dist",
+            review_backend=ReviewBackendConfig(
+                supabase_url="https://abcdefghij.supabase.co",
+                supabase_publishable_key=f"{header}.{payload}.signature",
+            ),
+        )
 
 
 def test_build_showcase_verifies_human_approval_without_publishing_reviewer(

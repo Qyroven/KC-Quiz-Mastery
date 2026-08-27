@@ -27,7 +27,12 @@ from learning_authoring.provider import check_provider, normalized_base_url
 from learning_authoring.quiz import QuizConfig, prepare_quiz_request, run_quiz_generation
 from learning_authoring.quiz_review import build_quiz_review
 from learning_authoring.review import build_review
-from learning_authoring.showcase import PublishSafetyError, ReviewFiles, build_showcase
+from learning_authoring.showcase import (
+    PublishSafetyError,
+    ReviewBackendConfig,
+    ReviewFiles,
+    build_showcase,
+)
 from learning_authoring.source import DEFAULT_RENDER_DPI, preflight_source
 
 
@@ -323,6 +328,14 @@ def _parser() -> argparse.ArgumentParser:
     portal_build.add_argument("--kc-recall-review", default="kc-recall.html")
     portal_build.add_argument("--kc-scroll-review", default="kc-scroll.html")
     portal_build.add_argument("--quiz-review", default="quiz-review.html")
+    portal_build.add_argument(
+        "--review-supabase-url",
+        help="exact public Supabase project URL for shared review",
+    )
+    portal_build.add_argument(
+        "--review-supabase-publishable-key",
+        help="public Supabase publishable/legacy anon browser key (never service-role)",
+    )
 
     status = subcommands.add_parser("status", help="show canonical run artifacts")
     status.add_argument("run_dir", type=_path)
@@ -633,6 +646,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "portal-build":
         output_dir = args.output_dir or (args.run_dir / "connected-portal")
+        if bool(args.review_supabase_url) != bool(args.review_supabase_publishable_key):
+            parser.error(
+                "--review-supabase-url and --review-supabase-publishable-key "
+                "must be supplied together"
+            )
+        review_backend = (
+            ReviewBackendConfig(
+                supabase_url=args.review_supabase_url,
+                supabase_publishable_key=args.review_supabase_publishable_key,
+            )
+            if args.review_supabase_url
+            else None
+        )
         try:
             manifest = build_showcase(
                 args.run_dir,
@@ -643,6 +669,7 @@ def main(argv: list[str] | None = None) -> int:
                     kc_scroll=args.kc_scroll_review,
                     quiz=args.quiz_review,
                 ),
+                review_backend=review_backend,
             )
         except PublishSafetyError as exc:
             print(

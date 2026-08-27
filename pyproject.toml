@@ -37,6 +37,7 @@ learning_authoring = [
   "prompts/**/*.json",
   "showcase_assets/*.html",
   "showcase_assets/*.json",
+  "showcase_assets/*.js",
   "showcase_assets/*.txt",
 ]
 

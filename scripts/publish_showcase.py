@@ -14,6 +14,7 @@ from learning_authoring.showcase import (
     SOURCE_MANIFEST_NAME,
     PublishSafetyError,
     ReviewArtifact,
+    ReviewBackendConfig,
     ReviewFiles,
     SourceMetadata,
     StageStatus,
@@ -28,6 +29,7 @@ __all__ = [
     "SOURCE_MANIFEST_NAME",
     "PublishSafetyError",
     "ReviewArtifact",
+    "ReviewBackendConfig",
     "ReviewFiles",
     "SourceMetadata",
     "StageStatus",
@@ -72,11 +74,26 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_REVIEW_FILES.quiz,
         help="Exact run-local experimental Quiz review HTML filename",
     )
+    parser.add_argument("--review-supabase-url")
+    parser.add_argument("--review-supabase-publishable-key")
     return parser
 
 
 def main() -> int:
     args = _build_parser().parse_args()
+    if bool(args.review_supabase_url) != bool(args.review_supabase_publishable_key):
+        raise SystemExit(
+            "--review-supabase-url and --review-supabase-publishable-key "
+            "must be supplied together"
+        )
+    review_backend = (
+        ReviewBackendConfig(
+            supabase_url=args.review_supabase_url,
+            supabase_publishable_key=args.review_supabase_publishable_key,
+        )
+        if args.review_supabase_url
+        else None
+    )
     manifest = build_showcase(
         args.run_dir,
         args.output_dir,
@@ -87,6 +104,7 @@ def main() -> int:
             kc_scroll=args.kc_scroll_review,
             quiz=args.quiz_review,
         ),
+        review_backend=review_backend,
     )
     total_bytes = sum(int(entry["bytes"]) for entry in manifest["files"])
     print(f"Built {args.output_dir.resolve()}")

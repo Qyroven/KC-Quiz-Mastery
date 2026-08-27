@@ -13,8 +13,10 @@ import os
 import re
 import shutil
 import tempfile
+from base64 import urlsafe_b64decode
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 DEFAULT_TEMPLATE_DIR = PACKAGE_ROOT / "showcase_assets"
@@ -44,6 +46,14 @@ class ReviewFiles:
     kc_recall: str = "kc-recall.html"
     kc_scroll: str = "kc-scroll.html"
     quiz: str = "quiz-review.html"
+
+
+@dataclass(frozen=True)
+class ReviewBackendConfig:
+    """Public browser configuration for an optional shared review backend."""
+
+    supabase_url: str
+    supabase_publishable_key: str
 
 
 @dataclass(frozen=True)
@@ -92,7 +102,9 @@ class RunSummary:
 
 DEFAULT_REVIEW_FILES = ReviewFiles()
 
-TEMPLATE_FILES = ("index.html", "vercel.json", "robots.txt")
+STATIC_TEMPLATE_FILES = ("index.html", "vercel.json", "robots.txt", "review-runtime.js")
+GENERATED_TEMPLATE_FILES = ("review-config.js",)
+TEMPLATE_FILES = STATIC_TEMPLATE_FILES + GENERATED_TEMPLATE_FILES
 FORBIDDEN_NAME_PARTS = (
     ".env",
     "api-response",
@@ -139,6 +151,7 @@ FORBIDDEN_CONTENT_MARKERS = (
 PORTAL_PLACEHOLDER_PATTERN = re.compile(r"\{\{[A-Z0-9_]+\}\}")
 SAFE_REVIEW_FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.html")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+SUPABASE_PROJECT_HOST = re.compile(r"[a-z0-9]{10,}\.supabase\.co")
 
 HUMAN_APPROVED = StageStatus(
     code="HUMAN_APPROVED",
@@ -344,6 +357,47 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _validated_review_backend(
+    backend: ReviewBackendConfig | None,
+) -> ReviewBackendConfig | None:
+    if backend is None:
+        return None
+    url = backend.supabase_url.strip().rstrip("/")
+    parsed = urlparse(url)
+    if (
+        parsed.scheme != "https"
+        or parsed.port is not None
+        or parsed.path not in {"", "/"}
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+        or not parsed.hostname
+        or not SUPABASE_PROJECT_HOST.fullmatch(parsed.hostname)
+    ):
+        raise PublishSafetyError(
+            "Shared review requires an exact Supabase project URL such as "
+            "https://<project-ref>.supabase.co"
+        )
+
+    key = backend.supabase_publishable_key.strip()
+    if key.startswith("sb_publishable_") and len(key) >= 24:
+        return ReviewBackendConfig(url, key)
+    if key.count(".") == 2:
+        try:
+            encoded = key.split(".")[1]
+            padding = "=" * (-len(encoded) % 4)
+            claims = json.loads(urlsafe_b64decode(encoded + padding))
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise PublishSafetyError("Invalid Supabase browser key") from exc
+        if claims.get("role") == "service_role":
+            raise PublishSafetyError("Supabase service-role keys must never enter the portal")
+        if claims.get("role") == "anon":
+            return ReviewBackendConfig(url, key)
+    raise PublishSafetyError(
+        "Shared review requires a Supabase publishable key (or legacy anon browser key)"
+    )
 
 
 def _require_regular_file(path: Path) -> None:
@@ -807,7 +861,65 @@ def _copy_review_html(
     content = _read_review_html(source, run_dir=run_dir)
     for pattern in LOCAL_PATH_PATTERNS:
         content = pattern.sub("[local-path-redacted]", content)
+    required_scripts = (
+        '<script src="review-config.js"></script>',
+        '<script src="review-runtime.js"></script>',
+    )
+    missing_scripts = "".join(script for script in required_scripts if script not in content)
+    if missing_scripts:
+        if "</body>" not in content:
+            raise PublishSafetyError(f"Review HTML is missing </body>: {source}")
+        content = content.replace("</body>", f"{missing_scripts}</body>", 1)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(content, encoding="utf-8")
+
+
+def _render_review_config(
+    destination: Path,
+    *,
+    metadata: SourceMetadata,
+    run_name: str,
+    backend: ReviewBackendConfig | None,
+) -> None:
+    payload: dict[str, object] = {
+        "schemaVersion": "learning-authoring-shared-review.v1",
+        "enabled": backend is not None,
+        "runId": run_name,
+        "sourceId": metadata.source_id,
+        "sourceFilename": metadata.filename,
+    }
+    if backend is not None:
+        payload.update(
+            {
+                "supabaseUrl": backend.supabase_url,
+                "supabasePublishableKey": backend.supabase_publishable_key,
+            }
+        )
+    destination.write_text(
+        "window.LEARNING_AUTHORING_REVIEW="
+        + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        + ";\n",
+        encoding="utf-8",
+    )
+
+
+def _render_vercel_config(
+    source: Path,
+    destination: Path,
+    *,
+    backend: ReviewBackendConfig | None,
+) -> None:
+    _require_regular_file(source)
+    content = source.read_text(encoding="utf-8")
+    marker = "{{REVIEW_CONNECT_SRC}}"
+    if marker not in content:
+        raise PublishSafetyError(f"Vercel template is missing {marker}")
+    connect_src = f"{backend.supabase_url}" if backend is not None else "'none'"
+    content = content.replace(marker, connect_src)
+    try:
+        json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise PublishSafetyError("Rendered Vercel configuration is invalid JSON") from exc
     destination.write_text(content, encoding="utf-8")
 
 
@@ -980,6 +1092,7 @@ def build_showcase(
     *,
     template_dir: Path | None = None,
     review_files: ReviewFiles = DEFAULT_REVIEW_FILES,
+    review_backend: ReviewBackendConfig | None = None,
 ) -> dict[str, object]:
     """Create a connected static portal from exact allowlisted inputs."""
 
@@ -990,6 +1103,7 @@ def build_showcase(
     run_dir = run_dir_input.resolve(strict=True)
     output_dir = output_dir.resolve()
     template_dir = (template_dir or DEFAULT_TEMPLATE_DIR).resolve()
+    review_backend = _validated_review_backend(review_backend)
     if output_dir in {run_dir, template_dir}:
         raise PublishSafetyError("Output directory cannot replace an input directory")
     if output_dir.parent == output_dir:
@@ -1014,8 +1128,22 @@ def build_showcase(
             run_name=run_dir.name,
             artifacts=artifacts,
         )
-        for name in ("vercel.json", "robots.txt"):
-            _copy_file(template_dir / name, staging_dir / name)
+        _render_vercel_config(
+            template_dir / "vercel.json",
+            staging_dir / "vercel.json",
+            backend=review_backend,
+        )
+        _copy_file(template_dir / "robots.txt", staging_dir / "robots.txt")
+        runtime_source = template_dir / "review-runtime.js"
+        if not runtime_source.is_file():
+            runtime_source = DEFAULT_TEMPLATE_DIR / "review-runtime.js"
+        _copy_file(runtime_source, staging_dir / "review-runtime.js")
+        _render_review_config(
+            staging_dir / "review-config.js",
+            metadata=metadata,
+            run_name=run_dir.name,
+            backend=review_backend,
+        )
         for artifact in artifacts:
             _copy_review_html(
                 run_dir / artifact.source_name,
@@ -1081,6 +1209,14 @@ def build_showcase(
                 "kc_to_quiz": "VERIFIED",
             },
             "stage_status": stage_status,
+            "shared_review": {
+                "enabled": review_backend is not None,
+                "provider": "supabase" if review_backend is not None else None,
+                "identity": "anonymous_auth_with_display_name"
+                if review_backend is not None
+                else None,
+                "raw_artifacts_mutable": False,
+            },
             "entrypoints": {"portal": "index.html"}
             | {artifact.entrypoint: artifact.source_name for artifact in artifacts},
             "files": file_records,

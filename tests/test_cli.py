@@ -102,8 +102,13 @@ def test_portal_build_defaults_to_run_local_connected_portal(
     run_dir = tmp_path / "run"
     captured: dict[str, object] = {}
 
-    def fake_build(run, output, *, review_files):
-        captured.update(run=run, output=output, review_files=review_files)
+    def fake_build(run, output, *, review_files, review_backend=None):
+        captured.update(
+            run=run,
+            output=output,
+            review_files=review_files,
+            review_backend=review_backend,
+        )
         return {
             "lineage": {
                 "extraction_to_kc": "VERIFIED",
@@ -119,6 +124,7 @@ def test_portal_build_defaults_to_run_local_connected_portal(
     assert exit_code == 0
     assert captured["run"] == run_dir
     assert captured["output"] == run_dir / "connected-portal"
+    assert captured["review_backend"] is None
     assert result["built"] is True
     assert result["deployment_performed"] is False
 

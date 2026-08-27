@@ -29,8 +29,10 @@ status comes from the verified approval pair rather than UI text.
 KC has no machine approval command in this version. A user's candidate/KC selection is Quiz runtime
 configuration; do not fabricate `kc-approved.json`.
 
-Quiz UI Approve/Edit/Reject controls may be browser-local review notes. They never authorize source
-mutation or create an approved Quiz artifact.
+An explicitly configured shared-review backend may persist reviewer-authored revisions and
+Approve/Edit/Reject events for Extraction, KC, and Quiz. Raw candidates remain immutable, and
+these collaborative events never authorize source mutation or create a canonical approved
+pipeline artifact.
 
 ## Build one connected local portal
 
@@ -84,6 +86,17 @@ It must never contain:
 
 Serve the fresh directory locally if the user wants to inspect it immediately. Return the portal
 path, manifest path, and stage entrypoints. Local portal construction is not Vercel publication.
+
+If the user explicitly requests collaborative review, `portal-build` may receive one exact
+Supabase project URL and its public publishable/legacy anon browser key. Never accept or publish a
+service-role key. The review UI may use silent Supabase Anonymous Auth and ask only for a display
+name; RLS must deny unauthenticated writes and every edit/decision must be append-only and pinned
+to the exact payload hash or revision it reviewed. Register every reviewable item with its immutable
+baseline hash before publication. Revoke direct event inserts and route writes through a server-side
+transaction that validates target existence, stage payload shape, payload size, reviewer rate, and
+the latest expected revision. Once a target has review history, changed output requires a new run ID.
+Name-only anonymous review is suitable for a link shared with known collaborators; require an
+additional CAPTCHA or invite-token boundary before treating it as unrestricted public write access.
 
 ## Publish to Vercel only with separate authorization
 
