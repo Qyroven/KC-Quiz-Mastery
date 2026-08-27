@@ -337,6 +337,11 @@ def test_build_showcase_derives_non_45_metadata_and_uses_explicit_reviews(
     assert 'id="next-stage"' in portal
     assert "3 câu hỏi" in portal
     assert "2 Leaf KC" in portal
+    assert 'data-route="kc"' in portal
+    assert 'data-kc-recall-src="kc-cards.html#1"' in portal
+    assert 'data-kc-scroll-src="kc-continuous.html#1"' in portal
+    assert 'class="stage-position">1 / 3' in portal
+    assert "4 review views" in portal
     assert "Mastery · Roadmap" in portal
     assert "ROADMAP · NOT IMPLEMENTED" in portal
     assert "day16" not in portal.lower()
@@ -482,7 +487,14 @@ def test_build_showcase_uses_packaged_connected_template(tmp_path: Path) -> None
 
     portal = (output_dir / "index.html").read_text(encoding="utf-8")
     assert 'aria-label="Connected authoring journey"' in portal
-    assert 'data-route="kc-recall"' in portal
+    assert 'data-route="extraction"' in portal
+    assert 'data-route="kc"' in portal
+    assert 'data-route="quiz"' in portal
+    assert 'data-kc-view="recall"' in portal
+    assert 'data-kc-view="scroll"' in portal
+    assert portal.count('class="route"') == 3
+    assert 'class="stage-position">1 / 3' in portal
+    assert "{{WORKFLOW_STAGE_COUNT}}" not in portal
     assert "PROPOSED_DEMO_ONLY" in portal
 
 

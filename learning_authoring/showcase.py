@@ -848,6 +848,7 @@ def _portal_replacements(
         "{{SOURCE_RUN}}": run_name,
         "{{PAGE_COUNT}}": str(metadata.page_count),
         "{{REVIEW_VIEW_COUNT}}": str(len(artifacts)),
+        "{{WORKFLOW_STAGE_COUNT}}": str(len({artifact.stage for artifact in artifacts})),
         "{{KC_UPSTREAM_EXTRACTION_STATUS}}": summary.kc_upstream_extraction_status,
         "{{LEAF_KC_COUNT}}": str(summary.leaf_kc_count),
         "{{KC_GROUP_COUNT}}": str(summary.kc_group_count),
