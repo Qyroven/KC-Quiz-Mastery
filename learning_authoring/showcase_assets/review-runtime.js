@@ -17,7 +17,9 @@
     displayName: localStorage.getItem(nameStorageKey) || "",
     loading: false,
     lastKey: "",
+    upstreamStale: "",
   };
+  let tableDraft = {columns: ["Cột 1"], rows: [[""]]};
 
   const css = `
     :root{--la-review-height:62px}
@@ -39,9 +41,10 @@
     #la-review-overlay{position:fixed;z-index:140;inset:0;display:none;place-items:center;padding:22px;background:rgba(17,24,39,.54);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;color:#182033}
     #la-review-overlay.open{display:grid}.la-review-sheet{width:min(760px,96vw);max-height:92vh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 30px 100px rgba(17,24,39,.28)}
     .la-review-sheet-head,.la-review-sheet-foot{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e4e7ec}.la-review-sheet-foot{border-top:1px solid #e4e7ec;border-bottom:0;justify-content:flex-end}.la-review-sheet-head strong{font-size:16px}.la-review-sheet-body{overflow:auto;padding:16px}
-    .la-review-sheet label{display:block;margin:0 0 6px;color:#667085;font-size:12px;font-weight:650}.la-review-sheet input,.la-review-sheet textarea{width:100%;border:1px solid #d0d5dd;border-radius:9px;padding:10px 11px;font:inherit;color:#182033;background:#fff}.la-review-sheet textarea{min-height:100px;resize:vertical}.la-review-sheet textarea.la-json{min-height:430px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2}.la-review-field+.la-review-field{margin-top:14px}
+    .la-review-sheet label{display:block;margin:0 0 6px;color:#667085;font-size:12px;font-weight:650}.la-review-sheet input,.la-review-sheet textarea,.la-review-sheet select{width:100%;border:1px solid #d0d5dd;border-radius:9px;padding:10px 11px;font:inherit;color:#182033;background:#fff}.la-review-sheet textarea{min-height:100px;resize:vertical}.la-review-sheet textarea.la-json{min-height:430px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2}.la-review-field+.la-review-field{margin-top:14px}
+    .la-review-sheet-wide{width:min(920px,96vw)}.la-review-intro{margin:0 0 16px;padding:12px 14px;border:1px solid #cfe0f3;border-radius:11px;background:#f3f8fe;color:#345b84}.la-review-intro strong{display:block;margin-bottom:3px;color:#174f87}.la-review-intro p{margin:0}.la-review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.la-review-grid .la-review-field{margin:0}.la-review-full{grid-column:1/-1}.la-review-section{margin-top:18px;padding-top:16px;border-top:1px solid #e4e7ec}.la-review-section h3{margin:0 0 11px;font-size:14px}.la-review-readonly{display:flex;align-items:center;gap:8px;padding:10px 11px;border-radius:9px;background:#f3f4f6;color:#596579}.la-review-pill{display:inline-flex;align-items:center;border-radius:999px;background:#eaf2fc;color:#2864a5;padding:4px 8px;font-size:11px;font-weight:700;text-transform:none}.la-review-option-list{display:grid;gap:9px}.la-review-option{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:10px;border:1px solid #e0e5eb;border-radius:10px;background:#fbfcfd}.la-review-option input[type="radio"],.la-review-option input[type="checkbox"]{width:18px;height:18px;margin-top:10px}.la-review-option label{margin:0}.la-review-option-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,.7fr);gap:10px;align-items:end;padding:10px;border:1px solid #e0e5eb;border-radius:10px;background:#fbfcfd}.la-review-order-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px;border:1px solid #e0e5eb;border-radius:10px;background:#fbfcfd}.la-review-order-index{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#eaf2fc;color:#2864a5;font-weight:750}.la-review-mini-actions{display:flex;gap:5px}.la-review-mini{border:0;border-radius:7px;background:#eef0f3;color:#394354;padding:8px 9px;cursor:pointer}.la-review-mini:disabled{opacity:.4;cursor:default}.la-review-rubric-row{display:grid;grid-template-columns:minmax(0,1fr) 85px auto;gap:8px;align-items:end;margin-bottom:8px}.la-review-remove{border:0;border-radius:7px;background:#fff0f0;color:#a74343;padding:10px;cursor:pointer}.la-review-add{margin-top:4px;border:1px dashed #9db7d3;border-radius:8px;background:#f5f9fd;color:#2864a5;padding:8px 11px;cursor:pointer}.la-review-hidden{display:none!important}.la-review-technical-note{margin-top:14px;color:#667085;font-size:12px}.la-review-table-help{margin:6px 0 0;color:#667085;font-size:11px}.la-review-table-scroll{overflow:auto;padding-bottom:4px}.la-review-table-grid{display:grid;gap:7px;min-width:max-content}.la-review-table-row{display:flex;gap:7px;align-items:center}.la-review-table-row input{width:170px}.la-review-table-row.head input{font-weight:700;background:#f5f7fa}.la-review-table-remove{flex:0 0 auto;border:0;border-radius:7px;background:#fff0f0;color:#a74343;padding:10px;cursor:pointer}.la-review-table-actions{display:flex;gap:8px;margin-top:9px}.la-review-stale{margin:0 0 12px;padding:10px 12px;border:1px solid #f3c16f;border-radius:10px;background:#fff7e8;color:#8b5700}
     .la-review-error{display:none;margin-top:10px;border-left:3px solid #c84b4b;background:#fff0f0;padding:9px 10px;color:#8f3030}.la-review-error.show{display:block}.la-review-help{color:#667085;font-size:12px}.la-review-spacer{flex:1}.la-review-secondary,.la-review-primary,.la-review-danger{border:0;border-radius:8px;padding:9px 13px;font:inherit;font-weight:650;cursor:pointer}.la-review-secondary{background:#eef0f3;color:#303846}.la-review-primary{background:#2864a5;color:#fff}.la-review-danger{background:#fff0f0;color:#a74343}.la-review-event{border:1px solid #e1e5eb;border-radius:10px;padding:11px;margin-bottom:9px}.la-review-event-head{display:flex;align-items:center;gap:8px}.la-review-event-head time{margin-left:auto;color:#667085;font-size:11px}.la-review-event p{margin:7px 0 0;color:#526071}.la-review-event code{font-size:11px;color:#667085}
-    @media(max-width:760px){:root{--la-review-height:112px}#la-review-bar{flex-wrap:wrap;padding:8px}.la-review-target{flex-basis:100%}.la-review-status{margin-left:auto}.la-review-person{max-width:120px;overflow:hidden;text-overflow:ellipsis}.la-review-action{padding:7px 9px}}
+    @media(max-width:760px){:root{--la-review-height:112px}#la-review-bar{flex-wrap:wrap;padding:8px}.la-review-target{flex-basis:100%}.la-review-status{margin-left:auto}.la-review-person{max-width:120px;overflow:hidden;text-overflow:ellipsis}.la-review-action{padding:7px 9px}.la-review-grid{grid-template-columns:1fr}.la-review-full{grid-column:auto}.la-review-option-row,.la-review-rubric-row{grid-template-columns:1fr}.la-review-order-row{grid-template-columns:30px minmax(0,1fr) auto}.la-review-table-row input{width:145px}}
   `;
   const style = document.createElement("style");
   style.textContent = css;
@@ -71,6 +74,7 @@
   const modalTitle = byId("la-review-modal-title");
   const modalBody = byId("la-review-modal-body");
   const modalFoot = byId("la-review-modal-foot");
+  const modalSheet = overlay.querySelector(".la-review-sheet");
   const actionButtons = [...document.querySelectorAll("[data-la-action]")];
   let modalCancelHandler = null;
 
@@ -245,16 +249,18 @@
     return createAnonymousSession();
   }
 
-  function openModal(title, bodyHtml, footerHtml) {
+  function openModal(title, bodyHtml, footerHtml, {wide = false} = {}) {
     modalCancelHandler = null;
     modalTitle.textContent = title;
     modalBody.innerHTML = bodyHtml;
     modalFoot.innerHTML = footerHtml;
+    modalSheet.classList.toggle("la-review-sheet-wide", wide);
     overlay.classList.add("open");
   }
 
   function closeModal() {
     overlay.classList.remove("open");
+    modalSheet.classList.remove("la-review-sheet-wide");
     modalBody.innerHTML = "";
     modalFoot.innerHTML = "";
   }
@@ -389,6 +395,39 @@
     })) || [];
   }
 
+  async function hasChangedRevision(adapter, baselinePayload) {
+    const baselineSha256 = await payloadSha256(baselinePayload);
+    const events = await fetchEvents(adapter, baselineSha256);
+    const revision = latestRevision(events);
+    return Boolean(revision && revision.payload_sha256 !== baselineSha256);
+  }
+
+  async function upstreamStaleMessage(adapter) {
+    if (adapter.stage === "quiz" && typeof kcs !== "undefined" && typeof kcs.get === "function") {
+      const kc = kcs.get(adapter.payload.kc_id);
+      if (!kc) return "";
+      const changed = await hasChangedRevision({
+        stage: "kc", itemType: "leaf_kc", itemKey: kc.kc_id,
+      }, kc);
+      return changed ? `${kc.kc_id} đã được sửa sau khi Quiz này được tạo · cần tạo lại Quiz trước khi duyệt` : "";
+    }
+    if (adapter.stage === "kc" && typeof source !== "undefined" && Array.isArray(source.pages)) {
+      const pageNumbers = adapter.itemType === "leaf_kc"
+        ? [...new Set(adapter.payload.source_evidence.map(evidence => evidence.page))]
+        : [adapter.payload.page];
+      for (const pageNumber of pageNumbers) {
+        const page = source.pages.find(item => item.page_number === pageNumber);
+        if (!page) continue;
+        const changed = await hasChangedRevision({
+          stage: "extraction", itemType: "page",
+          itemKey: `page:${String(pageNumber).padStart(4, "0")}`,
+        }, page);
+        if (changed) return `Slide ${pageNumber} ở bước Trích xuất đã được sửa · cần tạo lại KC trước khi duyệt`;
+      }
+    }
+    return "";
+  }
+
   function latestRevision(events) {
     return events.find(event => event.action === "edit") || null;
   }
@@ -412,6 +451,7 @@
     if (!force && state.lastKey === id) return;
     state.lastKey = id;
     state.adapter = adapter;
+    state.upstreamStale = "";
     document.body.dataset.laReviewStage = adapter.stage;
     targetLabel.textContent = adapter.label;
     renderChoice(adapter);
@@ -428,6 +468,7 @@
         appliedRevisionByTarget.set(id, revision.id);
         state.adapter = detectAdapter() || adapter;
       }
+      state.upstreamStale = await upstreamStaleMessage(state.adapter);
       await renderStatus();
     } catch (error) {
       statusNode.className = "la-review-status reject";
@@ -454,6 +495,12 @@
 
   async function renderStatus() {
     if (!state.adapter) return;
+    if (state.upstreamStale) {
+      statusNode.className = "la-review-status reject";
+      statusNode.textContent = state.upstreamStale;
+      renderPerson();
+      return;
+    }
     const {revision, sha256} = await effectivePayload();
     const decision = currentDecision(state.events, revision, sha256);
     statusNode.className = "la-review-status";
@@ -478,7 +525,9 @@
 
   function setLoading(loading) {
     state.loading = loading;
-    actionButtons.forEach(button => button.disabled = loading);
+    actionButtons.forEach(button => {
+      button.disabled = loading || (button.dataset.laAction === "approve" && Boolean(state.upstreamStale));
+    });
   }
 
   async function insertEvent(event) {
@@ -535,25 +584,353 @@
     broadcastUpdate();
   }
 
+  function requiredValue(id, label) {
+    const value = byId(id)?.value.trim() || "";
+    if (!value) throw new Error(`${label} không được để trống`);
+    return value;
+  }
+
+  function lineList(id) {
+    return (byId(id)?.value || "").split("\n").map(value => value.trim()).filter(Boolean);
+  }
+
+  function noteField() {
+    return `<div class="la-review-field la-review-section"><label for="la-review-note">Ghi chú thay đổi (không bắt buộc)</label><textarea id="la-review-note" maxlength="1000" placeholder="Bạn đã sửa gì?"></textarea></div><div id="la-review-error" class="la-review-error"></div>`;
+  }
+
+  function editorFooter() {
+    return `<button id="la-review-edit-cancel" class="la-review-secondary" type="button">Hủy</button><button id="la-review-edit-save" class="la-review-primary" type="button">Lưu thay đổi</button>`;
+  }
+
+  function bindEditorSave(buildPayload, revision) {
+    byId("la-review-edit-cancel").onclick = closeModal;
+    byId("la-review-edit-save").onclick = async () => {
+      const button = byId("la-review-edit-save");
+      button.disabled = true;
+      try {
+        const nextPayload = buildPayload();
+        await saveRevision(nextPayload, byId("la-review-note").value.trim(), revision?.id || null);
+        closeModal();
+      } catch (error) {
+        showModalError(error.message);
+        button.disabled = false;
+      }
+    };
+  }
+
+  function openExtractionEditor(payload, revision) {
+    openModal(
+      `Sửa ${state.adapter.label}`,
+      `<div class="la-review-intro"><strong>Trang Extraction là dữ liệu có cấu trúc.</strong><p>Editor kỹ thuật này chỉ thuộc bước 1. KC và Quiz dùng form nội dung riêng, không sửa qua JSON.</p></div><div class="la-review-field"><label for="la-review-json">Dữ liệu trang</label><textarea id="la-review-json" class="la-json" spellcheck="false"></textarea><p class="la-review-help">Bản output gốc vẫn bất biến; thao tác này tạo một revision dùng chung.</p></div>${noteField()}`,
+      editorFooter(),
+      {wide: true},
+    );
+    byId("la-review-json").value = JSON.stringify(payload, null, 2);
+    bindEditorSave(() => JSON.parse(byId("la-review-json").value), revision);
+  }
+
+  function openKcEditor(payload, revision) {
+    if (state.adapter.itemType === "page_audit") {
+      const classifications = [
+        ["learning_content", "Nội dung học"], ["example", "Ví dụ"],
+        ["exercise", "Bài tập"], ["context", "Bối cảnh"],
+        ["administrative", "Thông tin hành chính"], ["cover", "Trang bìa"],
+        ["section_divider", "Trang phân đoạn"], ["unclear", "Chưa rõ"],
+      ];
+      openModal(
+        `Sửa quyết định KC · Slide ${payload.page}`,
+        `<div class="la-review-intro"><strong>Đây là quyết định của bước KC, không phải Extraction.</strong><p>Bạn chỉ sửa cách trang này được hiểu trong luồng tạo kiến thức. Nội dung trích xuất và các liên kết nguồn được giữ nguyên.</p></div><div class="la-review-grid"><div class="la-review-field"><label for="la-kc-classification">Loại trang</label><select id="la-kc-classification">${classifications.map(([value, label]) => `<option value="${value}"${payload.classification === value ? " selected" : ""}>${label}</option>`).join("")}</select></div><div class="la-review-field"><label>Trang nguồn</label><div class="la-review-readonly"><span class="la-review-pill">Slide ${payload.page}</span><span>${payload.source_block_ids.length} phần nội dung được liên kết</span></div></div><div class="la-review-field la-review-full"><label for="la-kc-summary">Lý do / tóm tắt quyết định</label><textarea id="la-kc-summary">${escapeHtml(payload.summary)}</textarea></div></div>${noteField()}`,
+        editorFooter(),
+        {wide: true},
+      );
+      bindEditorSave(() => {
+        const next = deepCopy(payload);
+        next.classification = byId("la-kc-classification").value;
+        next.summary = requiredValue("la-kc-summary", "Lý do / tóm tắt");
+        return next;
+      }, revision);
+      return;
+    }
+
+    const forms = [
+      ["fact", "Sự kiện / dữ kiện"], ["concept", "Khái niệm"],
+      ["distinction", "Phân biệt"], ["principle", "Nguyên lý"],
+      ["procedure", "Quy trình"], ["decision_rule", "Quy tắc quyết định"],
+    ];
+    const pages = [...new Set(payload.source_evidence.map(item => item.page))].join(", ");
+    const boundaries = payload.assessment_boundary || {included: [], excluded: []};
+    openModal(
+      `Sửa ${payload.kc_id} · ${payload.name}`,
+      `<div class="la-review-intro"><strong>Chỉ sửa nội dung KC.</strong><p>Nguồn đối chiếu từ bước Trích xuất được khóa và giữ nguyên. Muốn sửa nội dung trích xuất, hãy quay về bước 1.</p></div><div class="la-review-grid"><div class="la-review-field la-review-full"><label for="la-kc-name">Tên KC</label><input id="la-kc-name" maxlength="240" value="${escapeHtml(payload.name)}"></div><div class="la-review-field"><label for="la-kc-semantic-form">Loại kiến thức</label><select id="la-kc-semantic-form">${forms.map(([value, label]) => `<option value="${value}"${payload.semantic_form === value ? " selected" : ""}>${label}</option>`).join("")}</select></div><div class="la-review-field"><label>Nguồn đối chiếu được giữ nguyên</label><div class="la-review-readonly"><span class="la-review-pill">Slide ${escapeHtml(pages)}</span><span>${payload.source_evidence.length} phần nguồn</span></div></div><div class="la-review-field la-review-full"><label for="la-kc-description">Mô tả kiến thức</label><textarea id="la-kc-description">${escapeHtml(payload.knowledge_description)}</textarea><p class="la-review-help">Nêu chính xác điều người học cần hiểu hoặc biết làm.</p></div><div class="la-review-field la-review-full"><label for="la-kc-observable">Biểu hiện quan sát được ở người học</label><textarea id="la-kc-observable">${escapeHtml(payload.observable_claim)}</textarea><p class="la-review-help">Mô tả bằng hành vi có thể kiểm tra được, ví dụ phân biệt, giải thích, áp dụng hoặc đánh giá.</p></div><div class="la-review-field"><label for="la-kc-included">Nội dung được phép đánh giá</label><textarea id="la-kc-included" placeholder="Mỗi ý một dòng">${escapeHtml(boundaries.included.join("\n"))}</textarea></div><div class="la-review-field"><label for="la-kc-excluded">Nội dung không đánh giá</label><textarea id="la-kc-excluded" placeholder="Mỗi ý một dòng">${escapeHtml(boundaries.excluded.join("\n"))}</textarea></div></div><p class="la-review-technical-note">Mã định danh, nhóm KC, trạng thái, cảnh báo và liên kết trang nguồn được hệ thống giữ tự động.</p>${noteField()}`,
+      editorFooter(),
+      {wide: true},
+    );
+    bindEditorSave(() => {
+      const next = deepCopy(payload);
+      next.name = requiredValue("la-kc-name", "Tên KC");
+      next.semantic_form = byId("la-kc-semantic-form").value;
+      next.knowledge_description = requiredValue("la-kc-description", "Mô tả kiến thức");
+      next.observable_claim = requiredValue("la-kc-observable", "Biểu hiện quan sát được");
+      next.assessment_boundary = {included: lineList("la-kc-included"), excluded: lineList("la-kc-excluded")};
+      return next;
+    }, revision);
+  }
+
+  function tableGridHtml() {
+    const header = `<div class="la-review-table-row head">${tableDraft.columns.map((value, index) => `<input data-la-table-header="${index}" aria-label="Tên cột ${index + 1}" value="${escapeHtml(value)}">`).join("")}<button class="la-review-table-remove" data-la-remove-column type="button"${tableDraft.columns.length <= 1 ? " disabled" : ""}>− Cột</button></div>`;
+    const rows = tableDraft.rows.map((row, rowIndex) => `<div class="la-review-table-row">${tableDraft.columns.map((_, columnIndex) => `<input data-la-table-cell="${rowIndex}:${columnIndex}" aria-label="Dòng ${rowIndex + 1}, cột ${columnIndex + 1}" value="${escapeHtml(row[columnIndex] ?? "")}">`).join("")}<button class="la-review-table-remove" data-la-remove-row="${rowIndex}" type="button"${tableDraft.rows.length <= 1 ? " disabled" : ""}>− Dòng</button></div>`).join("");
+    return `<div class="la-review-table-grid">${header}${rows}</div>`;
+  }
+
+  function syncTableDraft() {
+    const grid = byId("la-quiz-table-grid");
+    if (!grid) return;
+    grid.querySelectorAll("[data-la-table-header]").forEach(input => {
+      tableDraft.columns[Number(input.dataset.laTableHeader)] = input.value;
+    });
+    grid.querySelectorAll("[data-la-table-cell]").forEach(input => {
+      const [row, column] = input.dataset.laTableCell.split(":").map(Number);
+      tableDraft.rows[row][column] = input.value;
+    });
+  }
+
+  function renderTableGrid() {
+    byId("la-quiz-table-grid").innerHTML = tableGridHtml();
+  }
+
+  function setupTableControls(stimulus) {
+    tableDraft = stimulus.kind === "table"
+      ? {columns: [...stimulus.table_columns], rows: stimulus.table_rows.map(row => [...row])}
+      : {columns: ["Cột 1"], rows: [[""]]};
+    renderTableGrid();
+    const wrap = byId("la-stimulus-table-wrap");
+    wrap.onclick = event => {
+      const removeRow = event.target.closest("[data-la-remove-row]");
+      const removeColumn = event.target.closest("[data-la-remove-column]");
+      if (removeRow && tableDraft.rows.length > 1) {
+        syncTableDraft();
+        tableDraft.rows.splice(Number(removeRow.dataset.laRemoveRow), 1);
+        renderTableGrid();
+      } else if (removeColumn && tableDraft.columns.length > 1) {
+        syncTableDraft();
+        tableDraft.columns.pop();
+        tableDraft.rows.forEach(row => row.pop());
+        renderTableGrid();
+      }
+    };
+    byId("la-add-table-row").onclick = () => {
+      syncTableDraft();
+      tableDraft.rows.push(tableDraft.columns.map(() => ""));
+      renderTableGrid();
+    };
+    byId("la-add-table-column").onclick = () => {
+      syncTableDraft();
+      tableDraft.columns.push(`Cột ${tableDraft.columns.length + 1}`);
+      tableDraft.rows.forEach(row => row.push(""));
+      renderTableGrid();
+    };
+  }
+
+  function interactionLabel(interaction) {
+    return ({
+      single_select: "Chọn một đáp án",
+      multi_select: "Chọn nhiều đáp án",
+      matching: "Ghép cặp",
+      ordering: "Sắp xếp thứ tự",
+      short_text: "Trả lời ngắn",
+    })[interaction] || interaction;
+  }
+
+  function stimulusEditor(stimulus) {
+    return `<div class="la-review-section"><h3>Bối cảnh học viên nhìn thấy</h3><div class="la-review-grid"><div class="la-review-field"><label for="la-quiz-stimulus-kind">Dạng bối cảnh</label><select id="la-quiz-stimulus-kind"><option value="none"${stimulus.kind === "none" ? " selected" : ""}>Không có bối cảnh riêng</option><option value="text"${stimulus.kind === "text" ? " selected" : ""}>Đoạn văn / tình huống</option><option value="formula"${stimulus.kind === "formula" ? " selected" : ""}>Công thức / dữ kiện tính toán</option><option value="table"${stimulus.kind === "table" ? " selected" : ""}>Bảng dữ liệu</option></select></div><div class="la-review-field"><label>Loại câu hỏi</label><div class="la-review-readonly"><span class="la-review-pill">${escapeHtml(interactionLabel(state.adapter.payload.interaction))}</span><span>Được giữ cố định để bảo toàn cấu trúc đáp án</span></div></div><div id="la-stimulus-text-wrap" class="la-review-field la-review-full"><label for="la-quiz-stimulus-text">Tình huống / dữ kiện</label><textarea id="la-quiz-stimulus-text">${escapeHtml(stimulus.text)}</textarea></div><div id="la-stimulus-formula-wrap" class="la-review-field la-review-full"><label for="la-quiz-stimulus-formula">Công thức / dữ kiện</label><textarea id="la-quiz-stimulus-formula">${escapeHtml(stimulus.formula)}</textarea></div><div id="la-stimulus-table-wrap" class="la-review-field la-review-full"><label>Bảng dữ liệu</label><div id="la-quiz-table-grid" class="la-review-table-scroll"></div><div class="la-review-table-actions"><button id="la-add-table-row" class="la-review-add" type="button">+ Thêm dòng</button><button id="la-add-table-column" class="la-review-add" type="button">+ Thêm cột</button></div><p class="la-review-table-help">Sửa trực tiếp từng ô; không cần nhập JSON hay dùng phím Tab.</p></div></div></div>`;
+  }
+
+  function setStimulusVisibility() {
+    const kind = byId("la-quiz-stimulus-kind").value;
+    byId("la-stimulus-text-wrap").classList.toggle("la-review-hidden", kind !== "text");
+    byId("la-stimulus-formula-wrap").classList.toggle("la-review-hidden", kind !== "formula");
+    byId("la-stimulus-table-wrap").classList.toggle("la-review-hidden", kind !== "table");
+  }
+
+  function collectStimulus() {
+    const kind = byId("la-quiz-stimulus-kind").value;
+    const stimulus = {kind, text: "", table_columns: [], table_rows: [], formula: ""};
+    if (kind === "text") stimulus.text = requiredValue("la-quiz-stimulus-text", "Tình huống / dữ kiện");
+    if (kind === "formula") stimulus.formula = requiredValue("la-quiz-stimulus-formula", "Công thức / dữ kiện");
+    if (kind === "table") {
+      syncTableDraft();
+      if (!tableDraft.columns.length || !tableDraft.rows.length) throw new Error("Bảng cần ít nhất một cột và một dòng dữ liệu");
+      if (tableDraft.rows.some(row => row.length !== tableDraft.columns.length)) throw new Error("Mỗi dòng dữ liệu phải đủ số cột");
+      stimulus.table_columns = [...tableDraft.columns];
+      stimulus.table_rows = tableDraft.rows.map(row => [...row]);
+    }
+    return stimulus;
+  }
+
+  function selectionEditor(question) {
+    const inputType = question.interaction === "single_select" ? "radio" : "checkbox";
+    const checked = new Set(question.correct_answer.selection_ids);
+    return `<div class="la-review-section"><h3>Các lựa chọn và đáp án đúng</h3><div class="la-review-option-list">${question.choice_options.map((option, index) => `<div class="la-review-option"><input type="${inputType}" name="la-quiz-correct" data-la-correct="${escapeHtml(option.option_id)}" aria-label="Đánh dấu đáp án đúng"${checked.has(option.option_id) ? " checked" : ""}><label><span>Lựa chọn ${index + 1}</span><input data-la-option-text="${escapeHtml(option.option_id)}" value="${escapeHtml(option.text)}"></label></div>`).join("")}</div><p class="la-review-help">${question.interaction === "single_select" ? "Chọn đúng một đáp án." : "Chọn từ hai đáp án đúng trở lên."}</p></div>`;
+  }
+
+  function matchingEditor(question) {
+    const mapping = Object.fromEntries(question.correct_answer.mappings.map(item => [item.left, item.right]));
+    return `<div class="la-review-section"><h3>Các cặp ghép và đáp án đúng</h3><div class="la-review-option-list">${question.matching_left.map((left, index) => `<div class="la-review-option-row"><div><label for="la-left-${index}">Vế trái ${index + 1}</label><input id="la-left-${index}" data-la-left-text="${escapeHtml(left.option_id)}" value="${escapeHtml(left.text)}"></div><div><label for="la-map-${index}">Ghép đúng với</label><select id="la-map-${index}" data-la-map-left="${escapeHtml(left.option_id)}">${question.matching_right.map(right => `<option data-la-right-option="${escapeHtml(right.option_id)}" value="${escapeHtml(right.option_id)}"${mapping[left.option_id] === right.option_id ? " selected" : ""}>${escapeHtml(right.text)}</option>`).join("")}</select></div></div>`).join("")}</div><div class="la-review-section"><h3>Nội dung các lựa chọn bên phải</h3><div class="la-review-option-list">${question.matching_right.map((right, index) => `<div class="la-review-field"><label for="la-right-${index}">Lựa chọn ${index + 1}</label><input id="la-right-${index}" data-la-right-text="${escapeHtml(right.option_id)}" value="${escapeHtml(right.text)}"></div>`).join("")}</div></div></div>`;
+  }
+
+  function setupMatchingControls() {
+    modalBody.oninput = event => {
+      const input = event.target.closest("[data-la-right-text]");
+      if (!input) return;
+      const id = input.dataset.laRightText;
+      modalBody.querySelectorAll(`[data-la-right-option="${CSS.escape(id)}"]`).forEach(option => {
+        option.textContent = input.value || "(Chưa có nội dung)";
+      });
+    };
+  }
+
+  function orderingEditor(question) {
+    const byOption = Object.fromEntries(question.ordering_options.map(option => [option.option_id, option]));
+    const ordered = question.correct_answer.ordering.map(id => byOption[id]).filter(Boolean);
+    question.ordering_options.forEach(option => { if (!ordered.includes(option)) ordered.push(option); });
+    return `<div class="la-review-section"><h3>Thứ tự đáp án đúng</h3><p class="la-review-help">Sửa nội dung và dùng mũi tên để đặt thứ tự chuẩn.</p><div id="la-order-list" class="la-review-option-list">${ordered.map((option, index) => `<div class="la-review-order-row" data-la-order-id="${escapeHtml(option.option_id)}"><span class="la-review-order-index">${index + 1}</span><input data-la-order-text="${escapeHtml(option.option_id)}" value="${escapeHtml(option.text)}"><span class="la-review-mini-actions"><button class="la-review-mini" data-la-move="up" type="button" aria-label="Đưa lên">↑</button><button class="la-review-mini" data-la-move="down" type="button" aria-label="Đưa xuống">↓</button></span></div>`).join("")}</div></div>`;
+  }
+
+  function rubricRow(point = {criterion: "", points: 1}) {
+    return `<div class="la-review-rubric-row" data-la-rubric-row><div><label>Tiêu chí chấm</label><input data-la-rubric-criterion value="${escapeHtml(point.criterion)}"></div><div><label>Điểm</label><input data-la-rubric-points type="number" min="1" max="100" value="${escapeHtml(point.points)}"></div><button class="la-review-remove" data-la-remove-rubric type="button" aria-label="Xóa tiêu chí">×</button></div>`;
+  }
+
+  function shortTextEditor(question) {
+    return `<div class="la-review-section"><h3>Đáp án mẫu và cách chấm</h3><div class="la-review-field"><label for="la-quiz-text-answer">Đáp án mẫu</label><textarea id="la-quiz-text-answer">${escapeHtml(question.correct_answer.text)}</textarea></div><div class="la-review-field"><label>Rubric</label><div id="la-rubric-list">${question.rubric.map(rubricRow).join("")}</div><button id="la-add-rubric" class="la-review-add" type="button">+ Thêm tiêu chí chấm</button></div></div>`;
+  }
+
+  function setupOrderingControls() {
+    const list = byId("la-order-list");
+    if (!list) return;
+    const refresh = () => {
+      const rows = [...list.querySelectorAll("[data-la-order-id]")];
+      rows.forEach((row, index) => {
+        row.querySelector(".la-review-order-index").textContent = index + 1;
+        row.querySelector('[data-la-move="up"]').disabled = index === 0;
+        row.querySelector('[data-la-move="down"]').disabled = index === rows.length - 1;
+      });
+    };
+    list.onclick = event => {
+      const button = event.target.closest("[data-la-move]");
+      if (!button) return;
+      const row = button.closest("[data-la-order-id]");
+      if (button.dataset.laMove === "up" && row.previousElementSibling) list.insertBefore(row, row.previousElementSibling);
+      if (button.dataset.laMove === "down" && row.nextElementSibling) list.insertBefore(row.nextElementSibling, row);
+      refresh();
+    };
+    refresh();
+  }
+
+  function setupRubricControls() {
+    const list = byId("la-rubric-list");
+    if (!list) return;
+    list.onclick = event => {
+      const button = event.target.closest("[data-la-remove-rubric]");
+      if (button) button.closest("[data-la-rubric-row]").remove();
+    };
+    byId("la-add-rubric").onclick = () => {
+      const holder = document.createElement("div");
+      holder.innerHTML = rubricRow();
+      list.appendChild(holder.firstElementChild);
+    };
+  }
+
+  function collectQuizResponse(next) {
+    const interaction = next.interaction;
+    const answer = {selection_ids: [], ordering: [], mappings: [], text: ""};
+    if (interaction === "single_select" || interaction === "multi_select") {
+      next.choice_options.forEach(option => {
+        const input = modalBody.querySelector(`[data-la-option-text="${CSS.escape(option.option_id)}"]`);
+        option.text = input.value.trim();
+        if (!option.text) throw new Error("Nội dung lựa chọn không được để trống");
+      });
+      answer.selection_ids = [...modalBody.querySelectorAll("[data-la-correct]:checked")].map(input => input.dataset.laCorrect);
+      if (interaction === "single_select" && answer.selection_ids.length !== 1) throw new Error("Câu single select cần đúng một đáp án đúng");
+      if (interaction === "multi_select" && answer.selection_ids.length < 2) throw new Error("Câu multi select cần ít nhất hai đáp án đúng");
+      next.rubric = [];
+    } else if (interaction === "matching") {
+      next.matching_left.forEach(option => {
+        const input = modalBody.querySelector(`[data-la-left-text="${CSS.escape(option.option_id)}"]`);
+        option.text = input.value.trim();
+        if (!option.text) throw new Error("Vế trái không được để trống");
+        const select = modalBody.querySelector(`[data-la-map-left="${CSS.escape(option.option_id)}"]`);
+        answer.mappings.push({left: option.option_id, right: select.value});
+      });
+      next.matching_right.forEach(option => {
+        const input = modalBody.querySelector(`[data-la-right-text="${CSS.escape(option.option_id)}"]`);
+        option.text = input.value.trim();
+        if (!option.text) throw new Error("Lựa chọn bên phải không được để trống");
+      });
+      next.rubric = [];
+    } else if (interaction === "ordering") {
+      const rows = [...byId("la-order-list").querySelectorAll("[data-la-order-id]")];
+      const textById = {};
+      rows.forEach(row => {
+        const value = row.querySelector("[data-la-order-text]").value.trim();
+        if (!value) throw new Error("Bước trong câu sắp xếp không được để trống");
+        textById[row.dataset.laOrderId] = value;
+        answer.ordering.push(row.dataset.laOrderId);
+      });
+      next.ordering_options.forEach(option => { option.text = textById[option.option_id]; });
+      next.rubric = [];
+    } else if (interaction === "short_text") {
+      answer.text = requiredValue("la-quiz-text-answer", "Đáp án mẫu");
+      next.rubric = [...modalBody.querySelectorAll("[data-la-rubric-row]")].map(row => {
+        const criterion = row.querySelector("[data-la-rubric-criterion]").value.trim();
+        const points = Number(row.querySelector("[data-la-rubric-points]").value);
+        if (!criterion) throw new Error("Tiêu chí chấm không được để trống");
+        if (!Number.isInteger(points) || points < 1) throw new Error("Điểm rubric phải là số nguyên từ 1 trở lên");
+        return {criterion, points};
+      });
+      if (!next.rubric.length) throw new Error("Câu short text cần ít nhất một tiêu chí chấm");
+    } else {
+      throw new Error(`Chưa có form biên tập cho dạng ${interaction}`);
+    }
+    next.correct_answer = answer;
+  }
+
+  function openQuizEditor(payload, revision) {
+    let responseHtml = "";
+    if (payload.interaction === "single_select" || payload.interaction === "multi_select") responseHtml = selectionEditor(payload);
+    else if (payload.interaction === "matching") responseHtml = matchingEditor(payload);
+    else if (payload.interaction === "ordering") responseHtml = orderingEditor(payload);
+    else if (payload.interaction === "short_text") responseHtml = shortTextEditor(payload);
+    else throw new Error(`Chưa có form biên tập cho dạng ${payload.interaction}`);
+    openModal(
+      `Sửa ${payload.question_id} · ${payload.title}`,
+      `<div class="la-review-intro"><strong>Sửa câu hỏi bằng nội dung người học nhìn thấy.</strong><p>KC, nguồn đối chiếu và mã hệ thống được giữ nguyên. Bạn không cần đọc hoặc chỉnh JSON.</p></div><div class="la-review-grid"><div class="la-review-field la-review-full"><label for="la-quiz-title">Tên câu hỏi</label><input id="la-quiz-title" maxlength="240" value="${escapeHtml(payload.title)}"></div><div class="la-review-field la-review-full"><label for="la-quiz-prompt">Câu hỏi / yêu cầu</label><textarea id="la-quiz-prompt">${escapeHtml(payload.prompt)}</textarea></div></div>${stimulusEditor(payload.stimulus)}${responseHtml}<div class="la-review-section"><div class="la-review-field"><label for="la-quiz-explanation">Giải thích đáp án</label><textarea id="la-quiz-explanation">${escapeHtml(payload.answer_explanation)}</textarea></div></div><p class="la-review-technical-note">Liên kết tới ${escapeHtml(payload.kc_id)} và ${payload.evidence_refs.length} phần nguồn được hệ thống giữ tự động.</p>${noteField()}`,
+      editorFooter(),
+      {wide: true},
+    );
+    byId("la-quiz-stimulus-kind").onchange = setStimulusVisibility;
+    setupTableControls(payload.stimulus);
+    setStimulusVisibility();
+    setupMatchingControls();
+    setupOrderingControls();
+    setupRubricControls();
+    bindEditorSave(() => {
+      const next = deepCopy(payload);
+      next.title = requiredValue("la-quiz-title", "Tên câu hỏi");
+      next.prompt = requiredValue("la-quiz-prompt", "Câu hỏi / yêu cầu");
+      next.stimulus = collectStimulus();
+      next.answer_explanation = requiredValue("la-quiz-explanation", "Giải thích đáp án");
+      collectQuizResponse(next);
+      return next;
+    }, revision);
+  }
+
   async function openEditor() {
     await ensureReviewer();
     await loadCurrentTarget({force: true});
     const {payload, revision} = await effectivePayload();
-    openModal(
-      `Sửa ${state.adapter.label}`,
-      `<div class="la-review-field"><label for="la-review-json">Revision JSON</label><textarea id="la-review-json" class="la-json" spellcheck="false"></textarea><p class="la-review-help">Raw output vẫn bất biến. Lưu ở đây tạo một revision mới dùng chung cho mọi reviewer.</p></div><div class="la-review-field"><label for="la-review-note">Ghi chú thay đổi (không bắt buộc)</label><textarea id="la-review-note" maxlength="1000" placeholder="Bạn đã sửa gì?"></textarea></div><div id="la-review-error" class="la-review-error"></div>`,
-      `<button id="la-review-edit-cancel" class="la-review-secondary" type="button">Hủy</button><button id="la-review-edit-save" class="la-review-primary" type="button">Lưu revision</button>`,
-    );
-    byId("la-review-json").value = JSON.stringify(payload, null, 2);
-    byId("la-review-edit-cancel").onclick = closeModal;
-    byId("la-review-edit-save").onclick = async () => {
-      const button = byId("la-review-edit-save"); button.disabled = true;
-      try {
-        const parsed = JSON.parse(byId("la-review-json").value);
-        await saveRevision(parsed, byId("la-review-note").value.trim(), revision?.id || null);
-        closeModal();
-      } catch (error) { showModalError(error.message); button.disabled = false; }
-    };
+    if (state.adapter.stage === "kc") openKcEditor(payload, revision);
+    else if (state.adapter.stage === "quiz") openQuizEditor(payload, revision);
+    else openExtractionEditor(payload, revision);
   }
 
   async function openReject() {

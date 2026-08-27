@@ -398,6 +398,18 @@ def test_build_showcase_enables_shared_supabase_review(tmp_path: Path) -> None:
     assert "/rest/v1/rpc/get_review_target_events" in runtime
     assert 'request("/rest/v1/review_events' not in runtime
     assert "revisionMatchesAdapter" in runtime
+    assert "function openKcEditor" in runtime
+    assert "function openQuizEditor" in runtime
+    assert "Chỉ sửa nội dung KC" in runtime
+    assert "Bạn không cần đọc hoặc chỉnh JSON" in runtime
+    assert "data-la-option-text" in runtime
+    assert "data-la-map-left" in runtime
+    assert "data-la-order-id" in runtime
+    assert "data-la-rubric-row" in runtime
+    assert "function upstreamStaleMessage" in runtime
+    assert "function setupTableControls" in runtime
+    assert "data-la-table-cell" in runtime
+    assert "function setupMatchingControls" in runtime
 
 
 def test_build_showcase_rejects_supabase_service_role_key(tmp_path: Path) -> None:
