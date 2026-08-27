@@ -97,13 +97,18 @@ SECRET_PATTERNS = (
     ),
 )
 LOCAL_PATH_PATTERNS = (
-    re.compile(r"(?:file://)?/(?:Users|var/folders|private/var|home)/[^\"'<>\r\n]+"),
+    re.compile(
+        r"(?:file://)?/(?:Users|var/folders|private/var|private/tmp|tmp|home)/"
+        r"[^\"'<>\r\n]+"
+    ),
     re.compile(r"[A-Za-z]:\\\\Users\\\\[^\"'<>\r\n]+"),
 )
 FORBIDDEN_CONTENT_MARKERS = (
     b"/Users/",
     b"/var/folders/",
     b"/private/var/",
+    b"/private/tmp/",
+    b"/tmp/",
     b"file://",
     b"\\\\Users\\\\",
 )

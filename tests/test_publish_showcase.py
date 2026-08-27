@@ -94,7 +94,8 @@ def _fake_run(
             if index == 0 and secret
             else (
                 "<!doctype html><title>Safe review</title><body>"
-                '<span data-source="/Users/example/work/demo.json">Review</span></body>'
+                '<span data-source="/Users/example/work/demo.json" '
+                'data-temp="/private/tmp/agent/run.json">Review</span></body>'
             )
         )
         (run_dir / review_name).write_text(content, encoding="utf-8")
@@ -162,6 +163,7 @@ def test_build_showcase_derives_non_45_metadata_and_uses_explicit_reviews(
     assert "45 ảnh trang" not in portal
     combined = b"".join(path.read_bytes() for path in output_dir.rglob("*") if path.is_file())
     assert b"/Users/" not in combined
+    assert b"/private/tmp/" not in combined
     assert b"sk-" not in combined
     quiz_page = (output_dir / review_files.quiz).read_text(encoding="utf-8")
     assert "Quiz experimental / unapproved" in quiz_page
