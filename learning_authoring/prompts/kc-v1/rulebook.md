@@ -1,6 +1,6 @@
-# KC Rulebook v1 — Approved Extraction Input
+# KC Rulebook v1 — Canonical Extraction Input
 
-This rulebook turns one complete, human-approved `extracted-source.v2` JSON
+This rulebook turns one complete canonical `extracted-source.v2` JSON
 artifact into a human-reviewable Proposed KC Set. It operationalizes the KC
 Foundation; it does not redefine the construct or repeat extraction.
 
@@ -12,13 +12,15 @@ Foundation; it does not redefine the construct or repeat extraction.
 - Learning Factors Analysis supplies the split/merge/refine hypothesis lens.
 - Human-machine student-model discovery motivates preserving ambiguity for
   expert review and later learner-data validation.
-- VLearn requirements add full-page accountability, source grounding,
-  traceability, approved-extraction immutability, and no forced KC count.
+- Product requirements add full-page accountability, source grounding,
+  traceability, extraction immutability, and no forced KC count.
 
 ## Input boundary
 
-The only source input is the complete approved extraction JSON supplied as the
-user message. Use every relevant field in that JSON, including source identity,
+The only source input is the complete canonical extraction JSON supplied in the
+task package. Its upstream status may be human-approved or explicitly marked
+`PROPOSED_DEMO_ONLY`; that status changes downstream review labels, not the
+semantic transformation. Use every relevant field in the JSON, including source identity,
 ordered pages, semantic blocks, content, regions, asset references, relations,
 page notes, cross-page relations, warnings, and uncertainties.
 
@@ -27,7 +29,7 @@ previous KC output, or external source is supplied or permitted. Never infer
 that a local `asset_refs` string means the underlying file was attached. Do not
 request, assume, or invent source content that is absent from the JSON.
 
-The approved extraction is immutable. Never rewrite its blocks, content,
+The supplied extraction is immutable. Never rewrite its blocks, content,
 coordinates, relations, warnings, source identity, or page count. Cite it using
 existing block IDs instead of copying it into a second artifact registry.
 
@@ -50,7 +52,7 @@ existing block IDs instead of copying it into a second artifact registry.
    Page notes may help interpret block relationships, but they cannot replace
    block-level evidence or introduce content absent from the blocks.
 5. **Evidence preservation:** do not transcribe, summarize, relocate, or
-   regenerate an evidence artifact in the KC output. The approved extraction is
+   regenerate an evidence artifact in the KC output. The supplied extraction is
    the canonical registry for content, modality, geometry, asset references,
    relations, and uncertainty. KC output stores only references to it.
 6. **Evidence locality:** every evidence record declares one page and may cite
@@ -69,7 +71,7 @@ existing block IDs instead of copying it into a second artifact registry.
    given an identifiable task condition, state the learner response that can be
    observed. Avoid unobservable wording such as “understands” without a
    demonstrable response. The condition may be a conservative authoring
-   hypothesis, but it must remain consistent with the approved extraction and
+   hypothesis, but it must remain consistent with the supplied extraction and
    must not depend on outside knowledge.
 10. **Grouping:** normalize Leaf KCs first, then create bottom-up Groups. Every
     Leaf KC has exactly one Group. Groups have no fixed count or size.
@@ -102,7 +104,7 @@ expected count.
 - Leaf KC proposal IDs: `KC-001`, `KC-002`, ...
 - Group proposal IDs: `KCG-001`, `KCG-002`, ...
 - Source evidence IDs: `EVD-001`, `EVD-002`, ...
-- IDs are local to one approved extraction and carry no topic/domain semantics.
+- IDs are local to one supplied extraction and carry no topic/domain semantics.
 
 ## Warning vocabulary
 
@@ -117,7 +119,7 @@ expected count.
 
 ## Contract boundary
 
-Code may hard-fail a missing or unapproved extraction, hash mismatch, malformed
+Code may hard-fail a missing or unauthorized extraction state, hash mismatch, malformed
 JSON, invalid IDs, duplicate or broken references, page omissions, invented
 block IDs, and page/block locality errors. Code must not hard-fail semantic
 width, possible duplication, grouping quality, coverage percentage, model

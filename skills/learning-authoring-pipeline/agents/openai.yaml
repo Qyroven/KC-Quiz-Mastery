@@ -1,8 +1,8 @@
 interface:
   display_name: "Learning Authoring Pipeline"
-  short_description: "Author PDF slides into reviewable KC and Quiz"
+  short_description: "Run PDF to connected Extraction, KC, and Quiz"
   brand_color: "#1261A0"
-  default_prompt: "Use $learning-authoring-pipeline to process the attached course PDF with this coding-agent subscription session and stop at each human review gate."
+  default_prompt: "Use $learning-authoring-pipeline to process the attached course PDF in one continuous draft journey through proposed Extraction and KC plus experimental Quiz, then build the connected local portal without pausing for review."
 
 policy:
   allow_implicit_invocation: true

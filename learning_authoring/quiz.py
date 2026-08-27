@@ -60,7 +60,7 @@ class QuizConfig:
     include_all_kcs: bool = False
     variants_per_kc: int = 2
     allowed_interactions: tuple[str, ...] = ALLOWED_INTERACTIONS
-    language: str = "vi"
+    language: str = "source"
     poll_interval_seconds: float = 5.0
     timeout_seconds: float = 3600.0
     api_key: str | None = None

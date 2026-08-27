@@ -27,6 +27,7 @@ from learning_authoring.provider import check_provider, normalized_base_url
 from learning_authoring.quiz import QuizConfig, prepare_quiz_request, run_quiz_generation
 from learning_authoring.quiz_review import build_quiz_review
 from learning_authoring.review import build_review
+from learning_authoring.showcase import PublishSafetyError, ReviewFiles, build_showcase
 from learning_authoring.source import DEFAULT_RENDER_DPI, preflight_source
 
 
@@ -135,7 +136,11 @@ def _add_quiz_options(parser: argparse.ArgumentParser) -> None:
         default=2,
         help="runtime bank depth; this is configuration, not a content rule",
     )
-    parser.add_argument("--language", default="vi")
+    parser.add_argument(
+        "--language",
+        default="source",
+        help="learner-facing language; 'source' follows the selected KC set",
+    )
 
 
 def _add_agent_runtime_options(parser: argparse.ArgumentParser) -> None:
@@ -160,13 +165,17 @@ def _add_agent_runtime_options(parser: argparse.ArgumentParser) -> None:
         help="Quiz only: include every Leaf KC in source order",
     )
     parser.add_argument("--variants-per-kc", type=int, default=2)
-    parser.add_argument("--language", default="vi")
+    parser.add_argument(
+        "--language",
+        default="source",
+        help="learner-facing language; 'source' follows the selected KC set",
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="learning-authoring",
-        description="Review-gated Extract -> KC -> experimental Quiz authoring pipeline",
+        description="Continuous, reviewable Extract -> KC -> experimental Quiz draft pipeline",
     )
     parser.add_argument("--env-file", type=_path, help="optional dotenv file")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -300,6 +309,21 @@ def _parser() -> argparse.ArgumentParser:
     quiz_review.add_argument("--candidate", type=_path)
     quiz_review.add_argument("--output-name", default="quiz-review.html")
 
+    portal_build = subcommands.add_parser(
+        "portal-build",
+        help="build one connected, allowlisted review portal from an exact run",
+    )
+    portal_build.add_argument("run_dir", type=_path)
+    portal_build.add_argument(
+        "--output-dir",
+        type=_path,
+        help="destination directory (default: <run-dir>/connected-portal)",
+    )
+    portal_build.add_argument("--extractor-review", default="extraction-review.html")
+    portal_build.add_argument("--kc-recall-review", default="kc-recall.html")
+    portal_build.add_argument("--kc-scroll-review", default="kc-scroll.html")
+    portal_build.add_argument("--quiz-review", default="quiz-review.html")
+
     status = subcommands.add_parser("status", help="show canonical run artifacts")
     status.add_argument("run_dir", type=_path)
     return parser
@@ -400,6 +424,7 @@ def _status(run_dir: Path) -> dict[str, Any]:
         "quiz_request_preview": quiz_artifacts.quiz_request_preview,
         "quiz_proposed": quiz_artifacts.quiz_proposed,
         "quiz_review_built": artifacts.quiz_review_html,
+        "connected_portal_built": root / "connected-portal" / "showcase-manifest.json",
     }
     result: dict[str, Any] = {
         "run_dir": str(root),
@@ -605,6 +630,46 @@ def main(argv: list[str] | None = None) -> int:
             output_name=args.output_name,
         )
         print(output)
+        return 0
+    if args.command == "portal-build":
+        output_dir = args.output_dir or (args.run_dir / "connected-portal")
+        try:
+            manifest = build_showcase(
+                args.run_dir,
+                output_dir,
+                review_files=ReviewFiles(
+                    extractor=args.extractor_review,
+                    kc_recall=args.kc_recall_review,
+                    kc_scroll=args.kc_scroll_review,
+                    quiz=args.quiz_review,
+                ),
+            )
+        except PublishSafetyError as exc:
+            print(
+                json.dumps(
+                    {
+                        "built": False,
+                        "output_dir": str(output_dir.expanduser().resolve()),
+                        "error": str(exc),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            json.dumps(
+                {
+                    "built": True,
+                    "output_dir": str(output_dir.expanduser().resolve()),
+                    "manifest": manifest,
+                    "deployment_performed": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
     if args.command == "status":
         print(json.dumps(_status(args.run_dir), ensure_ascii=False, indent=2))

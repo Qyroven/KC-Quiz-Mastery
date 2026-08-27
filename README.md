@@ -7,13 +7,16 @@ a model-provider API.
 
 ```text
 PDF
-  -> proposed extraction -> human review -> explicit extraction approval
-  -> proposed KC set      -> human review
-  -> experimental Quiz    -> human review
+  -> proposed Extraction
+  -> proposed KC through the explicit PROPOSED_DEMO_ONLY upstream boundary
+  -> experimental unapproved Quiz
+  -> connected local review portal
 ```
 
-The repository owns authoring. VLearn may consume approved exports later, but it does not run this
-pipeline. Vercel hosts only an allowlisted static review snapshot; the Agent Skill itself is not
+The default Agent Skill invocation completes that draft journey without pausing at human review
+gates. It does not auto-approve anything: review surfaces remain available after the full connected
+result exists. VLearn may consume approved exports later, but it does not run this pipeline. Vercel
+may host only an explicitly published allowlisted static result; the Agent Skill itself is not
 deployed there.
 
 ## Honest stage status
@@ -25,10 +28,11 @@ deployed there.
 | Quiz | Experimental and unapproved; structure and surface-form checks exist, but instructional quality is not solved |
 | Mastery | **Not implemented** |
 | VLearn importer | Not implemented |
-| Static review showcase | Implemented as an allowlisted build; deployment is a separate action |
+| Connected local portal | Implemented as an allowlisted build from one run; Vercel deployment is a separate, explicit action |
 
 A valid schema is not proof of semantic correctness, fairness, clarity, or instructional value.
-Every generated artifact remains subject to the status and review gate shown above.
+Every generated artifact keeps the review-required status shown above, but those statuses do not
+pause the default continuous draft journey.
 
 ## Primary workflow: use the Agent Skill
 
@@ -42,8 +46,8 @@ attached PDF or PDF path
   -> task package + JSON Schema
   -> current Codex/Claude subscription session writes candidate JSON
   -> deterministic contract validation and immutable candidate archive
-  -> local review gate
-  -> next stage only when its upstream boundary is permitted
+  -> next stage through an explicit, honestly labelled upstream boundary
+  -> connected local portal after Quiz
 ```
 
 The skill never invokes the provider-backed `doctor`, `extract`, `kc-generate`, or
@@ -51,10 +55,16 @@ The skill never invokes the provider-backed `doctor`, `extract`, `kc-generate`, 
 token usage and dollar cost are unavailable because subscription clients do not expose those
 values to this local runtime.
 
-The full journey is review-gated, not one-click auto-approval. Reinvoke the same skill to continue
-the same run after reviewing a stage. A demo may derive KC from a proposed extraction only when the
-user explicitly requests that mode, and the resulting artifacts stay labelled unreviewed/demo;
-the tool never fabricates an approval record.
+The full draft journey is continuous, but it is not one-click auto-approval. In a new run the skill
+keeps Extraction `PROPOSED`, deliberately invokes the runtime's
+`--allow-proposed-extraction-demo` boundary for KC, keeps KC `PROPOSED` with upstream status
+`PROPOSED_DEMO_ONLY`, and keeps Quiz `EXPERIMENTAL_UNAPPROVED`. It then builds one connected local
+portal. Human review and real Extraction approval can happen later; the tool never fabricates an
+approval record.
+
+Quiz selection, language, and variants are run configuration. User values take precedence. An
+unconfigured quick demo selects all Leaf KCs in source order, uses language `source` (the selected
+KCs' dominant language), and generates 2 variants per KC.
 
 ### Deterministic CLI protocol used by the skill
 
@@ -73,8 +83,8 @@ The host coding agent writes JSON in its subscription session. Accept it into th
 learning-authoring agent-import extraction /absolute/run /absolute/extraction-candidate.json
 ```
 
-Human extraction approval remains the separate explicit `approve` command. A KC demo may use the
-proposed extraction only when the same conspicuous opt-in is present at task creation and import:
+Human Extraction approval remains the separate explicit `approve` command. The default continuous
+draft journey uses the same conspicuous demo-only opt-in at KC task creation and import:
 
 ```bash
 learning-authoring agent-task kc /absolute/run --allow-proposed-extraction-demo
@@ -85,12 +95,16 @@ learning-authoring agent-import kc /absolute/run /absolute/kc-candidate.json \
 Quiz task preparation and import must repeat the same runtime selection and variant depth:
 
 ```bash
-learning-authoring agent-task quiz /absolute/run --include-all-kcs --variants-per-kc 2
+learning-authoring agent-task quiz /absolute/run --include-all-kcs \
+  --variants-per-kc 2 --language source
 learning-authoring agent-import quiz /absolute/run /absolute/quiz-candidate.json \
-  --include-all-kcs --variants-per-kc 2
+  --include-all-kcs --variants-per-kc 2 --language source
+
+learning-authoring portal-build /absolute/run \
+  --output-dir /absolute/connected-portal
 ```
 
-Use repeated `--include-kc KC-001` instead of `--include-all-kcs` for a subset; `--kc` selects a
+Use repeated `--include-kc <KC-ID>` instead of `--include-all-kcs` for a subset; `--kc` selects a
 non-default KC JSON and `--language` records the Quiz language. `agent-schema
 {extraction,kc,quiz}` prints a bare contract when a task package is not needed. Task packages live
 at `agent-session/tasks/<stage>-<fingerprint>.json`. Exact candidate bytes are archived before
@@ -121,7 +135,7 @@ Open Codex in the repository, attach the PDF (or give its path), then either:
 Example:
 
 ```text
-$learning-authoring-pipeline process the attached course PDF and stop at each review gate.
+$learning-authoring-pipeline process the attached course PDF in one continuous draft journey and build the connected local portal without pausing for review.
 ```
 
 ### Claude Code
@@ -129,7 +143,7 @@ $learning-authoring-pipeline process the attached course PDF and stop at each re
 Open Claude Code in the repository, attach or reference the PDF, then invoke:
 
 ```text
-/learning-authoring-pipeline process this course and stop at each review gate
+/learning-authoring-pipeline process this course continuously through Quiz and build the connected local portal
 ```
 
 The invocation spelling is client-specific even though both clients use the same skill package.
@@ -144,6 +158,8 @@ uv run python skills/learning-authoring-pipeline/scripts/install_skill.py codex
 uv run python skills/learning-authoring-pipeline/scripts/install_skill.py claude
 # or install both
 uv run python skills/learning-authoring-pipeline/scripts/install_skill.py both
+# upgrade an existing personal installation
+uv run python skills/learning-authoring-pipeline/scripts/install_skill.py both --replace
 ```
 
 The installer copies the package into `~/.agents/skills/` for Codex and/or `~/.claude/skills/` for
@@ -210,33 +226,39 @@ Provider API responses, checkpoints, prompt packages, request previews, tokens, 
 belong to this optional legacy path. Their presence in historical ignored run directories does not
 mean the Agent Skill made an API call.
 
-## Local review
+## Connected local review
 
-Review pages are static files. Serve a completed run locally, for example:
+`portal-build` packages the current run's generated review pages into one connected, allowlisted
+directory. It derives source identity, page inventory, stage statuses, and entrypoints from the run
+instead of checked-in demo copy:
 
 ```bash
-cd runs/<run-name>
+learning-authoring portal-build /absolute/run \
+  --output-dir /absolute/connected-portal
+cd /absolute/connected-portal
 python3 -m http.server 3010
 ```
 
-Then open the generated Extraction, KC, or Quiz review HTML. Review files should report the real
-artifact status; a proposed or experimental artifact must never be presented as approved.
+Inspect `showcase-manifest.json`, then open the portal. A proposed or experimental artifact must
+never be presented as approved. Mastery remains an explicit `NOT_IMPLEMENTED` boundary, not a
+working component.
 
-## Vercel is only the static result layer
+## Vercel is an optional static result layer
 
-Build an isolated review snapshot after a run has produced the desired review pages:
+The default skill invocation builds the connected local portal but does not deploy it. Publish only
+after the user explicitly requests Vercel and authorizes the exact account/team, project, and
+environment. Deploy the fresh output directory, never the repository root or run directory.
+
+Repository developers can invoke the same builder through `uv`:
 
 ```bash
-uv run python scripts/publish_showcase.py \
-  --run-dir runs/<run-name> \
-  --extractor-review extraction-review.html \
-  --kc-recall-review kc-recall.html \
-  --kc-scroll-review kc-scroll.html \
-  --quiz-review quiz-review.html
+uv run learning-authoring portal-build /absolute/run \
+  --output-dir /absolute/connected-portal
 ```
 
-Only `showcase-dist/` is intended for static hosting. The builder copies allowlisted review HTML,
-the exact page images declared by the run, and a showcase manifest. It does not copy:
+Only the generated connected portal directory is intended for static hosting. The builder copies
+allowlisted review HTML, the exact page images declared by the run, and a showcase manifest. It
+does not copy:
 
 - the Agent Skill or Python runtime;
 - `.env` files or credentials;
@@ -259,6 +281,6 @@ uv run pytest -q
 uv run ruff check .
 ```
 
-Before publishing a new review snapshot, inspect the source run, the generated showcase manifest,
-and every file in `showcase-dist/`. Before publishing the repository, inspect staged files for
-credentials and generated run data.
+Before publishing a connected portal, inspect the source run, the generated showcase manifest, and
+every file in its fresh output directory. Before publishing the repository, inspect staged files
+for credentials and generated run data.

@@ -1,70 +1,102 @@
-# Review and static publishing
+# Connected review portal and optional static publishing
 
-Read this reference only for human review, approval, or an explicitly requested publication.
+Read this reference when building the default local portal, performing later human review or
+approval, or handling an explicitly requested publication.
 
-## Review gates
+## Honest statuses and review boundaries
 
-The honest status vocabulary is:
+The status vocabulary is:
 
 - Extraction: `PROPOSED`, `HUMAN_APPROVED`, or blocked/review-needed.
+- Proposed-Extraction input used for the continuous KC demo: `PROPOSED_DEMO_ONLY`.
 - KC: `PROPOSED` and human-review-needed.
 - Quiz: `EXPERIMENTAL_UNAPPROVED` and human-review-needed.
 - Mastery: `NOT_IMPLEMENTED`.
 
 Schema validation means the JSON matches the machine contract. Geometry/form audits are diagnostic.
 Neither is proof of semantic correctness or learning value. Never use `validated`, `approved`, or
-`production-ready` for an LLM artifact unless the matching human approval boundary exists.
+`production-ready` for a model-authored artifact unless the matching human approval boundary exists.
 
-For extraction approval, verify the review UI belongs to the same source hash and proposed artifact
-the user reviewed. Run the CLI's `approve` command only on explicit instruction. Do not silently
-acknowledge warnings.
+The default continuous draft journey does not pause at these review boundaries and does not call
+`approve`. The statuses stay visible so a reviewer can inspect the results after the whole connected
+journey exists.
 
-KC has no machine approval command in this version. Record the user's candidate/KC selection as
-Quiz runtime configuration; do not fabricate `kc-approved.json`.
+For a later Extraction approval, verify the review UI belongs to the same source hash and proposed
+artifact the user reviewed. Run the CLI's `approve` command only on explicit instruction with the
+real reviewer name. Do not silently acknowledge warnings. Rebuild the portal after approval so its
+status comes from the verified approval pair rather than UI text.
+
+KC has no machine approval command in this version. A user's candidate/KC selection is Quiz runtime
+configuration; do not fabricate `kc-approved.json`.
 
 Quiz UI Approve/Edit/Reject controls may be browser-local review notes. They never authorize source
 mutation or create an approved Quiz artifact.
 
-## Build a publish-safe showcase
+## Build one connected local portal
 
-Publishing is optional and separately authorized. Use the repository's deterministic showcase
-builder from a checkout. Inspect its help because filenames and flags may evolve:
+Use the installed runtime's deterministic portal builder after the run has produced Extraction,
+both KC review views, and Quiz review. The source run is the single data boundary: never combine
+review files from unrelated runs or use checked-in demo content as a fallback.
+
+Inspect the builder's current help because flags may evolve, choose a fresh output directory, and
+build:
 
 ```bash
-python scripts/publish_showcase.py --help
-python scripts/publish_showcase.py \
-  --run-dir <run-dir> \
-  --output-dir <fresh-showcase-dir> \
-  --extractor-review <review-file> \
-  --kc-recall-review <review-file> \
-  --kc-scroll-review <review-file> \
-  --quiz-review <review-file>
+<la> portal-build --help
+<la> portal-build <run-dir> --output-dir <fresh-portal-dir>
 ```
 
-If the skill is running only through `uvx` with no repository checkout, ask the user to clone the
-repository before publishing. Do not improvise a deployment script.
+The CLI resolves the current run's review artifacts; do not pass paths from a prior run or rewrite
+their content. The portal must connect the journey from current run data and its generated manifest:
 
-Inspect `<fresh-showcase-dir>/showcase-manifest.json`. Treat it as an allowlist, then verify every
-listed file exists. Publish only:
+```text
+PDF/source identity
+  -> Extraction review: PROPOSED (or verified HUMAN_APPROVED on a later rebuild)
+  -> KC reviews: PROPOSED; upstream PROPOSED_DEMO_ONLY in the default journey
+  -> Quiz review: EXPERIMENTAL_UNAPPROVED
+  -> Mastery: NOT_IMPLEMENTED, displayed only as an explicit boundary
+```
 
-- the static portal and selected review HTML/CSS/JS;
-- the rendered page images those UIs require;
+Inspect `<fresh-portal-dir>/showcase-manifest.json` and verify:
+
+- `source_run`, source filename, source ID, and page count come from this run;
+- every stage label matches the actual artifact metadata;
+- every entrypoint exists and opens the matching current-run review;
+- the page inventory is derived from the manifest rather than a fixed count;
+- no stale course title, run name, content string, page number, or KC ID is embedded in the shell;
+- Mastery has no link or claim that implies implementation.
+
+Treat the manifest as an allowlist. The local package may contain only:
+
+- the connected static portal and selected review HTML/CSS/JS;
+- rendered page images those UIs require;
 - semantic JSON required by the selected UIs and declared by the builder;
 - redacted metrics declared by the builder.
 
-Never publish:
+It must never contain:
 
 - this Agent Skill or executable pipeline code;
 - `.env*`, credentials, or Vercel secrets;
-- source PDF/PPTX files unless the user separately authorizes that exact file;
-- raw agent candidates, provider envelopes, checkpoints, response IDs, or prompt/request packages;
+- source PDF/PPTX files;
+- raw agent candidates, provider envelopes, checkpoints, response IDs, or task/prompt packages;
 - reviewer identity/notes unless explicitly required;
 - unrelated historical runs.
 
-Run offline tests/lint before deployment when operating in the repository. Deploy the fresh static
-directory, never the repository root or run directory. Preview first unless the user's current
-request explicitly authorizes Production for the exact directory, Vercel team, project, and
-environment. Verify every manifest entrypoint at the immutable deployment URL.
+Serve the fresh directory locally if the user wants to inspect it immediately. Return the portal
+path, manifest path, and stage entrypoints. Local portal construction is not Vercel publication.
+
+## Publish to Vercel only with separate authorization
+
+Do not infer deployment permission from a request to run the pipeline, build the connected local
+portal, or review locally. Publish only when the user explicitly requests Vercel publication and
+the intended account/team, project, and environment are authorized. If the target is ambiguous,
+finish the local portal and ask for the missing deployment choice instead of selecting one.
+
+Run offline tests/lint before deployment when operating in the repository. Deploy the fresh portal
+directory, never the repository root or run directory. Prefer Preview unless the current request
+explicitly authorizes Production for the exact target. Verify every manifest entrypoint at the
+immutable deployment URL.
 
 Return the immutable URL, project URL when available, exact included entrypoints, exclusions, and
-honest stage statuses. Vercel shows generated review results; it does not host or execute the skill.
+honest stage statuses. Vercel shows the generated connected result; it does not host or execute the
+skill.

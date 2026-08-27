@@ -12,3 +12,4 @@
 10. Use short text only when producing an explanation, diagnosis, calculation, or decision rationale is itself the evidence. Keep its rubric observable and bounded.
 11. Keep the question concise. Difficulty must come from applying or distinguishing the KC, not from long prose, hidden assumptions, trivia, or linguistic tricks.
 12. Follow the output schema exactly. Do not emit planning commentary, quality claims, approval decisions, or fields that belong to another interaction.
+13. Write learner-facing content in `runtime.language`. When it is `source`, follow the dominant language of the selected KCs while preserving source technical terms and acronyms.

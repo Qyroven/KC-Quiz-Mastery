@@ -31,7 +31,14 @@ build-backend = "setuptools.build_meta"
 include = ["learning_authoring*"]
 
 [tool.setuptools.package-data]
-learning_authoring = ["prompts/*.md", "prompts/**/*.md", "prompts/**/*.json"]
+learning_authoring = [
+  "prompts/*.md",
+  "prompts/**/*.md",
+  "prompts/**/*.json",
+  "showcase_assets/*.html",
+  "showcase_assets/*.json",
+  "showcase_assets/*.txt",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

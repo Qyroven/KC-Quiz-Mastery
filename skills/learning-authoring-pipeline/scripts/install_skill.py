@@ -57,14 +57,21 @@ def _selected_agents(value: str) -> tuple[str, ...]:
     return (value,)
 
 
-def _timestamped_sibling(destination: Path, label: str) -> Path:
+def _backup_root(destination: Path) -> Path:
+    """Keep replaced skills outside folders scanned for skill discovery."""
+
+    if destination.parent.name == "skills":
+        return destination.parent.parent / "skill-backups"
+    return destination.parent / ".skill-backups"
+
+
+def _timestamped_backup(destination: Path, label: str) -> Path:
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    candidate = destination.with_name(f"{destination.name}.{label}-{stamp}")
+    backup_root = _backup_root(destination)
+    candidate = backup_root / f"{destination.name}.{label}-{stamp}"
     counter = 1
     while candidate.exists() or candidate.is_symlink():
-        candidate = destination.with_name(
-            f"{destination.name}.{label}-{stamp}-{counter}"
-        )
+        candidate = backup_root / f"{destination.name}.{label}-{stamp}-{counter}"
         counter += 1
     return candidate
 
@@ -77,13 +84,14 @@ def _install(source: Path, destination: Path, *, replace: bool, dry_run: bool) -
             f"destination already exists: {destination}; rerun with --replace to back it up"
         )
 
-    backup = _timestamped_sibling(destination, "backup") if existing else None
+    backup = _timestamped_backup(destination, "backup") if existing else None
     if dry_run:
         suffix = f" (backup existing to {backup})" if backup else ""
         return f"would copy {source} -> {destination}{suffix}"
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     if backup is not None:
+        backup.parent.mkdir(parents=True, exist_ok=True)
         destination.rename(backup)
     try:
         shutil.copytree(
@@ -95,7 +103,8 @@ def _install(source: Path, destination: Path, *, replace: bool, dry_run: bool) -
     except Exception as exc:
         incomplete = None
         if destination.exists() or destination.is_symlink():
-            incomplete = _timestamped_sibling(destination, "incomplete")
+            incomplete = _timestamped_backup(destination, "incomplete")
+            incomplete.parent.mkdir(parents=True, exist_ok=True)
             destination.rename(incomplete)
         if backup is not None:
             backup.rename(destination)

@@ -209,6 +209,7 @@ def test_agent_cli_exposes_portable_task_and_import_runtime_options() -> None:
 
     assert task.command == "agent-task"
     assert task.include_kc == ["KC-001"] and task.variants_per_kc == 3
+    assert task.language == "source"
     assert imported.command == "agent-import"
     assert imported.allow_proposed_extraction_demo is True
 

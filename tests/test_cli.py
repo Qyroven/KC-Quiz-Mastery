@@ -96,6 +96,56 @@ def test_experimental_quiz_commands_are_not_public() -> None:
         assert removed not in help_text
 
 
+def test_portal_build_defaults_to_run_local_connected_portal(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    run_dir = tmp_path / "run"
+    captured: dict[str, object] = {}
+
+    def fake_build(run, output, *, review_files):
+        captured.update(run=run, output=output, review_files=review_files)
+        return {
+            "lineage": {
+                "extraction_to_kc": "VERIFIED",
+                "kc_to_quiz": "VERIFIED",
+            }
+        }
+
+    monkeypatch.setattr("learning_authoring.cli.build_showcase", fake_build)
+
+    exit_code = main(["portal-build", str(run_dir)])
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert captured["run"] == run_dir
+    assert captured["output"] == run_dir / "connected-portal"
+    assert result["built"] is True
+    assert result["deployment_performed"] is False
+
+
+def test_portal_build_accepts_explicit_review_filenames() -> None:
+    args = _parser().parse_args(
+        [
+            "portal-build",
+            "run",
+            "--extractor-review",
+            "extractor-a.html",
+            "--kc-recall-review",
+            "kc-a.html",
+            "--kc-scroll-review",
+            "kc-b.html",
+            "--quiz-review",
+            "quiz-a.html",
+        ]
+    )
+
+    assert args.command == "portal-build"
+    assert args.extractor_review == "extractor-a.html"
+    assert args.kc_recall_review == "kc-a.html"
+    assert args.kc_scroll_review == "kc-b.html"
+    assert args.quiz_review == "quiz-a.html"
+
+
 def test_extraction_cli_exposes_repair_guard_defaults_and_overrides() -> None:
     parser = _parser()
     defaults = _config(parser.parse_args(["extract", "source.pdf", "run"]))

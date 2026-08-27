@@ -93,7 +93,7 @@ evidence only when the source teaches learnable knowledge or skill about it.
 
 A KC is a semantic unit, not an image, formula, table, chart, or code block.
 Those source elements are evidence for knowledge and remain owned by the
-approved extraction. A source element must not be promoted into a separate KC
+supplied canonical extraction. A source element must not be promoted into a separate KC
 solely because its modality differs.
 
 Source evidence supports the KC proposal. It is not evidence that a learner has

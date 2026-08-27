@@ -216,7 +216,7 @@ def prepare_agent_task(
     selected_kc_ids: tuple[str, ...] = (),
     include_all_kcs: bool = False,
     variants_per_kc: int = 2,
-    language: str = "vi",
+    language: str = "source",
 ) -> dict[str, Any]:
     """Write a prompt/schema/input package a portable skill can hand to its host agent."""
 
@@ -647,7 +647,7 @@ def import_quiz(
     selected_kc_ids: tuple[str, ...] = (),
     include_all_kcs: bool = False,
     variants_per_kc: int = 2,
-    language: str = "vi",
+    language: str = "source",
 ) -> dict[str, Any]:
     """Freeze KC/runtime input and validate one experimental Quiz candidate against it."""
 
@@ -777,7 +777,7 @@ def agent_import(
     selected_kc_ids: tuple[str, ...] = (),
     include_all_kcs: bool = False,
     variants_per_kc: int = 2,
-    language: str = "vi",
+    language: str = "source",
 ) -> dict[str, Any]:
     """Dispatch one bounded agent-session candidate import."""
 
