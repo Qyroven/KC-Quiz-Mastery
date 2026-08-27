@@ -22,6 +22,7 @@
   let tableDraft = {columns: ["Cột 1"], rows: [[""]]};
 
   const css = `
+    .la-review-hint-row{border:1px solid #d9e5f2;border-radius:10px;background:#f8fbfe;padding:12px;margin-bottom:10px}.la-review-hint-row label{margin-top:9px}.la-review-hint-row textarea{min-height:85px}.la-review-hint-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
     :root{--la-review-height:62px}
     body[data-la-review-stage="extraction"] .layout{height:calc(100vh - 66px - var(--la-review-height))!important}
     body[data-la-review-stage="kc"] .workspace{height:calc(100% - 52px - var(--la-review-height))!important}
@@ -90,13 +91,32 @@
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
 
+  function quizHintsAreValid(payload, baseline) {
+    const hasHints = Object.hasOwn(payload, "hints"), hasReason = Object.hasOwn(payload, "hint_absence_reason");
+    // Loading an old revision must not silently strip a newly authored hint contract.
+    if ((Object.hasOwn(baseline, "hints") || Object.hasOwn(baseline, "hint_absence_reason")) && (!hasHints || !hasReason)) return false;
+    if (!hasHints && !hasReason) return true;
+    if (!hasHints || !hasReason || !Array.isArray(payload.hints)) return false;
+    const ids = new Set();
+    for (const hint of payload.hints) {
+      if (!isObject(hint) || typeof hint.hint_id !== "string" || !hint.hint_id.trim() || ids.has(hint.hint_id) ||
+          !["cue", "strategy", "step"].includes(hint.kind) || typeof hint.text !== "string" || !hint.text.trim()) return false;
+      ids.add(hint.hint_id);
+    }
+    return payload.hints.length ? payload.hint_absence_reason === null :
+      typeof payload.hint_absence_reason === "string" && Boolean(payload.hint_absence_reason.trim());
+  }
+
   function revisionMatchesAdapter(adapter, payload) {
     if (!isObject(payload) || payload[adapter.identityField] !== adapter.identityValue) return false;
+    const unchanged = fields => fields.every(field =>
+      canonical(payload[field]) === canonical(adapter.payload[field]));
     if (adapter.stage === "extraction") {
       return typeof payload.role === "string" && Array.isArray(payload.blocks) &&
         Array.isArray(payload.reading_order) && isObject(payload.page_note) && Array.isArray(payload.warnings);
     }
     if (adapter.stage === "kc" && adapter.itemType === "leaf_kc") {
+      if (!unchanged(["group_id", "source_evidence", "context_evidence"])) return false;
       return typeof payload.group_id === "string" && typeof payload.name === "string" &&
         typeof payload.semantic_form === "string" && typeof payload.knowledge_description === "string" &&
         typeof payload.observable_claim === "string" && Array.isArray(payload.source_evidence) &&
@@ -105,11 +125,14 @@
         Array.isArray(payload.warning_codes);
     }
     if (adapter.stage === "kc" && adapter.itemType === "page_audit") {
+      if (!unchanged(["source_block_ids", "kc_ids"])) return false;
       return typeof payload.classification === "string" && typeof payload.summary === "string" &&
         Array.isArray(payload.source_block_ids) && Array.isArray(payload.kc_ids) &&
         Array.isArray(payload.warning_codes);
     }
     if (adapter.stage === "quiz") {
+      if (!unchanged(["kc_id", "group_id", "slot_id", "variant_index", "evidence_refs", "context_evidence_refs"])) return false;
+      if (!quizHintsAreValid(payload, adapter.payload)) return false;
       return typeof payload.kc_id === "string" && typeof payload.group_id === "string" &&
         typeof payload.title === "string" && typeof payload.interaction === "string" &&
         isObject(payload.stimulus) && typeof payload.prompt === "string" &&
@@ -339,23 +362,34 @@
         label: `${question.question_id} · ${question.title}`,
         identityField: "question_id", identityValue: question.question_id,
         payload: deepCopy(question),
-        apply(payload) { Object.keys(question).forEach(key => delete question[key]); Object.assign(question, deepCopy(payload)); render(); },
+        apply(payload) {
+          // Even an identical saved revision is a new review target. Never retain
+          // a green AI verdict from the generated snapshot after a shared edit.
+          if (typeof markQuestionRevision === "function") markQuestionRevision(question.question_id);
+          Object.keys(question).forEach(key => delete question[key]);
+          Object.assign(question, deepCopy(payload));
+          render();
+        },
       };
     }
     if (typeof proposal !== "undefined" && typeof selected !== "undefined" && typeof evidenceByPage !== "undefined") {
-      const ids = [...new Set((evidenceByPage[selected] || []).map(row => row.kc.kc_id))];
-      let chosen = kcChoiceByPage.get(selected);
+      const contextView = typeof contextSelected !== "undefined" && contextSelected;
+      const choiceKey = contextView ? "context" : selected;
+      const rows = typeof selectedKcRows === "function" ? selectedKcRows() : evidenceByPage[selected] || [];
+      const ids = [...new Set(rows.map(row => row.kc.kc_id))];
+      let chosen = kcChoiceByPage.get(choiceKey);
       if (!ids.includes(chosen)) chosen = ids[0];
       if (chosen) {
-        kcChoiceByPage.set(selected, chosen);
+        kcChoiceByPage.set(choiceKey, chosen);
         const kc = kcById[chosen];
         return {
           stage: "kc", itemType: "leaf_kc", itemKey: chosen,
-          label: `${chosen} · ${kc.name}`, choices: ids,
+          label: `${chosen} · ${kc.name}`, choices: ids, choiceKey,
           identityField: "kc_id", identityValue: chosen, payload: deepCopy(kc),
           apply(payload) { Object.keys(kc).forEach(key => delete kc[key]); Object.assign(kc, deepCopy(payload)); rebuildKcIndexes(); render(); },
         };
       }
+      if (contextView) return null;
       const audit = auditByPage[selected];
       if (!audit) return null;
       return {
@@ -456,6 +490,9 @@
     targetLabel.textContent = adapter.label;
     renderChoice(adapter);
     setLoading(true);
+    if (adapter.stage === "quiz" && typeof setQuizReviewDependencyState === "function") {
+      setQuizReviewDependencyState({uncertain: "Đang đối chiếu revision và KC nguồn với review chung."});
+    }
     try {
       const baseline = baselineByTarget.get(id);
       state.events = await fetchEvents(adapter, baseline.sha256);
@@ -469,8 +506,14 @@
         state.adapter = detectAdapter() || adapter;
       }
       state.upstreamStale = await upstreamStaleMessage(state.adapter);
+      if (adapter.stage === "quiz" && typeof setQuizReviewDependencyState === "function") {
+        setQuizReviewDependencyState({stale: state.upstreamStale});
+      }
       await renderStatus();
     } catch (error) {
+      if (adapter.stage === "quiz" && typeof setQuizReviewDependencyState === "function") {
+        setQuizReviewDependencyState({uncertain: "Chưa xác minh được revision/KC nguồn từ review chung."});
+      }
       statusNode.className = "la-review-status reject";
       statusNode.textContent = `Không sync được: ${error.message}`;
     } finally { setLoading(false); }
@@ -478,9 +521,9 @@
 
   function renderChoice(adapter) {
     if (!adapter.choices || adapter.choices.length < 2) { targetChoice.innerHTML = ""; return; }
-    targetChoice.innerHTML = `<select aria-label="Chọn KC trên slide">${adapter.choices.map(id => `<option value="${escapeHtml(id)}"${id === adapter.itemKey ? " selected" : ""}>${escapeHtml(id)}</option>`).join("")}</select>`;
+    targetChoice.innerHTML = `<select aria-label="Chọn KC để review">${adapter.choices.map(id => `<option value="${escapeHtml(id)}"${id === adapter.itemKey ? " selected" : ""}>${escapeHtml(id)}</option>`).join("")}</select>`;
     targetChoice.querySelector("select").onchange = event => {
-      kcChoiceByPage.set(selected, event.target.value);
+      kcChoiceByPage.set(adapter.choiceKey ?? selected, event.target.value);
       state.lastKey = "";
       loadCurrentTarget({force: true});
     };
@@ -558,6 +601,9 @@
     const adapter = state.adapter;
     if (payload?.[adapter.identityField] !== adapter.identityValue) {
       throw new Error(`${adapter.identityField} không được thay đổi`);
+    }
+    if (!revisionMatchesAdapter(adapter, payload)) {
+      throw new Error("Cấu trúc, nguồn đối chiếu và định danh KC / slot / variant phải được giữ nguyên");
     }
     await insertEvent({
       run_id: config.runId, stage: adapter.stage, item_type: adapter.itemType,
@@ -658,10 +704,13 @@
       ["procedure", "Quy trình"], ["decision_rule", "Quy tắc quyết định"],
     ];
     const pages = [...new Set(payload.source_evidence.map(item => item.page))].join(", ");
+    const contextRefs = payload.context_evidence || [];
+    const contextIds = [...new Set(contextRefs.map(item => item.context_id))].join(", ");
+    const provenanceHtml = `<div class="la-review-readonly"><span class="la-review-pill">${pages ? `Slide ${escapeHtml(pages)}` : "Không có nguồn PDF"}</span><span>${payload.source_evidence.length} phần nguồn PDF</span></div>${contextRefs.length ? `<div class="la-review-readonly"><span class="la-review-pill">${escapeHtml(contextIds)}</span><span>${contextRefs.length} phần ngữ cảnh giảng viên · không phải Extraction</span></div>` : ""}`;
     const boundaries = payload.assessment_boundary || {included: [], excluded: []};
     openModal(
       `Sửa ${payload.kc_id} · ${payload.name}`,
-      `<div class="la-review-intro"><strong>Chỉ sửa nội dung KC.</strong><p>Nguồn đối chiếu từ bước Trích xuất được khóa và giữ nguyên. Muốn sửa nội dung trích xuất, hãy quay về bước 1.</p></div><div class="la-review-grid"><div class="la-review-field la-review-full"><label for="la-kc-name">Tên KC</label><input id="la-kc-name" maxlength="240" value="${escapeHtml(payload.name)}"></div><div class="la-review-field"><label for="la-kc-semantic-form">Loại kiến thức</label><select id="la-kc-semantic-form">${forms.map(([value, label]) => `<option value="${value}"${payload.semantic_form === value ? " selected" : ""}>${label}</option>`).join("")}</select></div><div class="la-review-field"><label>Nguồn đối chiếu được giữ nguyên</label><div class="la-review-readonly"><span class="la-review-pill">Slide ${escapeHtml(pages)}</span><span>${payload.source_evidence.length} phần nguồn</span></div></div><div class="la-review-field la-review-full"><label for="la-kc-description">Mô tả kiến thức</label><textarea id="la-kc-description">${escapeHtml(payload.knowledge_description)}</textarea><p class="la-review-help">Nêu chính xác điều người học cần hiểu hoặc biết làm.</p></div><div class="la-review-field la-review-full"><label for="la-kc-observable">Biểu hiện quan sát được ở người học</label><textarea id="la-kc-observable">${escapeHtml(payload.observable_claim)}</textarea><p class="la-review-help">Mô tả bằng hành vi có thể kiểm tra được, ví dụ phân biệt, giải thích, áp dụng hoặc đánh giá.</p></div><div class="la-review-field"><label for="la-kc-included">Nội dung được phép đánh giá</label><textarea id="la-kc-included" placeholder="Mỗi ý một dòng">${escapeHtml(boundaries.included.join("\n"))}</textarea></div><div class="la-review-field"><label for="la-kc-excluded">Nội dung không đánh giá</label><textarea id="la-kc-excluded" placeholder="Mỗi ý một dòng">${escapeHtml(boundaries.excluded.join("\n"))}</textarea></div></div><p class="la-review-technical-note">Mã định danh, nhóm KC, trạng thái, cảnh báo và liên kết trang nguồn được hệ thống giữ tự động.</p>${noteField()}`,
+      `<div class="la-review-intro"><strong>Chỉ sửa nội dung KC.</strong><p>Nguồn PDF và ngữ cảnh giảng viên được khóa và giữ nguyên. Muốn sửa nội dung trích xuất, hãy quay về bước 1.</p></div><div class="la-review-grid"><div class="la-review-field la-review-full"><label for="la-kc-name">Tên KC</label><input id="la-kc-name" maxlength="240" value="${escapeHtml(payload.name)}"></div><div class="la-review-field"><label for="la-kc-semantic-form">Loại kiến thức</label><select id="la-kc-semantic-form">${forms.map(([value, label]) => `<option value="${value}"${payload.semantic_form === value ? " selected" : ""}>${label}</option>`).join("")}</select></div><div class="la-review-field"><label>Nguồn đối chiếu được giữ nguyên</label>${provenanceHtml}</div><div class="la-review-field la-review-full"><label for="la-kc-description">Mô tả kiến thức</label><textarea id="la-kc-description">${escapeHtml(payload.knowledge_description)}</textarea><p class="la-review-help">Nêu chính xác điều người học cần hiểu hoặc biết làm.</p></div><div class="la-review-field la-review-full"><label for="la-kc-observable">Biểu hiện quan sát được ở người học</label><textarea id="la-kc-observable">${escapeHtml(payload.observable_claim)}</textarea><p class="la-review-help">Mô tả bằng hành vi có thể kiểm tra được, ví dụ phân biệt, giải thích, áp dụng hoặc đánh giá.</p></div><div class="la-review-field"><label for="la-kc-included">Nội dung được phép đánh giá</label><textarea id="la-kc-included" placeholder="Mỗi ý một dòng">${escapeHtml(boundaries.included.join("\n"))}</textarea></div><div class="la-review-field"><label for="la-kc-excluded">Nội dung không đánh giá</label><textarea id="la-kc-excluded" placeholder="Mỗi ý một dòng">${escapeHtml(boundaries.excluded.join("\n"))}</textarea></div></div><p class="la-review-technical-note">Mã định danh, nhóm KC, trạng thái, cảnh báo và toàn bộ provenance được hệ thống giữ tự động.</p>${noteField()}`,
       editorFooter(),
       {wide: true},
     );
@@ -894,6 +943,72 @@
     next.correct_answer = answer;
   }
 
+  function quizHintRow(hint, index) {
+    const kinds = [["cue", "Gợi mở"], ["strategy", "Hướng giải"], ["step", "Một bước hỗ trợ"]];
+    return `<div class="la-review-hint-row" data-la-hint-id="${escapeHtml(hint.hint_id)}"><div class="la-review-hint-head"><strong data-la-hint-number>Gợi ý ${index + 1}</strong><div class="la-review-mini-actions"><button class="la-review-mini" data-la-hint-action="up" type="button" aria-label="Đưa gợi ý lên">↑</button><button class="la-review-mini" data-la-hint-action="down" type="button" aria-label="Đưa gợi ý xuống">↓</button><button class="la-review-remove" data-la-hint-action="remove" type="button" aria-label="Xóa gợi ý">×</button></div></div><label>Loại hỗ trợ<select data-la-hint-kind>${kinds.map(([value, label]) => `<option value="${value}"${hint.kind === value ? " selected" : ""}>${label}</option>`).join("")}</select></label><label>Nội dung gợi ý<textarea data-la-hint-text>${escapeHtml(hint.text)}</textarea></label><span class="la-review-help">${escapeHtml(hint.hint_id)}</span></div>`;
+  }
+
+  function quizHintEditor(question) {
+    const hints = question.hints || [];
+    return `<div class="la-review-section"><h3>Gợi ý theo từng lần bấm</h3><p class="la-review-help">Chỉ gợi hướng suy nghĩ, không chép đáp án. Số gợi ý tùy câu; thứ tự ở đây là thứ tự được mở. Lời giải vẫn nằm riêng bên dưới.</p><div id="la-quiz-hints">${hints.map(quizHintRow).join("")}</div><button id="la-add-hint" class="la-review-add" type="button">+ Thêm gợi ý</button><div id="la-hint-absence-wrap" class="la-review-field${hints.length ? " la-review-hidden" : ""}"><label for="la-quiz-hint-absence">Vì sao không có gợi ý?</label><textarea id="la-quiz-hint-absence" placeholder="Nếu gợi ý sẽ lộ ngay đáp án hoặc không có giá trị hỗ trợ, giải thích ở đây.">${escapeHtml(question.hint_absence_reason || "")}</textarea><p class="la-review-help">Bản cũ chưa có hint có thể giữ nguyên. Với câu đã soạn hint, nếu bỏ hết cần nêu lý do.</p></div></div>`;
+  }
+
+  function newQuizHintId(questionId, reserved) {
+    let id;
+    do {
+      const suffix = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      id = `${questionId}-hint-${suffix}`;
+    } while (reserved.has(id));
+    reserved.add(id);
+    return id;
+  }
+
+  function setupQuizHintControls(question) {
+    const list = byId("la-quiz-hints"), reserved = new Set((question.hints || []).map(hint => hint.hint_id));
+    const refresh = () => {
+      const rows = [...list.querySelectorAll("[data-la-hint-id]")];
+      rows.forEach((row, index) => {
+        row.querySelector("[data-la-hint-number]").textContent = `Gợi ý ${index + 1}`;
+        row.querySelector('[data-la-hint-action="up"]').disabled = index === 0;
+        row.querySelector('[data-la-hint-action="down"]').disabled = index === rows.length - 1;
+      });
+      byId("la-hint-absence-wrap").classList.toggle("la-review-hidden", rows.length > 0);
+    };
+    list.onclick = event => {
+      const button = event.target.closest("[data-la-hint-action]");
+      if (!button) return;
+      const row = button.closest("[data-la-hint-id]");
+      if (button.dataset.laHintAction === "remove") row.remove();
+      if (button.dataset.laHintAction === "up" && row.previousElementSibling) list.insertBefore(row, row.previousElementSibling);
+      if (button.dataset.laHintAction === "down" && row.nextElementSibling) list.insertBefore(row.nextElementSibling, row);
+      refresh();
+    };
+    byId("la-add-hint").onclick = () => {
+      const holder = document.createElement("div");
+      holder.innerHTML = quizHintRow({hint_id: newQuizHintId(question.question_id, reserved), kind: "cue", text: ""}, list.children.length);
+      list.appendChild(holder.firstElementChild);
+      refresh();
+      list.lastElementChild.querySelector("[data-la-hint-text]").focus();
+    };
+    refresh();
+  }
+
+  function collectQuizHints(next, baseline) {
+    const rows = [...byId("la-quiz-hints").querySelectorAll("[data-la-hint-id]")];
+    const hints = rows.map(row => {
+      const text = row.querySelector("[data-la-hint-text]").value.trim();
+      const kind = row.querySelector("[data-la-hint-kind]").value;
+      if (!text) throw new Error("Gợi ý không được để trống; hãy viết nội dung hoặc xóa gợi ý.");
+      return {hint_id: row.dataset.laHintId, kind, text};
+    });
+    const reason = byId("la-quiz-hint-absence").value.trim();
+    const hadContract = Object.hasOwn(baseline, "hints") || Object.hasOwn(baseline, "hint_absence_reason");
+    if (!hadContract && !hints.length && !reason) return;
+    if (!hints.length && !reason) throw new Error("Cần giải thích vì sao câu này không có gợi ý.");
+    next.hints = hints;
+    next.hint_absence_reason = hints.length ? null : reason;
+  }
+
   function openQuizEditor(payload, revision) {
     let responseHtml = "";
     if (payload.interaction === "single_select" || payload.interaction === "multi_select") responseHtml = selectionEditor(payload);
@@ -901,9 +1016,14 @@
     else if (payload.interaction === "ordering") responseHtml = orderingEditor(payload);
     else if (payload.interaction === "short_text") responseHtml = shortTextEditor(payload);
     else throw new Error(`Chưa có form biên tập cho dạng ${payload.interaction}`);
+    const slot = typeof DATA !== "undefined"
+      ? (DATA.quiz?.assessment_slots || []).find(item => item.slot_id === payload.slot_id)
+      : null;
+    const slotHtml = slot ? `<div class="la-review-readonly"><span class="la-review-pill">${escapeHtml(slot.slot_id)}</span><span>variant ${escapeHtml(payload.variant_index)} / ${escapeHtml(slot.variant_count)} · ${escapeHtml(slot.evidence_intent)}</span></div>` : "";
+    const provenanceNote = `Liên kết tới ${escapeHtml(payload.kc_id)}, ${payload.evidence_refs.length} phần nguồn PDF và ${(payload.context_evidence_refs || []).length} phần ngữ cảnh giảng viên được giữ nguyên. Định danh slot / variant không đổi.`;
     openModal(
       `Sửa ${payload.question_id} · ${payload.title}`,
-      `<div class="la-review-intro"><strong>Sửa câu hỏi bằng nội dung người học nhìn thấy.</strong><p>KC, nguồn đối chiếu và mã hệ thống được giữ nguyên. Bạn không cần đọc hoặc chỉnh JSON.</p></div><div class="la-review-grid"><div class="la-review-field la-review-full"><label for="la-quiz-title">Tên câu hỏi</label><input id="la-quiz-title" maxlength="240" value="${escapeHtml(payload.title)}"></div><div class="la-review-field la-review-full"><label for="la-quiz-prompt">Câu hỏi / yêu cầu</label><textarea id="la-quiz-prompt">${escapeHtml(payload.prompt)}</textarea></div></div>${stimulusEditor(payload.stimulus)}${responseHtml}<div class="la-review-section"><div class="la-review-field"><label for="la-quiz-explanation">Giải thích đáp án</label><textarea id="la-quiz-explanation">${escapeHtml(payload.answer_explanation)}</textarea></div></div><p class="la-review-technical-note">Liên kết tới ${escapeHtml(payload.kc_id)} và ${payload.evidence_refs.length} phần nguồn được hệ thống giữ tự động.</p>${noteField()}`,
+      `<div class="la-review-intro"><strong>Sửa câu hỏi bằng nội dung người học nhìn thấy.</strong><p>KC, nguồn đối chiếu và mã hệ thống được giữ nguyên. Bạn không cần đọc hoặc chỉnh JSON. Lưu revision sẽ yêu cầu kiểm định lại bản sửa.</p></div>${slotHtml}<div class="la-review-grid"><div class="la-review-field la-review-full"><label for="la-quiz-title">Tên câu hỏi</label><input id="la-quiz-title" maxlength="240" value="${escapeHtml(payload.title)}"></div><div class="la-review-field la-review-full"><label for="la-quiz-prompt">Câu hỏi / yêu cầu</label><textarea id="la-quiz-prompt">${escapeHtml(payload.prompt)}</textarea></div></div>${stimulusEditor(payload.stimulus)}${responseHtml}${quizHintEditor(payload)}<div class="la-review-section"><div class="la-review-field"><label for="la-quiz-explanation">Giải thích đáp án</label><textarea id="la-quiz-explanation">${escapeHtml(payload.answer_explanation)}</textarea></div></div><p class="la-review-technical-note">${provenanceNote}</p>${noteField()}`,
       editorFooter(),
       {wide: true},
     );
@@ -913,6 +1033,7 @@
     setupMatchingControls();
     setupOrderingControls();
     setupRubricControls();
+    setupQuizHintControls(payload);
     bindEditorSave(() => {
       const next = deepCopy(payload);
       next.title = requiredValue("la-quiz-title", "Tên câu hỏi");
@@ -920,6 +1041,7 @@
       next.stimulus = collectStimulus();
       next.answer_explanation = requiredValue("la-quiz-explanation", "Giải thích đáp án");
       collectQuizResponse(next);
+      collectQuizHints(next, payload);
       return next;
     }, revision);
   }

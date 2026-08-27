@@ -7,11 +7,13 @@ import re
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from learning_authoring.artifacts import read_json, write_json
-from learning_authoring.extractor import ExtractionConfig, run_extraction
 from learning_authoring.source import inspect_pdf
+
+if TYPE_CHECKING:
+    from learning_authoring.extractor import ExtractionConfig
 
 BATCH_VERSION = "extraction-batch.v1"
 DAY_PATTERN = re.compile(r"day[ _-]*0*([0-9]{1,2})", re.IGNORECASE)
@@ -176,6 +178,8 @@ def run_batch(
     continue_on_error: bool = False,
 ) -> dict[str, Any]:
     """Run selected documents sequentially with isolated resumable run directories."""
+
+    from learning_authoring.extractor import run_extraction
 
     preflight = preflight_batch(manifest_path)
     if not preflight["ready"]:

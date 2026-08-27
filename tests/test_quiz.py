@@ -155,7 +155,7 @@ def quiz_output(source, *, variants: int = 1) -> dict:
 def test_quiz_prompt_package_is_one_small_canonical_package() -> None:
     package = load_quiz_prompt_package()
 
-    assert package.manifest["package_version"] == "quiz.v1.experimental"
+    assert package.manifest["package_version"] == "quiz.v3.experimental"
     assert package.manifest["instruction_order"] == ["foundation", "rulebook", "task"]
     assert set(package.manifest["components"]) == {
         "foundation",
@@ -208,7 +208,7 @@ def test_quiz_request_has_one_json_text_item_and_no_media(source) -> None:
         kc_set_sha256=KC_SHA256,
         config=QuizConfig(selected_kc_ids=("KC-001",), variants_per_kc=1),
     )
-    package = load_quiz_prompt_package()
+    package = load_quiz_prompt_package(schema_version=payload["runtime"]["expected_schema_version"])
     request = build_quiz_request(
         quiz_input_payload=payload,
         instructions=package.instructions,
@@ -246,9 +246,7 @@ def test_preview_writes_canonical_artifacts_without_generation(tmp_path, source)
     assert artifacts.quiz_input.is_file()
     assert artifacts.quiz_prompt_package.is_file()
     assert artifacts.quiz_request_preview.is_file()
-    assert json.loads(request["input"][0]["content"][0]["text"]) == read_json(
-        artifacts.quiz_input
-    )
+    assert json.loads(request["input"][0]["content"][0]["text"]) == read_json(artifacts.quiz_input)
     assert not artifacts.quiz_api_response.exists()
 
 
@@ -278,6 +276,4 @@ def test_generation_preserves_raw_output_and_writes_form_audit(tmp_path, source)
     assert result.metrics["quality_status"] == "experimental_unapproved"
     assert json.loads(artifacts.quiz_raw_output.read_text()) == raw
     assert QuizBatch.model_validate(read_json(artifacts.quiz_proposed))
-    assert read_json(artifacts.quiz_form_audit)["scope"].startswith(
-        "surface-form heuristics"
-    )
+    assert read_json(artifacts.quiz_form_audit)["scope"].startswith("surface-form heuristics")

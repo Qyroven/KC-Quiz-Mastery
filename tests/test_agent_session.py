@@ -175,14 +175,19 @@ def _forbid_provider_use(monkeypatch) -> None:
     monkeypatch.setattr("learning_authoring.provider.build_client", forbidden)
     monkeypatch.setattr("learning_authoring.gateway.execute_response", forbidden)
     for module in ("extractor", "kc", "quiz"):
-        monkeypatch.setattr(f"learning_authoring.{module}.build_client", forbidden)
-        monkeypatch.setattr(f"learning_authoring.{module}.execute_response", forbidden)
+        monkeypatch.setattr(f"learning_authoring.{module}.build_client", forbidden, raising=False)
+        monkeypatch.setattr(
+            f"learning_authoring.{module}.execute_response", forbidden, raising=False,
+        )
 
 
-def test_agent_schema_emits_the_three_existing_contracts() -> None:
+def test_agent_schema_defaults_to_slots_but_still_emits_legacy_contract() -> None:
     assert agent_schema("extraction")["title"] == "ExtractedSourcePayload"
     assert agent_schema("kc")["title"] == "ProposedKCSet"
-    assert agent_schema("quiz")["title"] == "QuizBatch"
+    assert agent_schema("quiz")["title"] == "QuizBatchV3"
+    assert agent_schema("quiz", legacy_quiz=True)["properties"]["schema_version"]["const"] == (
+        "quiz-batch.v1"
+    )
 
 
 def test_agent_cli_exposes_portable_task_and_import_runtime_options() -> None:

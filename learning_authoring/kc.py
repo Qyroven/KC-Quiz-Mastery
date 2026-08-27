@@ -22,10 +22,7 @@ from learning_authoring.artifacts import (
 )
 from learning_authoring.audit import reported_cost, response_usage
 from learning_authoring.contracts import ExtractedSource
-from learning_authoring.gateway import execute_response
 from learning_authoring.kc_contracts import ProposedKCSet
-from learning_authoring.provider import build_client, normalized_model
-from learning_authoring.requests import build_kc_request
 
 STAGE_VERSION = "approved-extraction-to-kc.v1"
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -167,9 +164,23 @@ def prepare_kc_request(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Validate the gate and write an exact, non-generating request preview."""
 
+    from learning_authoring.provider import normalized_model
+    from learning_authoring.requests import build_kc_request
+
     settings = config or KCConfig()
     settings.validate()
     source_artifacts = RunArtifacts(run_dir.expanduser().resolve())
+    if any(
+        path.exists() or path.is_symlink()
+        for path in (
+            source_artifacts.run_dir / "authoring-context.json",
+            source_artifacts.run_dir / "authoring-context",
+        )
+    ):
+        raise RuntimeError(
+            "supplementary authoring context requires the subscription-native agent-task KC "
+            "workflow; the legacy API adapter must not silently drop it"
+        )
     artifacts = RunArtifacts(
         output_dir.expanduser().resolve() if output_dir is not None else source_artifacts.run_dir
     )
@@ -245,7 +256,10 @@ def _output_text(response: Any) -> str:
 
 
 def _write_contract_error(artifacts: RunArtifacts, exc: Exception) -> None:
-    errors = exc.errors(include_url=False) if isinstance(exc, ValidationError) else None
+    errors = (
+        exc.errors(include_url=False, include_context=False)
+        if isinstance(exc, ValidationError) else None
+    )
     write_json(
         artifacts.kc_contract_errors,
         {
@@ -267,6 +281,9 @@ def run_kc_generation(
     progress: Callable[[str], None] | None = print,
 ) -> KCGenerationResult:
     """Generate a proposed KC set; never approve it automatically."""
+
+    from learning_authoring.gateway import execute_response
+    from learning_authoring.provider import build_client
 
     settings = config or KCConfig()
     request, metadata = prepare_kc_request(run_dir, config=settings, output_dir=output_dir)

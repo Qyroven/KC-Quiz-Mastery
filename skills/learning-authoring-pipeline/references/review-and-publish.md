@@ -11,11 +11,21 @@ The status vocabulary is:
 - Proposed-Extraction input used for the continuous KC demo: `PROPOSED_DEMO_ONLY`.
 - KC: `PROPOSED` and human-review-needed.
 - Quiz: `EXPERIMENTAL_UNAPPROVED` and human-review-needed.
+- Quiz initial check (separate axis): `PASS`, `REVIEW`, `REJECT`, `NOT_REVIEWED`, or `STALE`.
 - Mastery: `NOT_IMPLEMENTED`.
 
 Schema validation means the JSON matches the machine contract. Geometry/form audits are diagnostic.
 Neither is proof of semantic correctness or learning value. Never use `validated`, `approved`, or
 `production-ready` for a model-authored artifact unless the matching human approval boundary exists.
+An initial semantic PASS means no material problem was found in the inspected scope. It is not
+human approval or certification of every upstream page/KC. Incomplete source, self-review, or an
+explicit limitation cannot be presented as PASS. Check that the report binds the current input
+hashes; modified questions, KCs, source, or context invalidate earlier review.
+
+Hints are authored support separate from the answer explanation. The local learner preview records
+only its current hint/answer display state. It does not persist learner evidence or compute mastery.
+Human edits remain separate revisions; they invalidate the original semantic status until reviewed
+again. In particular, a shared-review approval is not an automatic rerun of the semantic check.
 
 The default continuous draft journey does not pause at these review boundaries and does not call
 `approve`. The statuses stay visible so a reviewer can inspect the results after the whole connected
@@ -63,6 +73,8 @@ Inspect `<fresh-portal-dir>/showcase-manifest.json` and verify:
 
 - `source_run`, source filename, source ID, and page count come from this run;
 - every stage label matches the actual artifact metadata;
+- `quiz_initial_check` matches the bound report (or clearly states missing/stale), separately from
+  approval, and the Quiz view displays both hint controls and review findings;
 - every entrypoint exists and opens the matching current-run review;
 - the page inventory is derived from the manifest rather than a fixed count;
 - no stale course title, run name, content string, page number, or KC ID is embedded in the shell;
@@ -81,6 +93,7 @@ It must never contain:
 - `.env*`, credentials, or Vercel secrets;
 - source PDF/PPTX files;
 - raw agent candidates, provider envelopes, checkpoints, response IDs, or task/prompt packages;
+- private answer-material companion files from `agent-session/review-materials/`;
 - reviewer identity/notes unless explicitly required;
 - unrelated historical runs.
 

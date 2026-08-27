@@ -43,6 +43,28 @@ stage; never invent them.
 - A block's `content` may be text or a structured object/list. Use `attributes`
   only for source-grounded metadata that improves fidelity.
 
+## Visual completeness and relationships
+
+Treat a readable text layer as one representation, not evidence that all content
+was read. Reconcile the actual page's content regions before returning it. A
+title, caption, or footer does not account for an informative chart, screenshot,
+matrix, or diagram in the body. If a region cannot be understood from the PDF
+representation available to the host, inspect that one page image; otherwise
+record the unresolved region and what could not be recovered. Do not quietly
+classify an uninspected information-bearing visual as decoration.
+
+For a directed diagram, preserve identifiable nodes and edges, including the
+actual start/end nodes, direction, and the label attached to each edge. Trace the
+line to its endpoint; proximity of a label or word is not proof of connection.
+For a chart or matrix, preserve axes/row-column labels, visible values, and their
+associations. Keep uncertainty on the particular edge, cell, or region rather
+than replacing it with a plausible lesson summary. Do not normalize source
+numbers, silently complete hidden values, or correct a source illustration.
+
+A compound block may hold its own structured elements, positions, and relations;
+there is no one-block-per-slide rule. Preserve the meaningful source structure
+needed to reconstruct the diagram or table, not merely its conclusion.
+
 ## Page-level note
 
 - After extracting a page's blocks, produce exactly one `page_note` for that
@@ -77,6 +99,11 @@ stage; never invent them.
   contains valid normalized top-left bounds for that source-visible block.
   Set it to `unresolved`, keep geometry empty, and add an uncertainty when the
   block is visible but cannot yet be located reliably. Never guess coordinates.
+- Bounds must localize the represented content, not act as a validation shortcut.
+  A full-page box is valid only for genuinely page-spanning content; it does not
+  locate each text box, diagram node, or plotted element inside that page. For a
+  compound visual retain source-grounded internal layout when recoverable. If
+  those positions cannot be established, explicitly disclose that limit.
 - An ambiguous claim may still be spatially `located`. Source ambiguity is a
   review issue, not a reason to erase otherwise valid geometry.
 - For a visually meaningful block, reference that page's code-owned image using

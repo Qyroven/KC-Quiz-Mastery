@@ -1,17 +1,20 @@
 [project]
 name = "learning-authoring-tool"
-version = "0.1.0"
-description = "Portable Agent Skill for review-gated PDF extraction, KC, and experimental Quiz"
+version = "0.4.0"
+description = "Portable Agent Skill for contextual KC, adaptive Quiz hints and initial semantic review"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "openai>=2,<3",
   "pydantic>=2.10,<3",
   "pypdfium2",
-  "python-dotenv",
 ]
 
 [project.optional-dependencies]
+# Historical provider adapters are not part of the subscription-native skill.
+legacy-api = [
+  "openai>=2,<3",
+  "python-dotenv",
+]
 dev = [
   "pytest",
   "ruff",

@@ -7,6 +7,7 @@ import json
 import os
 import time
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,16 +23,24 @@ from learning_authoring.artifacts import (
     write_text,
 )
 from learning_authoring.audit import reported_cost, response_usage
-from learning_authoring.gateway import execute_response
+from learning_authoring.authoring_context import CONTEXT_MANIFEST, load_authoring_context
+from learning_authoring.contracts import SourceDescriptor
 from learning_authoring.kc_contracts import ProposedKCSet
-from learning_authoring.provider import build_client, normalized_model
-from learning_authoring.quiz_contracts import QuizBatch, QuizSourceRef
+from learning_authoring.quiz_contracts import (
+    CURRENT_QUIZ_INPUT_VERSION,
+    CURRENT_QUIZ_SCHEMA_VERSION,
+    QuizBatch,
+    QuizBatchV2,
+    QuizBatchV3,
+    QuizSchemaVersion,
+    QuizSourceRef,
+    quiz_output_schema,
+)
 from learning_authoring.quiz_quality import build_quiz_form_audit
-from learning_authoring.requests import build_quiz_request
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_PROMPT_DIR = PACKAGE_DIR / "prompts" / "quiz-v1"
-STAGE_VERSION = "quiz.v1.experimental"
+STAGE_VERSION = "quiz.v3.experimental"
 PROMPT_COMPONENTS = ("foundation", "rulebook", "task")
 ALLOWED_INTERACTIONS = (
     "single_select",
@@ -58,7 +67,12 @@ class QuizConfig:
     prompt_dir: Path = DEFAULT_PROMPT_DIR
     selected_kc_ids: tuple[str, ...] = ()
     include_all_kcs: bool = False
-    variants_per_kc: int = 2
+    variants_per_kc: int | None = None
+    min_slots_per_kc: int = 1
+    max_slots_per_kc: int | None = None
+    variants_per_slot: int | None = None
+    max_variants_per_slot: int | None = None
+    total_question_budget: int | None = None
     allowed_interactions: tuple[str, ...] = ALLOWED_INTERACTIONS
     language: str = "source"
     poll_interval_seconds: float = 5.0
@@ -90,8 +104,38 @@ class QuizConfig:
             raise ValueError("select at least one KC or enable include_all_kcs")
         if len(self.selected_kc_ids) != len(set(self.selected_kc_ids)):
             raise ValueError("selected KC IDs must be unique")
-        if self.variants_per_kc < 1:
-            raise ValueError("variants_per_kc must be at least 1")
+        if self.min_slots_per_kc is None:
+            raise ValueError("min_slots_per_kc must be at least 1")
+        for name in (
+            "variants_per_kc",
+            "min_slots_per_kc",
+            "max_slots_per_kc",
+            "variants_per_slot",
+            "max_variants_per_slot",
+            "total_question_budget",
+        ):
+            value = getattr(self, name)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int) or value < 1
+            ):
+                raise ValueError(f"{name} must be a positive integer when supplied")
+        if self.max_slots_per_kc is not None and self.max_slots_per_kc < self.min_slots_per_kc:
+            raise ValueError("max_slots_per_kc must be at least min_slots_per_kc")
+        if (
+            self.variants_per_slot is not None
+            and self.max_variants_per_slot is not None
+            and (self.variants_per_slot > self.max_variants_per_slot)
+        ):
+            raise ValueError("variants_per_slot exceeds max_variants_per_slot")
+        if self.variants_per_kc is not None and (
+            self.min_slots_per_kc != 1
+            or self.max_slots_per_kc is not None
+            or self.variants_per_slot is not None
+            or self.max_variants_per_slot is not None
+        ):
+            raise ValueError(
+                "legacy variants_per_kc cannot be combined with assessment-slot limits"
+            )
         if not self.allowed_interactions or set(self.allowed_interactions) - set(
             ALLOWED_INTERACTIONS
         ):
@@ -112,13 +156,16 @@ class QuizGenerationResult:
     metrics: dict[str, Any]
 
 
-def load_quiz_prompt_package(prompt_dir: Path = DEFAULT_PROMPT_DIR) -> QuizPromptPackage:
+def load_quiz_prompt_package(
+    prompt_dir: Path = DEFAULT_PROMPT_DIR,
+    *,
+    schema_version: QuizSchemaVersion = CURRENT_QUIZ_SCHEMA_VERSION,
+) -> QuizPromptPackage:
     texts = {
         component: (prompt_dir / f"{component}.md").read_text(encoding="utf-8")
         for component in PROMPT_COMPONENTS
     }
-    output_schema = QuizBatch.model_json_schema()
-    output_schema.pop("$schema", None)
+    output_schema = quiz_output_schema(schema_version)
     instructions = "\n\n".join(texts[component] for component in PROMPT_COMPONENTS)
     components: dict[str, Any] = {
         component: {
@@ -130,7 +177,8 @@ def load_quiz_prompt_package(prompt_dir: Path = DEFAULT_PROMPT_DIR) -> QuizPromp
     }
     schema_bytes = json.dumps(output_schema, ensure_ascii=False, sort_keys=True).encode()
     components["output_schema"] = {
-        "source": "learning_authoring.quiz_contracts.QuizBatch",
+        "source": "learning_authoring.quiz_contracts.quiz_output_schema",
+        "schema_version": schema_version,
         "sha256": hashlib.sha256(schema_bytes).hexdigest(),
         "content": output_schema,
     }
@@ -153,11 +201,25 @@ def build_quiz_input(
     *,
     kc_set_sha256: str,
     config: QuizConfig,
+    raw_kc_set: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Compile only selected Leaf KCs, referenced groups, and runtime policy."""
+    """Compile selected original KC/group records and code-owned runtime policy.
+
+    File-backed callers supply the parsed raw JSON as well as its validated model.
+    Validation defaults must not be injected into the downstream copy: absent and
+    explicit-empty fields have different browser review baseline hashes.  Model-only
+    callers keep their historical normalized representation.
+    """
 
     config.validate()
+    if raw_kc_set is None:
+        original = kc_set.model_dump(mode="json")
+    else:
+        if ProposedKCSet.model_validate(raw_kc_set) != kc_set:
+            raise ValueError("raw KC set does not match the validated KC set")
+        original = raw_kc_set
     kc_by_id = {kc.kc_id: kc for kc in kc_set.leaf_kcs}
+    original_kc_by_id = {kc["kc_id"]: kc for kc in original["leaf_kcs"]}
     selected_kc_ids = (
         tuple(kc.kc_id for kc in kc_set.leaf_kcs)
         if config.include_all_kcs
@@ -166,37 +228,68 @@ def build_quiz_input(
     unknown = set(selected_kc_ids) - set(kc_by_id)
     if unknown:
         raise ValueError(f"selected unknown KC IDs: {sorted(unknown)}")
+    if not selected_kc_ids:
+        raise ValueError("Quiz requires at least one selected Leaf KC")
+
+    adaptive = config.variants_per_kc is None
+    expected_question_count = None if adaptive else len(selected_kc_ids) * config.variants_per_kc
+    minimum_question_count = (
+        len(selected_kc_ids) * config.min_slots_per_kc * (config.variants_per_slot or 1)
+        if adaptive
+        else expected_question_count
+    )
+    if config.total_question_budget is not None and (
+        minimum_question_count > config.total_question_budget
+    ):
+        raise ValueError(
+            f"infeasible total_question_budget {config.total_question_budget}: "
+            f"covering all {len(selected_kc_ids)} selected KCs with the configured minimum "
+            f"requires at least {minimum_question_count} questions; no KCs will be truncated"
+        )
 
     selected_kcs = [kc_by_id[kc_id] for kc_id in selected_kc_ids]
     selected_group_ids = {kc.group_id for kc in selected_kcs}
     selected_groups = [
-        group.model_dump(mode="json")
-        for group in kc_set.kc_groups
-        if group.group_id in selected_group_ids
+        deepcopy(group)
+        for group in original["kc_groups"]
+        if group["group_id"] in selected_group_ids
     ]
     source_ref = QuizSourceRef(
         extraction_source_id=kc_set.source_ref.source_id,
         extraction_source_sha256=kc_set.source_ref.source_sha256,
         kc_set_sha256=kc_set_sha256,
+        authoring_context_sha256=getattr(kc_set.source_ref, "authoring_context_sha256", None),
     )
+    if any(getattr(kc, "context_evidence", []) for kc in selected_kcs) and (
+        not source_ref.authoring_context_sha256
+    ):
+        raise ValueError("selected KC context evidence requires a bound authoring context hash")
     return {
-        "input_version": "quiz-input.v1",
+        "input_version": CURRENT_QUIZ_INPUT_VERSION if adaptive else "quiz-input.v1",
         "source_ref": source_ref.model_dump(mode="json"),
         "runtime": {
             "selected_kc_ids": list(selected_kc_ids),
+            "assessment_mode": "adaptive_slots" if adaptive else "legacy_per_kc",
+            "expected_schema_version": (
+                CURRENT_QUIZ_SCHEMA_VERSION if adaptive else "quiz-batch.v1"
+            ),
             "variants_per_kc": config.variants_per_kc,
-            "expected_question_count": len(selected_kc_ids) * config.variants_per_kc,
+            "min_slots_per_kc": config.min_slots_per_kc,
+            "max_slots_per_kc": config.max_slots_per_kc,
+            "variants_per_slot": config.variants_per_slot,
+            "max_variants_per_slot": config.max_variants_per_slot,
+            "total_question_budget": config.total_question_budget,
+            "expected_question_count": expected_question_count,
+            "minimum_question_count": minimum_question_count,
             "allowed_interactions": list(config.allowed_interactions),
             "language": config.language,
         },
         "kc_groups": selected_groups,
-        "leaf_kcs": [kc.model_dump(mode="json") for kc in selected_kcs],
+        "leaf_kcs": [deepcopy(original_kc_by_id[kc_id]) for kc_id in selected_kc_ids],
     }
 
 
-def _fingerprint(
-    *, input_sha256: str, prompt_sha256: str, model: str, config: QuizConfig
-) -> str:
+def _fingerprint(*, input_sha256: str, prompt_sha256: str, model: str, config: QuizConfig) -> str:
     descriptor = {
         "stage_version": STAGE_VERSION,
         "input_sha256": input_sha256,
@@ -220,6 +313,9 @@ def prepare_quiz_request(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Freeze one exact Quiz request without calling the provider."""
 
+    from learning_authoring.provider import normalized_model
+    from learning_authoring.requests import build_quiz_request
+
     config.validate()
     root = run_dir.expanduser().resolve()
     resolved_kc = (kc_path or (root / "kc-proposed.json")).expanduser().resolve()
@@ -227,10 +323,38 @@ def prepare_quiz_request(
     if not resolved_kc.is_file():
         raise RuntimeError(f"KC set is missing: {resolved_kc}")
 
-    kc_set = ProposedKCSet.model_validate(read_json(resolved_kc))
+    raw_kc_set = read_json(resolved_kc)
+    kc_set = ProposedKCSet.model_validate(raw_kc_set)
+    context_sha256 = getattr(kc_set.source_ref, "authoring_context_sha256", None)
+    if (
+        context_sha256
+        or (root / CONTEXT_MANIFEST).exists()
+        or (root / CONTEXT_MANIFEST).is_symlink()
+        or (root / "authoring-context").exists()
+    ):
+        manifest_path = root / "source-manifest.json"
+        if not manifest_path.is_file():
+            raise ValueError("source manifest is required to verify Quiz authoring-context binding")
+        source = SourceDescriptor.model_validate(read_json(manifest_path)["source"])
+        context = load_authoring_context(root, source)
+        if context_sha256 != (context.sha256 if context else None):
+            raise ValueError("KC authoring context SHA-256 does not match the current run context")
+        if kc_set.source_ref.source_sha256 != source.sha256 or (
+            kc_set.source_ref.source_id != source.source_id
+        ):
+            raise ValueError("KC source identity does not match the Quiz run")
+        if context is not None:
+            for kc in kc_set.leaf_kcs:
+                for evidence in kc.context_evidence:
+                    evidence.validate_against_context(context)
     kc_sha256 = sha256_file(resolved_kc)
-    quiz_input = build_quiz_input(kc_set, kc_set_sha256=kc_sha256, config=config)
-    prompt_package = load_quiz_prompt_package(config.prompt_dir)
+    quiz_input = build_quiz_input(
+        kc_set, kc_set_sha256=kc_sha256, config=config, raw_kc_set=raw_kc_set,
+    )
+    prompt_package = load_quiz_prompt_package(
+        config.prompt_dir,
+        schema_version=quiz_input["runtime"]["expected_schema_version"],
+    )
     model = normalized_model(config.model, config.base_url)
     request = build_quiz_request(
         quiz_input_payload=quiz_input,
@@ -264,7 +388,16 @@ def prepare_quiz_request(
         "prompt_package_sha256": prompt_package.manifest["package_sha256"],
         "kc_set": {"path": str(resolved_kc), "sha256": kc_sha256},
         "selected_kc_ids": quiz_input["runtime"]["selected_kc_ids"],
+        "assessment_mode": quiz_input["runtime"]["assessment_mode"],
+        "expected_schema_version": quiz_input["runtime"]["expected_schema_version"],
         "variants_per_kc": config.variants_per_kc,
+        "min_slots_per_kc": config.min_slots_per_kc,
+        "max_slots_per_kc": config.max_slots_per_kc,
+        "variants_per_slot": config.variants_per_slot,
+        "max_variants_per_slot": config.max_variants_per_slot,
+        "total_question_budget": config.total_question_budget,
+        "minimum_question_count": quiz_input["runtime"]["minimum_question_count"],
+        "expected_question_count": quiz_input["runtime"]["expected_question_count"],
         "model_input_items": [
             "selected original Leaf KCs",
             "their referenced KC Groups",
@@ -312,6 +445,9 @@ def run_quiz_generation(
 ) -> QuizGenerationResult:
     """Generate raw Quiz questions once; never repair, rewrite, or approve them."""
 
+    from learning_authoring.gateway import execute_response
+    from learning_authoring.provider import build_client
+
     root = run_dir.expanduser().resolve()
     destination = (output_dir or (root / "quiz")).expanduser().resolve()
     request, metadata = prepare_quiz_request(
@@ -357,7 +493,13 @@ def run_quiz_generation(
     raw_output = _output_text(response)
     write_text(artifacts.quiz_raw_output, raw_output)
     try:
-        proposed = QuizBatch.model_validate_json(raw_output)
+        expected_schema = quiz_input["runtime"]["expected_schema_version"]
+        if expected_schema == "quiz-batch.v3":
+            proposed = QuizBatchV3.model_validate_json(raw_output, strict=True)
+        elif expected_schema == "quiz-batch.v2":
+            proposed = QuizBatchV2.model_validate_json(raw_output, strict=True)
+        else:
+            proposed = QuizBatch.model_validate_json(raw_output)
         proposed.validate_against_input(quiz_input)
     except (ValidationError, ValueError, RuntimeError) as exc:
         write_json(
@@ -367,7 +509,7 @@ def run_quiz_generation(
                 "error_type": type(exc).__name__,
                 "message": str(exc),
                 "errors": (
-                    json.loads(exc.json(include_url=False))
+                    json.loads(exc.json(include_url=False, include_context=False))
                     if isinstance(exc, ValidationError)
                     else None
                 ),
@@ -396,10 +538,12 @@ def run_quiz_generation(
         "generation_calls": 1,
         "selected_kc_count": len(quiz_input["runtime"]["selected_kc_ids"]),
         "question_count": len(proposed.questions),
+        "assessment_slot_count": len(proposed.assessment_slots),
+        "hint_count": sum(len(question.hints) for question in proposed.questions),
+        "schema_version": proposed.schema_version,
+        "assessment_mode": quiz_input["runtime"]["assessment_mode"],
         "interaction_counts": {
-            interaction: sum(
-                question.interaction == interaction for question in proposed.questions
-            )
+            interaction: sum(question.interaction == interaction for question in proposed.questions)
             for interaction in config.allowed_interactions
         },
         "model_elapsed_seconds": round(provider_elapsed, 6),
@@ -409,7 +553,7 @@ def run_quiz_generation(
         "resumed": resumed,
         "completed_at": datetime.now(UTC).isoformat(),
     }
-    write_json(artifacts.quiz_proposed, proposed.model_dump(mode="json"))
+    write_text(artifacts.quiz_proposed, raw_output)
     write_json(artifacts.quiz_form_audit, build_quiz_form_audit(proposed))
     write_json(artifacts.quiz_metrics, metrics)
     if artifacts.quiz_contract_errors.exists():

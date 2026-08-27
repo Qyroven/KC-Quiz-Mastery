@@ -1,12 +1,13 @@
 # Quiz — Task
 
-Return only JSON matching the supplied schema.
+On successful generation, return only JSON matching the supplied schema. If missing source content or an unsupported representation makes a valid fully covered batch impossible, report that specific blocker to the coordinating agent instead of fabricating a successful Quiz artifact. This exception is for actual missing capability or evidence, not a request to stop at a routine review gate.
 
-For each selected KC:
+In this single generation stage:
 
-1. Identify its essential learner evidence from the KC itself.
-2. Draft the configured number of materially different standalone questions.
-3. Check each question without using its answer explanation: the stimulus does not reveal the answer, every distractor is initially plausible, and the answer cannot be guessed from length, tone, or position.
-4. Check the interaction serialization, exact answer, concise explanation, evidence references, IDs, and variant indexes.
+1. Read every selected KC and identify the distinct learner evidence it actually supports, within its assessment boundary. In adaptive mode, encode those choices as justified assessment slots, respecting only the supplied bounds. Select cognitive operations and difficulty honestly; do not fill a prescribed ladder.
+2. Choose the useful variant count for each slot unless the runtime provides an exact override. Draft the slot's questions as alternate items for that same evidence intent and operation, not as different reasoning targets disguised as variants. For current v3, author each item's useful hints at the same time, or explain why no safe helpful hint exists. Return the slots, all their questions, and their hint decisions together. For explicit legacy mode, follow the v1 per-KC count instead.
+3. Read every final learner view without its key or hints. What must the learner actually work out, and what did the title or stem already do for them? Keep necessary facts, remove answer-bearing scaffolds and generator-facing language, then set the slot's Bloom and intended difficulty to the remaining work. Check that each distractor reflects a credible mistake, not an extreme strawman, and the key cannot be guessed from tone, detail, length, or position. Verify that code is clearly executable, pseudocode, or a labeled excerpt, with no ambiguous ellipsis on the assessed path. Compare sibling variants for useful practice, not superficial variation. Replace padding with useful work or an honestly smaller adaptive plan within the supplied constraints. Do this before submitting the candidate, not by editing saved output afterwards.
+4. For `short_text`, compare each rubric criterion with the visible task: was that deliverable actually requested, and would a different valid answer receive credit? Remove hidden categories, unrequested derivations, and wording-only requirements. For every other interaction, verify its ID-based key and keep `rubric: []` and `correct_answer.text: ""`; use `answer_explanation` for the explanation. Then test the complete ordered hint sequence: after any prefix, does meaningful work remain, including unresolved matching pairs or ordering relationships? Keep necessary facts visible before hints. Revise leaking or redundant hints before the first submission; never move a completed key or post-answer explanation into a hint.
+5. Check complete selected-KC coverage, slot identities and counts, contiguous variant indexes in the correct scope, total-budget compliance, interaction serialization, exact scoring keys, concise explanations, explicit v3 hint decisions with unique local IDs, and PDF/context references against the owning KC. Report unsupported or missing source content as a blocker instead of fabricating successful output.
 
 Do not rewrite the KC, repair an earlier Quiz, or claim that any question passed review.

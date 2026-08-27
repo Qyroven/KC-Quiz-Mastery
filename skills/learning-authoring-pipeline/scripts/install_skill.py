@@ -77,7 +77,10 @@ def _timestamped_backup(destination: Path, label: str) -> Path:
 
 
 def _install(source: Path, destination: Path, *, replace: bool, dry_run: bool) -> str:
-    destination = destination.expanduser().resolve(strict=False)
+    # Replace the discovery entry, never the target of an existing symlink.
+    destination = destination.expanduser().absolute()
+    if not destination.is_symlink() and destination.resolve() == source.resolve():
+        raise RuntimeError("refusing to replace the canonical skill directory with itself")
     existing = destination.exists() or destination.is_symlink()
     if existing and not replace:
         raise FileExistsError(

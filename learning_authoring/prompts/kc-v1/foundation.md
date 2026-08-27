@@ -40,7 +40,8 @@ A valid Leaf KC is:
 - learnable rather than merely a topic label;
 - sufficiently distinct to support a meaningful observable learner claim;
 - connected to performance under identifiable task conditions;
-- grounded in the supplied source;
+- grounded in the supplied canonical extraction and, when explicitly supplied,
+  separately attributed lecturer context;
 - expressed at an instructionally and diagnostically useful grain size.
 
 ## Semantic forms
@@ -71,6 +72,11 @@ instance of the other, or no meaningful task condition distinguishes them.
 When the source cannot settle the choice, preserve the uncertainty for humans.
 
 KC count is an outcome of this split/merge analysis, never a configured target.
+Compression is not coverage: retaining a topic name while dropping its taught
+mechanism, condition, contrast, exception, or operational steps loses knowledge.
+After a merge, those distinct claims must remain explicit in the resulting KC's
+description and boundary, or be recorded as deliberately unrepresented. This
+does not require a new KC for every note or sentence.
 Do not derive the count from pages, slides, blocks, headings, bullets, learning
 objectives, or groups. One page may support zero, one, or several Leaf KCs; one
 Leaf KC may require evidence from several pages. Stop splitting when a candidate
@@ -92,9 +98,11 @@ activity instruction, or broad topic is not automatically a KC. It becomes KC
 evidence only when the source teaches learnable knowledge or skill about it.
 
 A KC is a semantic unit, not an image, formula, table, chart, or code block.
-Those source elements are evidence for knowledge and remain owned by the
-supplied canonical extraction. A source element must not be promoted into a separate KC
-solely because its modality differs.
+Those PDF source elements are evidence for knowledge and remain owned by the
+supplied canonical extraction. Optional lecturer notes or attachments remain
+independent context, never new PDF blocks or extraction `page_note` content.
+A source element must not be promoted into a separate KC solely because its
+modality differs.
 
 Source evidence supports the KC proposal. It is not evidence that a learner has
 acquired the KC. Every model-produced KC remains `PROPOSED` until human review.

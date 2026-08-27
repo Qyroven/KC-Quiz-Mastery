@@ -1,11 +1,12 @@
-"""OpenAI client construction and non-generating connectivity checks."""
+"""Optional historical provider adapter; never needed by native agent commands."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from openai import OpenAI
+if TYPE_CHECKING:
+    from openai import OpenAI
 
 
 def normalized_base_url(value: str | None) -> str | None:
@@ -29,6 +30,15 @@ def build_client(
     base_url: str | None,
     timeout_seconds: float | None = None,
 ) -> OpenAI:
+    try:
+        from openai import OpenAI
+    except ImportError as exc:
+        raise RuntimeError(
+            "The historical model-provider API adapter requires the optional 'legacy-api' "
+            "extra. Subscription-native authoring uses agent-init, agent-task, and "
+            "agent-import without an SDK, API key, or .env file."
+        ) from exc
+
     kwargs: dict[str, Any] = {"api_key": api_key, "max_retries": 0}
     endpoint = normalized_base_url(base_url)
     if endpoint is not None:

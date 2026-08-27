@@ -18,6 +18,9 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
+from learning_authoring.authoring_context import load_authoring_context
+from learning_authoring.contracts import SourceDescriptor
+
 PACKAGE_ROOT = Path(__file__).resolve().parent
 DEFAULT_TEMPLATE_DIR = PACKAGE_ROOT / "showcase_assets"
 MANAGED_BY = "learning-authoring portal-build"
@@ -591,6 +594,28 @@ def _parse_extraction_review(
     _require_source_identity(embedded_source, metadata, "Extraction embedded manifest")
 
 
+def _require_context_lineage(
+    source_ref: dict[str, object], run_dir: Path, metadata: SourceMetadata, label: str
+) -> None:
+    """Verify supplemental input identity without copying private context inputs."""
+
+    try:
+        context = load_authoring_context(
+            run_dir,
+            SourceDescriptor(
+                source_id=metadata.source_id,
+                filename=metadata.filename,
+                sha256=metadata.source_sha256,
+                page_count=metadata.page_count,
+            ),
+        )
+    except (OSError, ValueError) as exc:
+        raise PublishSafetyError(f"{label} authoring context is invalid: {exc}") from exc
+    expected_hash = context.sha256 if context is not None else None
+    if source_ref.get("authoring_context_sha256") != expected_hash:
+        raise PublishSafetyError(f"{label} authoring context hash is stale or missing")
+
+
 def _parse_kc_review(
     path: Path,
     run_dir: Path,
@@ -632,6 +657,7 @@ def _parse_kc_review(
         raise PublishSafetyError("KC candidate source hash does not match source manifest")
     if metadata.source_id is not None and source_ref.get("source_id") != metadata.source_id:
         raise PublishSafetyError("KC candidate source id does not match source manifest")
+    _require_context_lineage(source_ref, run_dir, metadata, "KC candidate")
     if payload.get("scroll_mode") is not expected_scroll_mode:
         expected = "scroll" if expected_scroll_mode else "recall"
         raise PublishSafetyError(f"Selected KC {expected} review has the wrong view mode")
@@ -735,6 +761,14 @@ def _parse_quiz_review(
         canonical = _read_run_json(run_dir, Path("quiz") / filename, label)
         if payload.get(payload_key) != canonical:
             raise PublishSafetyError(f"Selected Quiz review does not match run-local {filename}")
+    from learning_authoring.quiz_review_state import load_quiz_semantic_state
+
+    semantic_state = load_quiz_semantic_state(run_dir)
+    if "semantic_audit" in payload or semantic_state["status"] != "NOT_REVIEWED":
+        if payload.get("semantic_audit") != semantic_state:
+            raise PublishSafetyError(
+                "Selected Quiz review has stale or unbound semantic status; rebuild the review"
+            )
     quiz = _nested_object(payload, "quiz", label="Quiz artifact")
     source_ref = _nested_object(quiz, "source_ref", label="Quiz source reference")
     expected_ref = {
@@ -746,8 +780,14 @@ def _parse_quiz_review(
     for key, value in expected_ref.items():
         if source_ref.get(key) != value:
             raise PublishSafetyError(f"Quiz {key} does not match its connected upstream artifact")
+    _require_context_lineage(source_ref, run_dir, metadata, "Quiz")
     quiz_input_ref = _nested_object(payload, "input", "source_ref", label="Quiz input source")
-    if quiz_input_ref != source_ref:
+    # v1 may omit this optional hash while the current input writer emits null.
+    # Normalize only that default for comparison; keep the raw artifacts and all
+    # other identity fields (including unexpected keys) unchanged and strict.
+    normalized_input_ref = {"authoring_context_sha256": None, **quiz_input_ref}
+    normalized_output_ref = {"authoring_context_sha256": None, **source_ref}
+    if normalized_input_ref != normalized_output_ref:
         raise PublishSafetyError("Quiz input and output source references do not match")
     stage_metadata = _nested_object(payload, "metadata", label="Quiz metadata")
     if stage_metadata.get("stage") != "quiz":
@@ -1176,6 +1216,9 @@ def build_showcase(
             "quiz": summary.quiz_status.code,
             "mastery": MASTERY_ROADMAP.code,
         }
+        from learning_authoring.quiz_review_state import load_quiz_semantic_state
+
+        semantic_state = load_quiz_semantic_state(run_dir)
         manifest: dict[str, object] = {
             "schema_version": "learning-authoring-showcase.v3",
             "managed_by": MANAGED_BY,
@@ -1209,6 +1252,12 @@ def build_showcase(
                 "kc_to_quiz": "VERIFIED",
             },
             "stage_status": stage_status,
+            "quiz_initial_check": {
+                "status": semantic_state["status"],
+                "counts": semantic_state.get("counts", {}),
+                "human_approved": False,
+                "scope": "selected_quiz_and_cited_sources_not_course_certification",
+            },
             "shared_review": {
                 "enabled": review_backend is not None,
                 "provider": "supabase" if review_backend is not None else None,

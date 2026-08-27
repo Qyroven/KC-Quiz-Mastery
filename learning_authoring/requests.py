@@ -266,6 +266,17 @@ def build_quiz_request(
     """Build one compact Quiz call with no PDF, PNG, or unrelated KC input."""
 
     schema_for_api = {key: value for key, value in output_schema.items() if key != "$schema"}
+    schema_version = schema_for_api.get("properties", {}).get("schema_version", {}).get("const")
+    schema_names = {
+        "quiz-batch.v1": "quiz_batch_v1",
+        "quiz-batch.v2": "quiz_batch_v2",
+        "quiz-batch.v3": "quiz_batch_v3",
+    }
+    if schema_version not in schema_names:
+        raise ValueError("Quiz request requires a supported version-specific output schema")
+    expected_schema = quiz_input_payload["runtime"].get("expected_schema_version", schema_version)
+    if expected_schema != schema_version:
+        raise ValueError("Quiz request output schema does not match its frozen runtime policy")
     request: dict[str, Any] = {
         "model": model,
         "reasoning": {"effort": reasoning_effort},
@@ -284,7 +295,7 @@ def build_quiz_request(
         "text": {
             "format": {
                 "type": "json_schema",
-                "name": "quiz_batch_v1",
+                "name": schema_names[schema_version],
                 "strict": True,
                 "schema": schema_for_api,
             }

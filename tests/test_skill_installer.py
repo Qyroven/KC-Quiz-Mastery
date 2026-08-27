@@ -45,3 +45,20 @@ def test_replacing_personal_skill_keeps_backup_outside_discovery(tmp_path: Path)
         "old installation"
     )
     assert "previous installation backed up" in result.stdout
+
+
+def test_replace_symlink_backs_up_discovery_entry_not_its_target(tmp_path: Path) -> None:
+    destination = tmp_path / ".agents/skills/learning-authoring-pipeline"
+    canonical = tmp_path / "canonical"
+    canonical.mkdir()
+    (canonical / "SKILL.md").write_text("keep this source", encoding="utf-8")
+    destination.parent.mkdir(parents=True)
+    destination.symlink_to(canonical, target_is_directory=True)
+
+    _install(tmp_path, "--replace")
+
+    assert not destination.is_symlink()
+    assert "keep this source" == (canonical / "SKILL.md").read_text()
+    backups = list((tmp_path / ".agents/skill-backups").glob("*.backup-*"))
+    assert len(backups) == 1 and backups[0].is_symlink()
+    assert backups[0].resolve() == canonical

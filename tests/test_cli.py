@@ -3,11 +3,16 @@ from __future__ import annotations
 import json
 import os
 
+import pytest
+
 from learning_authoring.cli import _config, _load_env_before_parser, _parser, main
+from learning_authoring.showcase import build_showcase
 from tests.conftest import write_blank_pdf
+from tests.test_publish_showcase import _fake_run
 
 
 def test_env_file_is_loaded_before_argument_defaults(tmp_path, monkeypatch) -> None:
+    pytest.importorskip("dotenv", reason="only the optional legacy-api extra loads .env")
     env_file = tmp_path / ".env"
     env_file.write_text("LEARNING_AUTHORING_MODEL=env-model\n", encoding="utf-8")
     monkeypatch.setenv("LEARNING_AUTHORING_MODEL", "inherited-model")
@@ -18,6 +23,7 @@ def test_env_file_is_loaded_before_argument_defaults(tmp_path, monkeypatch) -> N
 
 
 def test_explicit_env_file_clears_inherited_optional_base_url(tmp_path, monkeypatch) -> None:
+    pytest.importorskip("dotenv", reason="only the optional legacy-api extra loads .env")
     env_file = tmp_path / ".env"
     env_file.write_text("LEARNING_AUTHORING_MODEL=gpt-test\n", encoding="utf-8")
     monkeypatch.setenv("OPENAI_BASE_URL", "invalid-inherited-endpoint")
@@ -99,7 +105,7 @@ def test_experimental_quiz_commands_are_not_public() -> None:
 def test_portal_build_defaults_to_run_local_connected_portal(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    run_dir = tmp_path / "run"
+    run_dir = _fake_run(tmp_path, page_count=1)
     captured: dict[str, object] = {}
 
     def fake_build(run, output, *, review_files, review_backend=None):
@@ -109,12 +115,7 @@ def test_portal_build_defaults_to_run_local_connected_portal(
             review_files=review_files,
             review_backend=review_backend,
         )
-        return {
-            "lineage": {
-                "extraction_to_kc": "VERIFIED",
-                "kc_to_quiz": "VERIFIED",
-            }
-        }
+        return build_showcase(run, output, review_files=review_files, review_backend=review_backend)
 
     monkeypatch.setattr("learning_authoring.cli.build_showcase", fake_build)
 

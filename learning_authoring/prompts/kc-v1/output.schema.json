@@ -1,121 +1,623 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
+  "$defs": {
+    "AssessmentBoundary": {
+      "additionalProperties": false,
+      "properties": {
+        "included": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Included",
+          "type": "array"
+        },
+        "excluded": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Excluded",
+          "type": "array"
+        }
+      },
+      "title": "AssessmentBoundary",
+      "type": "object"
+    },
+    "KCContextAudit": {
+      "additionalProperties": false,
+      "description": "A source-to-KC accountability record, not a semantic coverage score.\n\nUnits follow meaningful claims in free-form context, not Markdown headings,\npage ordinals, or a prescribed number of notes/KCs.",
+      "properties": {
+        "context_id": {
+          "pattern": "^CTX-[0-9]+$",
+          "title": "Context Id",
+          "type": "string"
+        },
+        "excerpt": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excerpt"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "claim": {
+          "minLength": 1,
+          "title": "Claim",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "represented",
+            "supporting_example",
+            "not_assessed",
+            "unresolved"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "kc_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kc Ids",
+          "type": "array"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "context_id",
+        "claim",
+        "disposition",
+        "reason"
+      ],
+      "title": "KCContextAudit",
+      "type": "object"
+    },
+    "KCContextEvidence": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "properties": {
+            "excerpt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "excerpt"
+          ]
+        },
+        {
+          "properties": {
+            "description": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "description"
+          ]
+        }
+      ],
+      "description": "An exact lecturer-text quote or an explicitly inspected attachment observation.\n\nPages are optional semantic links, never PDF evidence or extraction block IDs.\nThe context package and its raw-item hashes provide the independent provenance.",
+      "properties": {
+        "context_id": {
+          "pattern": "^CTX-[0-9]+$",
+          "title": "Context Id",
+          "type": "string"
+        },
+        "excerpt": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excerpt"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "supports": {
+          "minLength": 1,
+          "title": "Supports",
+          "type": "string"
+        },
+        "pages": {
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "title": "Pages",
+          "type": "array"
+        },
+        "mapping_method": {
+          "default": "unmapped",
+          "enum": [
+            "explicit_page_reference",
+            "semantic_alignment",
+            "document_level",
+            "unmapped"
+          ],
+          "title": "Mapping Method",
+          "type": "string"
+        },
+        "mapping_confidence": {
+          "default": "unmapped",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            "unmapped"
+          ],
+          "title": "Mapping Confidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "context_id",
+        "supports"
+      ],
+      "title": "KCContextEvidence",
+      "type": "object"
+    },
+    "KCEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "pattern": "^EVD-[0-9]+$",
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "block_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Block Ids",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "supports": {
+          "minLength": 1,
+          "title": "Supports",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "page",
+        "block_ids",
+        "description",
+        "supports"
+      ],
+      "title": "KCEvidence",
+      "type": "object"
+    },
+    "KCGenerationWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "pages": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Pages",
+          "type": "array"
+        },
+        "block_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Block Ids",
+          "type": "array"
+        },
+        "kc_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kc Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "description"
+      ],
+      "title": "KCGenerationWarning",
+      "type": "object"
+    },
+    "KCGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "group_id": {
+          "pattern": "^KCG-[0-9]+$",
+          "title": "Group Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "leaf_kc_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Leaf Kc Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "group_id",
+        "name",
+        "description",
+        "leaf_kc_ids"
+      ],
+      "title": "KCGroup",
+      "type": "object"
+    },
+    "KCPageAudit": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "classification": {
+          "enum": [
+            "learning_content",
+            "example",
+            "exercise",
+            "context",
+            "administrative",
+            "cover",
+            "section_divider",
+            "unclear"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "kc_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kc Ids",
+          "type": "array"
+        },
+        "source_block_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Block Ids",
+          "type": "array"
+        },
+        "warning_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warning Codes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "page",
+        "classification",
+        "summary"
+      ],
+      "title": "KCPageAudit",
+      "type": "object"
+    },
+    "KCSourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "extracted-source.v2",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "authoring_context_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authoring Context Sha256"
+        }
+      },
+      "required": [
+        "schema_version",
+        "source_id",
+        "source_sha256"
+      ],
+      "title": "KCSourceRef",
+      "type": "object"
+    },
+    "LeafKC": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "properties": {
+            "source_evidence": {
+              "minItems": 1
+            }
+          },
+          "required": [
+            "source_evidence"
+          ]
+        },
+        {
+          "properties": {
+            "context_evidence": {
+              "minItems": 1
+            }
+          },
+          "required": [
+            "context_evidence"
+          ]
+        }
+      ],
+      "properties": {
+        "kc_id": {
+          "pattern": "^KC-[0-9]+$",
+          "title": "Kc Id",
+          "type": "string"
+        },
+        "group_id": {
+          "pattern": "^KCG-[0-9]+$",
+          "title": "Group Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "semantic_form": {
+          "enum": [
+            "fact",
+            "concept",
+            "distinction",
+            "principle",
+            "procedure",
+            "decision_rule"
+          ],
+          "title": "Semantic Form",
+          "type": "string"
+        },
+        "knowledge_description": {
+          "minLength": 1,
+          "title": "Knowledge Description",
+          "type": "string"
+        },
+        "observable_claim": {
+          "minLength": 1,
+          "title": "Observable Claim",
+          "type": "string"
+        },
+        "assessment_boundary": {
+          "$ref": "#/$defs/AssessmentBoundary"
+        },
+        "source_evidence": {
+          "items": {
+            "$ref": "#/$defs/KCEvidence"
+          },
+          "title": "Source Evidence",
+          "type": "array"
+        },
+        "context_evidence": {
+          "items": {
+            "$ref": "#/$defs/KCContextEvidence"
+          },
+          "title": "Context Evidence",
+          "type": "array"
+        },
+        "warning_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warning Codes",
+          "type": "array"
+        },
+        "status": {
+          "const": "PROPOSED",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kc_id",
+        "group_id",
+        "name",
+        "semantic_form",
+        "knowledge_description",
+        "observable_claim",
+        "assessment_boundary",
+        "source_evidence",
+        "status"
+      ],
+      "title": "LeafKC",
+      "type": "object"
+    },
+    "UncoveredContent": {
+      "additionalProperties": false,
+      "properties": {
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "block_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Block Ids",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "page",
+        "block_ids",
+        "description",
+        "reason"
+      ],
+      "title": "UncoveredContent",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
-  "required": ["source_ref", "source_summary", "page_audit", "kc_groups", "leaf_kcs", "uncovered_content", "generation_warnings"],
+  "description": "Model output before human KC review and approval.",
   "properties": {
     "source_ref": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["schema_version", "source_id", "source_sha256"],
-      "properties": {
-        "schema_version": {"type": "string", "const": "extracted-source.v2"},
-        "source_id": {"type": "string", "minLength": 1},
-        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-      }
+      "$ref": "#/$defs/KCSourceRef"
     },
-    "source_summary": {"type": "string", "minLength": 1},
+    "source_summary": {
+      "minLength": 1,
+      "title": "Source Summary",
+      "type": "string"
+    },
     "page_audit": {
-      "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["page", "classification", "summary", "kc_ids", "source_block_ids", "warning_codes"],
-        "properties": {
-          "page": {"type": "integer", "minimum": 1},
-          "classification": {"type": "string", "enum": ["learning_content", "example", "exercise", "context", "administrative", "cover", "section_divider", "unclear"]},
-          "summary": {"type": "string", "minLength": 1},
-          "kc_ids": {"type": "array", "items": {"type": "string", "pattern": "^KC-[0-9]+$"}},
-          "source_block_ids": {"type": "array", "description": "Existing same-page blocks materially considered for this classification or KC decision; purely decorative blocks need not be listed.", "items": {"type": "string", "minLength": 1}},
-          "warning_codes": {"type": "array", "items": {"type": "string", "minLength": 1}}
-        }
-      }
+        "$ref": "#/$defs/KCPageAudit"
+      },
+      "minItems": 1,
+      "title": "Page Audit",
+      "type": "array"
     },
     "kc_groups": {
-      "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["group_id", "name", "description", "leaf_kc_ids"],
-        "properties": {
-          "group_id": {"type": "string", "pattern": "^KCG-[0-9]+$"},
-          "name": {"type": "string", "minLength": 1},
-          "description": {"type": "string", "minLength": 1},
-          "leaf_kc_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^KC-[0-9]+$"}}
-        }
-      }
+        "$ref": "#/$defs/KCGroup"
+      },
+      "title": "Kc Groups",
+      "type": "array"
     },
     "leaf_kcs": {
-      "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["kc_id", "group_id", "name", "semantic_form", "knowledge_description", "observable_claim", "assessment_boundary", "source_evidence", "warning_codes", "status"],
-        "properties": {
-          "kc_id": {"type": "string", "pattern": "^KC-[0-9]+$"},
-          "group_id": {"type": "string", "pattern": "^KCG-[0-9]+$"},
-          "name": {"type": "string", "minLength": 1},
-          "semantic_form": {"type": "string", "enum": ["fact", "concept", "distinction", "principle", "procedure", "decision_rule"]},
-          "knowledge_description": {"type": "string", "minLength": 1},
-          "observable_claim": {"type": "string", "minLength": 1, "description": "Conditional observable capability: given an identifiable source-consistent task condition, state the learner response that can be observed; do not use unobservable 'understands' wording alone."},
-          "assessment_boundary": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["included", "excluded"],
-            "properties": {
-              "included": {"type": "array", "items": {"type": "string"}},
-              "excluded": {"type": "array", "items": {"type": "string"}}
-            }
-          },
-          "source_evidence": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["evidence_id", "page", "block_ids", "description", "supports"],
-              "properties": {
-                "evidence_id": {"type": "string", "pattern": "^EVD-[0-9]+$"},
-                "page": {"type": "integer", "minimum": 1},
-                "block_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-                "description": {"type": "string", "minLength": 1},
-                "supports": {"type": "string", "minLength": 1}
-              }
-            }
-          },
-          "warning_codes": {"type": "array", "items": {"type": "string", "minLength": 1}},
-          "status": {"type": "string", "const": "PROPOSED"}
-        }
-      }
+        "$ref": "#/$defs/LeafKC"
+      },
+      "title": "Leaf Kcs",
+      "type": "array"
     },
     "uncovered_content": {
-      "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["page", "block_ids", "description", "reason"],
-        "properties": {
-          "page": {"type": "integer", "minimum": 1},
-          "block_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-          "description": {"type": "string", "minLength": 1},
-          "reason": {"type": "string", "minLength": 1}
-        }
-      }
+        "$ref": "#/$defs/UncoveredContent"
+      },
+      "title": "Uncovered Content",
+      "type": "array"
     },
     "generation_warnings": {
-      "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["code", "description", "pages", "block_ids", "kc_ids"],
-        "properties": {
-          "code": {"type": "string", "minLength": 1},
-          "description": {"type": "string", "minLength": 1},
-          "pages": {"type": "array", "items": {"type": "integer", "minimum": 1}},
-          "block_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
-          "kc_ids": {"type": "array", "items": {"type": "string", "pattern": "^KC-[0-9]+$"}}
-        }
-      }
+        "$ref": "#/$defs/KCGenerationWarning"
+      },
+      "title": "Generation Warnings",
+      "type": "array"
+    },
+    "context_audit": {
+      "items": {
+        "$ref": "#/$defs/KCContextAudit"
+      },
+      "title": "Context Audit",
+      "type": "array"
     }
-  }
+  },
+  "required": [
+    "source_ref",
+    "source_summary",
+    "page_audit",
+    "kc_groups",
+    "leaf_kcs",
+    "uncovered_content",
+    "generation_warnings"
+  ],
+  "title": "ProposedKCSet",
+  "type": "object"
 }

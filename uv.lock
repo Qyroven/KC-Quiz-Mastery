@@ -134,13 +134,11 @@ wheels = [
 
 [[package]]
 name = "learning-authoring-tool"
-version = "0.1.0"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
-    { name = "openai" },
     { name = "pydantic" },
     { name = "pypdfium2" },
-    { name = "python-dotenv" },
 ]
 
 [package.optional-dependencies]
@@ -148,17 +146,21 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+legacy-api = [
+    { name = "openai" },
+    { name = "python-dotenv" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "openai", specifier = ">=2,<3" },
+    { name = "openai", marker = "extra == 'legacy-api'", specifier = ">=2,<3" },
     { name = "pydantic", specifier = ">=2.10,<3" },
     { name = "pypdfium2" },
     { name = "pytest", marker = "extra == 'dev'" },
-    { name = "python-dotenv" },
+    { name = "python-dotenv", marker = "extra == 'legacy-api'" },
     { name = "ruff", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["legacy-api", "dev"]
 
 [[package]]
 name = "openai"

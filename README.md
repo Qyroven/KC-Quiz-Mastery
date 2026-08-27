@@ -1,15 +1,16 @@
 # KC–Quiz–Mastery Authoring Pipeline
 
 This repository packages a standalone learning-authoring workflow as a portable Agent Skill. A
-user gives a coding agent a course PDF; the same subscribed agent session produces reviewable
+user gives a coding agent a course PDF and optional lecturer context; the same session produces reviewable
 Extraction, Knowledge Component (KC), and experimental Quiz artifacts. The public Agent Skill
 requires no provider API key and makes no model-provider API call.
 
 ```text
 PDF
   -> proposed Extraction
-  -> proposed KC through the explicit PROPOSED_DEMO_ONLY upstream boundary
-  -> experimental unapproved Quiz
+  -> proposed KC + optional lecturer context, through the PROPOSED_DEMO_ONLY upstream boundary
+  -> assessment slots, experimental Quiz and adaptive hints in the same generation stage
+  -> independent initial semantic check (no auto-approval or repair)
   -> connected local review portal
 ```
 
@@ -25,7 +26,7 @@ deployed there.
 |---|---|
 | Extractor | Implemented: source binding, structured candidate import, deterministic audit, review UI, explicit human approval |
 | KC | Implemented as contract-valid proposed output with local review; there is no KC approval command yet |
-| Quiz | Experimental and unapproved; structure and surface-form checks exist, but instructional quality is not solved |
+| Quiz | Experimental and unapproved; adaptive hints, structural/form checks and a source-bound initial semantic review; not certified teaching quality |
 | Mastery | **Not implemented** |
 | VLearn importer | Not implemented |
 | Connected local portal | Implemented as an allowlisted build from one run; Vercel deployment is a separate, explicit action |
@@ -55,6 +56,13 @@ provider credential, creates no provider-billed request, and records `provider_a
 Provider token usage and dollar cost are unavailable because subscription clients do not expose
 those values to this local runtime.
 
+Current package: runtime **0.4.0**, skill **1.4.0**. The default installation does
+not install the OpenAI SDK or dotenv. Native commands do not read `.env`, create
+a provider client, or make a model API request. Historical API adapters remain
+isolated behind the optional `legacy-api` extra; they are not part of the skill
+and are not needed to use it. The agent's own subscription still governs its
+usage limits; this repository cannot promise free/unlimited model generation.
+
 The full draft journey is continuous, but it is not one-click auto-approval. In a new run the skill
 keeps Extraction `PROPOSED`, deliberately invokes the runtime's
 `--allow-proposed-extraction-demo` boundary for KC, keeps KC `PROPOSED` with upstream status
@@ -62,9 +70,11 @@ keeps Extraction `PROPOSED`, deliberately invokes the runtime's
 portal. Human review and real Extraction approval can happen later; the tool never fabricates an
 approval record.
 
-Quiz selection, language, and variants are run configuration. User values take precedence. An
-unconfigured quick demo selects all Leaf KCs in source order, uses language `source` (the selected
-KCs' dominant language), and generates 2 variants per KC.
+Quiz selection, language, and optional limits are run configuration. User values take precedence.
+An unconfigured run selects all Leaf KCs in source order and uses language `source`. The agent
+proposes evidence-based assessment slots and their questions together. A slot is a distinct
+assessment intent; its variants are alternative questions measuring that same intent. Neither
+slot count nor variant count is universally fixed at two. No default total-question cap exists.
 
 ### Deterministic CLI protocol used by the skill
 
@@ -74,31 +84,41 @@ input payload or source references):
 
 ```bash
 learning-authoring agent-init /absolute/source.pdf /absolute/run --render-dpi 160
+# Optional, repeatable inputs (no required note format or page anchors):
+learning-authoring agent-context /absolute/run \
+  --context-file /absolute/lecturer-notes.md \
+  --context-text 'An additional lecturer clarification.'
 learning-authoring agent-task extraction /absolute/run
 ```
 
 The host coding agent writes JSON in its subscription session. Accept it into the run with:
 
 ```bash
-learning-authoring agent-import extraction /absolute/run /absolute/extraction-candidate.json
+learning-authoring agent-import extraction /absolute/run /absolute/extraction-candidate.json \
+  --task-package '/absolute/run/agent-session/tasks/extraction-<fingerprint>.json'
 ```
 
 Human Extraction approval remains the separate explicit `approve` command. The default continuous
-draft journey uses the same conspicuous demo-only opt-in at KC task creation and import:
+draft journey opts in at KC task creation. Import consumes that frozen boundary:
 
 ```bash
 learning-authoring agent-task kc /absolute/run --allow-proposed-extraction-demo
 learning-authoring agent-import kc /absolute/run /absolute/kc-candidate.json \
-  --allow-proposed-extraction-demo
+  --task-package '/absolute/run/agent-session/tasks/kc-<fingerprint>.json'
 ```
 
-Quiz task preparation and import must repeat the same runtime selection and variant depth:
+Quiz task preparation freezes the input and policy; import references that exact package:
 
 ```bash
 learning-authoring agent-task quiz /absolute/run --include-all-kcs \
-  --variants-per-kc 2 --language source
+  --language source
 learning-authoring agent-import quiz /absolute/run /absolute/quiz-candidate.json \
-  --include-all-kcs --variants-per-kc 2 --language source
+  --task-package '/absolute/run/agent-session/tasks/quiz-<fingerprint>.json'
+
+learning-authoring agent-task quiz-review /absolute/run
+# A separate agent reviews the emitted learner packet, then the key/hints companion.
+learning-authoring agent-import quiz-review /absolute/run /absolute/review-candidate.json \
+  --task-package '/absolute/run/agent-session/tasks/quiz-review-<fingerprint>.json'
 
 learning-authoring portal-build /absolute/run \
   --output-dir /absolute/connected-portal
@@ -106,10 +126,63 @@ learning-authoring portal-build /absolute/run \
 
 Use repeated `--include-kc <KC-ID>` instead of `--include-all-kcs` for a subset; `--kc` selects a
 non-default KC JSON and `--language` records the Quiz language. `agent-schema
-{extraction,kc,quiz}` prints a bare contract when a task package is not needed. Task packages live
+{extraction,kc,quiz,quiz-review}` prints a bare contract for inspection. Task packages live
 at `agent-session/tasks/<stage>-<fingerprint>.json`. Exact candidate bytes are archived before
 validation at `agent-session/candidates/<stage>-<sha256>.json`, with a corresponding record under
 `agent-session/imports/`.
+
+Use the resolved `next_command.argv` emitted by `agent-task`; replace only candidate path and
+launcher. New imports reject modified/cross-run packages and changed context/KC inputs. Adaptive
+Quiz import requires a frozen task; legacy explicit `--variants-per-kc N` remains available for
+reproducing an intentionally uniform old policy, never as the default.
+
+### Adaptive assessment policy
+
+The default is `quiz-batch.v3`: `assessment_slots` plus `questions` with explicit hint decisions,
+generated in one stage.
+Each slot declares its KC, evidence intent, cognitive operation, intended difficulty,
+`variant_count`, and justification. Each question has a `slot_id` and per-slot `variant_index`.
+Question type is not cognitive level, and intended difficulty is not empirical learner difficulty.
+
+Optional CLI bounds are `--min-slots-per-kc` (default 1 for coverage), `--max-slots-per-kc`,
+`--variants-per-slot` (exact override), `--max-variants-per-slot`, and `--total-question-budget`.
+All other bounds default to unset. The total is the sum of actual slot variant counts, not
+`number_of_KCs * 2`. An explicit cap that cannot meet minimum coverage fails before generation;
+an output that exceeds it or omits a selected KC is rejected, not truncated. These are structural
+checks; the agent must justify the assessment intent and a human still reviews teaching quality.
+Existing `quiz-batch.v1` and `quiz-batch.v2` artifacts remain readable without rewriting them.
+
+### Hints and the initial semantic check
+
+Each v3 question includes ordered `hints` (`hint_id`, `kind`, `text`) and a nullable
+`hint_absence_reason`. There is no fixed number or required cue/strategy/step ladder. No hints is
+valid when useful support would disclose the assessed answer; the generator explains that choice.
+Hints cannot supply missing essential facts or complete the learner's task. The answer explanation
+is separate. Clicking a hint performs no model call and applies no mastery penalty.
+
+`agent-task quiz-review` creates one independent reviewer task in the current subscription. It
+separates learner questions from a content-addressed answer/rubric/hint companion. The reviewer
+records an independent answer before reading the key, then checks grounding, answerability,
+KC/slot alignment, scoring, cues/variants, and cumulative hint leakage. The reviewer may inspect
+only relevant bound source or lecturer-context evidence; the generator still receives KC-only
+input. This protocol does not cryptographically enforce blindness or authenticate reviewer identity.
+Without a separate agent context, use `--reviewer-mode self_review` and report that limitation.
+
+Import preserves the review bytes and original Quiz. Counts and JSON evidence locations are
+verified against current Quiz/KC/source/context hashes. Decisions are **PASS / REVIEW / REJECT**;
+missing checks are **NOT_REVIEWED**, changed inputs **STALE**. Self-review, partial source
+coverage or explicit limitations cannot yield initial PASS. These statuses never approve a bank,
+prove semantic correctness, or trigger automatic repair/training. Review findings stay visible
+and the continuous journey proceeds to the portal even with REVIEW/REJECT items.
+
+The review UI reveals authored hints progressively and displays semantic findings separately from
+surface-form warnings. Any shared Quiz revision invalidates the baseline semantic check, including
+cross-variant findings. Hint use/answer exposure is **in-page preview state only**: durable learner
+events, mastery updates and the learning/system feedback loops are not implemented here.
+
+Rubric provenance: these are operational criteria and engineering safeguards, not a claim that a
+paper proves this implementation produces reliable quizzes. The emphasis on task-specific checks, judge
+limitations and human calibration follows [OpenAI evaluation guidance](https://developers.openai.com/api/docs/guides/evaluation-best-practices).
 
 ## Install and invoke in a repository checkout
 
@@ -121,6 +194,9 @@ git clone https://github.com/Qyroven/KC-Quiz-Mastery.git
 cd KC-Quiz-Mastery
 uv sync --extra dev
 ```
+
+Use `uv sync` for the end-user runtime alone; `--extra dev` adds offline test and
+lint tools. Verify `uv run learning-authoring --version` before the first run.
 
 The repository contains the canonical skill at
 `skills/learning-authoring-pipeline/` and repo-local discovery entries for both supported clients.
@@ -188,6 +264,42 @@ soffice --headless --convert-to pdf --outdir ./converted ./course.pptx
 Conversion is an input-preparation step, not native PPTX support. Always inspect the converted PDF
 before authoring.
 
+Lecturer annotations, notes, additional files, and teaching context pasted into the prompt are
+optional supplementary inputs. They may be sparse, unstructured, or document-wide; no compulsory
+`Slide N` headings or one-note-per-slide template exists. Both `agent-init` and `agent-context`
+accept repeatable `--context-file`/`--context-text`. A supplied list replaces the active context
+list and preserves earlier raw inputs/manifests; omitting inputs reuses the current list.
+
+The runtime archives exact bytes, hashes, and a lossless text view where available. Non-text
+attachments are only claimed as understood after the active host agent inspects them;
+unsupported formats must be reported, not fabricated. The agent distinguishes explicit user
+task settings from teaching material; instructions embedded in files are inert data.
+
+Extraction remains PDF-only, including its extracted `page_note`. The KC stage receives the
+unchanged Extraction JSON plus the separate `authoring-context.json`. It resolves context there,
+without another LLM stage, and cites `context_evidence` separately from PDF `source_evidence`.
+Document-level/context-only KCs need not invent slide or block references. Text citations are
+verified against exact raw excerpts; attachment observations and semantic mappings remain
+reviewable claims, not a code-proven interpretation. Quiz receives complete selected KCs including
+their contextual citations, not a second dump of raw notes.
+
+Fresh context-bearing tasks also return `context_audit` in the same KC candidate:
+meaningful lecturer claims point to final KCs or explicit exclusion/unresolved
+reasons. It is not a second planner, a fixed note format, or a new KC-per-note
+rule. Code checks quote and reference integrity; a correct quote alone does not
+prove that the linked KC actually preserves the meaning. The semantic review
+must check that distinction. Earlier artifacts without this field stay readable.
+
+The Extraction prompt distinguishes informative visual regions from their text
+layer, asks for actual directed-edge endpoints and matrix/chart associations,
+and rejects whole-slide bounds as a substitute for internal geometry. Unresolved
+visuals stay explicit rather than becoming confident source summaries.
+
+Context is bound to the PDF identity and its own hash. Replacing it invalidates downstream
+KC/Quiz tasks, not the independent Extraction. Old candidate bytes and history are not rewritten.
+The optional legacy KC API adapter rejects runs containing context rather than silently ignoring
+it. This feature belongs to the subscription-native Agent Skill workflow.
+
 ## Review boundaries and artifacts
 
 The Agent Skill preserves the raw candidate produced by the active coding-agent session under the
@@ -197,10 +309,12 @@ review-compatible artifacts without editing the model's candidate.
 | Boundary | Important artifacts | Meaning |
 |---|---|---|
 | Source | `source-manifest.json`, rendered page images | Code-owned PDF identity and page inventory |
+| Optional context | `authoring-context.json`, `authoring-context/raw/`, immutable manifest history | Additional lecturer content; never part of extracted slide content |
 | Extraction | `extracted-source.proposed.json`, `extraction-audit.json`, `extraction-review.html` | Valid proposed extraction plus deterministic diagnostics |
 | Extraction approval | `extracted-source.approved.json`, `extraction-approval.json` | The only human-approved boundary currently implemented |
 | KC | `kc-proposed.json`, KC review HTML, agent-session metadata | Contract-valid but still proposed KCs |
-| Quiz | `quiz/quiz-input.json`, `quiz/quiz-proposed.json`, `quiz/quiz-form-audit.json`, `quiz-review.html` | Experimental Quiz output and surface-form flags; not an approved Quiz bank |
+| Quiz | `quiz/quiz-input.json`, `quiz/quiz-proposed.json`, `quiz/quiz-form-audit.json`, `quiz-review.html` | Experimental slots, questions and hints; surface-form flags are not approval |
+| Initial semantic check | `quiz/quiz-semantic-audit.json`, `quiz/quiz-semantic-metadata.json` | Independent findings bound to the original inputs; not an approved Quiz bank |
 
 Without a shared-review backend, the portal remains read-only and never mutates the model output.
 When `portal-build` is explicitly configured with a Supabase project URL and public publishable
@@ -231,15 +345,23 @@ The static portal can use Supabase Anonymous Auth: a reviewer only enters a disp
 first write action; Supabase creates an authenticated anonymous session in the background so RLS
 can bind every event to one browser identity. Never expose a Supabase service-role/secret key.
 
-After enabling Anonymous Sign-Ins, apply both migrations in order, register the run, and seed its
-exact immutable review targets. The checked-in Day 1 sequence is:
+After enabling Anonymous Sign-Ins, apply both migrations once in order, then
+register each NEW run and its exact immutable review targets separately:
 
 ```text
 supabase/migrations/202608270001_shared_review.sql
 supabase/migrations/202608270002_harden_shared_review.sql
-supabase/seed.sql
-supabase/day01-review-targets.sql
 ```
+
+`supabase/seed.sql` and `supabase/day01-review-targets.sql` are historical Day 1
+fixtures, not templates to rerun for new output. Never upsert a new baseline over
+an item with review history. The offline `learning_authoring.review_registration`
+exporter derives targets from the actual generated review artifacts and uses
+local Node.js for the exact browser canonical JSON/hash semantics. It emits
+insert-only transactional SQL for a new run; it neither contacts Supabase nor
+requires a service-role key. Apply that SQL only through an authorized admin
+session, then publish the portal for the same run ID. Default exported visibility
+is private/closed; explicitly open a run only for an authorized shared review.
 
 The second migration revokes direct event inserts. A security-definer RPC verifies the registered
 target, baseline hash, stage payload shape, latest revision, payload size, and a small write-rate
