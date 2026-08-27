@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_ref", "source_summary", "page_audit", "kc_groups", "leaf_kcs", "uncovered_content", "generation_warnings"],
+  "properties": {
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "source_id", "source_sha256"],
+      "properties": {
+        "schema_version": {"type": "string", "const": "extracted-source.v2"},
+        "source_id": {"type": "string", "minLength": 1},
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "source_summary": {"type": "string", "minLength": 1},
+    "page_audit": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["page", "classification", "summary", "kc_ids", "source_block_ids", "warning_codes"],
+        "properties": {
+          "page": {"type": "integer", "minimum": 1},
+          "classification": {"type": "string", "enum": ["learning_content", "example", "exercise", "context", "administrative", "cover", "section_divider", "unclear"]},
+          "summary": {"type": "string", "minLength": 1},
+          "kc_ids": {"type": "array", "items": {"type": "string", "pattern": "^KC-[0-9]+$"}},
+          "source_block_ids": {"type": "array", "description": "Existing same-page blocks materially considered for this classification or KC decision; purely decorative blocks need not be listed.", "items": {"type": "string", "minLength": 1}},
+          "warning_codes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "kc_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["group_id", "name", "description", "leaf_kc_ids"],
+        "properties": {
+          "group_id": {"type": "string", "pattern": "^KCG-[0-9]+$"},
+          "name": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "leaf_kc_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^KC-[0-9]+$"}}
+        }
+      }
+    },
+    "leaf_kcs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kc_id", "group_id", "name", "semantic_form", "knowledge_description", "observable_claim", "assessment_boundary", "source_evidence", "warning_codes", "status"],
+        "properties": {
+          "kc_id": {"type": "string", "pattern": "^KC-[0-9]+$"},
+          "group_id": {"type": "string", "pattern": "^KCG-[0-9]+$"},
+          "name": {"type": "string", "minLength": 1},
+          "semantic_form": {"type": "string", "enum": ["fact", "concept", "distinction", "principle", "procedure", "decision_rule"]},
+          "knowledge_description": {"type": "string", "minLength": 1},
+          "observable_claim": {"type": "string", "minLength": 1, "description": "Conditional observable capability: given an identifiable source-consistent task condition, state the learner response that can be observed; do not use unobservable 'understands' wording alone."},
+          "assessment_boundary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["included", "excluded"],
+            "properties": {
+              "included": {"type": "array", "items": {"type": "string"}},
+              "excluded": {"type": "array", "items": {"type": "string"}}
+            }
+          },
+          "source_evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["evidence_id", "page", "block_ids", "description", "supports"],
+              "properties": {
+                "evidence_id": {"type": "string", "pattern": "^EVD-[0-9]+$"},
+                "page": {"type": "integer", "minimum": 1},
+                "block_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+                "description": {"type": "string", "minLength": 1},
+                "supports": {"type": "string", "minLength": 1}
+              }
+            }
+          },
+          "warning_codes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "status": {"type": "string", "const": "PROPOSED"}
+        }
+      }
+    },
+    "uncovered_content": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["page", "block_ids", "description", "reason"],
+        "properties": {
+          "page": {"type": "integer", "minimum": 1},
+          "block_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "description": {"type": "string", "minLength": 1},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "generation_warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "description", "pages", "block_ids", "kc_ids"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1},
+          "pages": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+          "block_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "kc_ids": {"type": "array", "items": {"type": "string", "pattern": "^KC-[0-9]+$"}}
+        }
+      }
+    }
+  }
+}

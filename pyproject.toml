@@ -1,0 +1,49 @@
+[project]
+name = "learning-authoring-tool"
+version = "0.1.0"
+description = "Portable Agent Skill for review-gated PDF extraction, KC, and experimental Quiz"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "openai>=2,<3",
+  "pydantic>=2.10,<3",
+  "pypdfium2",
+  "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+]
+
+[project.scripts]
+learning-authoring = "learning_authoring.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Qyroven/KC-Quiz-Mastery"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["learning_authoring*"]
+
+[tool.setuptools.package-data]
+learning_authoring = ["prompts/*.md", "prompts/**/*.md", "prompts/**/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"learning_authoring/review.py" = ["E501"]
+"learning_authoring/kc_review.py" = ["E501"]
+"learning_authoring/quiz_review.py" = ["E501"]

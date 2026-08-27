@@ -1,0 +1,201 @@
+"""Stable artifact names and atomic JSON helpers."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_json(path: Path, payload: Any) -> None:
+    """Atomically replace one JSON artifact."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
+def write_bytes(path: Path, payload: bytes) -> None:
+    """Atomically replace one binary artifact."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_bytes(payload)
+    temporary.replace(path)
+
+
+def write_text(path: Path, payload: str) -> None:
+    """Atomically replace one UTF-8 text artifact."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(payload, encoding="utf-8")
+    temporary.replace(path)
+
+
+def read_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@dataclass(frozen=True)
+class RunArtifacts:
+    run_dir: Path
+
+    @property
+    def source_pdf(self) -> Path:
+        return self.run_dir / "source.pdf"
+
+    @property
+    def source_manifest(self) -> Path:
+        return self.run_dir / "source-manifest.json"
+
+    @property
+    def source_preparation(self) -> Path:
+        return self.run_dir / "source-preparation.json"
+
+    @property
+    def metadata(self) -> Path:
+        return self.run_dir / "extraction-metadata.json"
+
+    @property
+    def checkpoint(self) -> Path:
+        return self.run_dir / "background-checkpoint.json"
+
+    @property
+    def api_response(self) -> Path:
+        return self.run_dir / "api-response.json"
+
+    @property
+    def proposed(self) -> Path:
+        return self.run_dir / "extracted-source.proposed.json"
+
+    @property
+    def approved(self) -> Path:
+        return self.run_dir / "extracted-source.approved.json"
+
+    @property
+    def approval(self) -> Path:
+        return self.run_dir / "extraction-approval.json"
+
+    @property
+    def audit(self) -> Path:
+        return self.run_dir / "extraction-audit.json"
+
+    @property
+    def metrics(self) -> Path:
+        return self.run_dir / "run-metrics.json"
+
+    @property
+    def contract_errors(self) -> Path:
+        return self.run_dir / "contract-errors.json"
+
+    @property
+    def repair_dir(self) -> Path:
+        return self.run_dir / "repair"
+
+    @property
+    def repair_summary(self) -> Path:
+        return self.run_dir / "repair-summary.json"
+
+    @property
+    def review_html(self) -> Path:
+        return self.run_dir / "extraction-review.html"
+
+    @property
+    def kc_prompt_package(self) -> Path:
+        return self.run_dir / "kc-prompt-package.json"
+
+    @property
+    def kc_request_preview(self) -> Path:
+        return self.run_dir / "kc-request-preview.json"
+
+    @property
+    def kc_metadata(self) -> Path:
+        return self.run_dir / "kc-generation-metadata.json"
+
+    @property
+    def kc_checkpoint(self) -> Path:
+        return self.run_dir / "kc-background-checkpoint.json"
+
+    @property
+    def kc_api_response(self) -> Path:
+        return self.run_dir / "kc-api-response.json"
+
+    @property
+    def kc_proposed(self) -> Path:
+        return self.run_dir / "kc-proposed.json"
+
+    @property
+    def kc_contract_errors(self) -> Path:
+        return self.run_dir / "kc-contract-errors.json"
+
+    @property
+    def kc_metrics(self) -> Path:
+        return self.run_dir / "kc-run-metrics.json"
+
+    @property
+    def quiz_input(self) -> Path:
+        return self.run_dir / "quiz-input.json"
+
+    @property
+    def quiz_prompt_package(self) -> Path:
+        return self.run_dir / "quiz-prompt-package.json"
+
+    @property
+    def quiz_request_preview(self) -> Path:
+        return self.run_dir / "quiz-request-preview.json"
+
+    @property
+    def quiz_metadata(self) -> Path:
+        return self.run_dir / "quiz-generation-metadata.json"
+
+    @property
+    def quiz_checkpoint(self) -> Path:
+        return self.run_dir / "quiz-background-checkpoint.json"
+
+    @property
+    def quiz_api_response(self) -> Path:
+        return self.run_dir / "quiz-api-response.json"
+
+    @property
+    def quiz_raw_output(self) -> Path:
+        return self.run_dir / "quiz-output.raw.json"
+
+    @property
+    def quiz_proposed(self) -> Path:
+        return self.run_dir / "quiz-proposed.json"
+
+    @property
+    def quiz_contract_errors(self) -> Path:
+        return self.run_dir / "quiz-contract-errors.json"
+
+    @property
+    def quiz_metrics(self) -> Path:
+        return self.run_dir / "quiz-run-metrics.json"
+
+    @property
+    def quiz_form_audit(self) -> Path:
+        return self.run_dir / "quiz-form-audit.json"
+
+    @property
+    def quiz_review_html(self) -> Path:
+        return self.run_dir / "quiz-review.html"

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Learning Authoring — {{SOURCE_FILENAME}}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #182133;
+      --muted: #667085;
+      --line: #dfe5ee;
+      --blue: #0a67d1;
+      --blue-soft: #eaf3ff;
+      --green: #18794e;
+      --green-soft: #e9f7ef;
+      --orange: #a15c00;
+      --orange-soft: #fff4df;
+      --gray-soft: #f3f5f8;
+      --red: #b42318;
+      --red-soft: #fff0ee;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f7f9fc;
+      color: var(--ink);
+      font: 16px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif;
+    }
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .94);
+    }
+    .bar, main, footer { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .bar { min-height: 68px; display: flex; align-items: center; gap: 14px; }
+    .mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(145deg, #172032 0 54%, #1570ef 55% 100%);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18);
+    }
+    .brand { font-weight: 760; letter-spacing: -.01em; }
+    main { padding: 72px 0 56px; }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; max-width: 820px; font-size: clamp(36px, 6vw, 64px); line-height: 1.03; letter-spacing: -.045em; }
+    .lede { max-width: 790px; margin: 24px 0 0; color: var(--muted); font-size: 19px; }
+    .pipeline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 32px 0 0;
+      color: #4c566a;
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .pipeline span { padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+    .pipeline .arrow { border: 0; padding-inline: 2px; background: transparent; }
+    .notice {
+      margin: 40px 0 0;
+      padding: 18px 20px;
+      border: 1px solid #bed8fa;
+      border-radius: 14px;
+      background: var(--blue-soft);
+      color: #244a73;
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 28px; }
+    .card {
+      min-height: 265px;
+      display: flex;
+      flex-direction: column;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+      box-shadow: 0 16px 44px rgba(25, 42, 70, .07);
+    }
+    .card-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    .step { color: #8a94a6; font-size: 13px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .badge { padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 750; white-space: nowrap; }
+    .usable { color: var(--green); background: var(--green-soft); }
+    .proposed { color: var(--blue); background: var(--blue-soft); }
+    .experimental { color: var(--orange); background: var(--orange-soft); }
+    .missing { color: var(--red); background: var(--red-soft); }
+    h2 { margin: 20px 0 8px; font-size: 28px; letter-spacing: -.025em; }
+    .card p { margin: 0; color: var(--muted); }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 28px; }
+    a.button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid #b7c8dc;
+      border-radius: 11px;
+      color: #24588e;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    a.button.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
+    a.button:hover { filter: brightness(.97); }
+    .disabled { color: #929aaa; background: var(--gray-soft); }
+    footer { padding: 26px 0 44px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    @media (max-width: 760px) {
+      .bar, main, footer { width: min(100% - 24px, 1120px); }
+      main { padding-top: 44px; }
+      .grid { grid-template-columns: 1fr; }
+      .pipeline .arrow { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar"><span class="mark" aria-hidden="true"></span><span class="brand">Learning Authoring</span></div>
+  </header>
+  <main>
+    <p class="eyebrow">Static review snapshot · {{SOURCE_FILENAME}}</p>
+    <h1>PDF → Extractor → KC → Quiz → Mastery</h1>
+    <p class="lede">Một showcase chỉ-đọc cho <strong>{{SOURCE_FILENAME}}</strong> ({{PAGE_COUNT}} trang) từ run <code>{{SOURCE_RUN}}</code>. Mỗi phase bên dưới được ghi đúng trạng thái thực tế; đây không phải hệ thống production và không thực hiện API call.</p>
+    <div class="pipeline" aria-label="Pipeline status">
+      <span>PDF</span><span class="arrow">→</span><span>Extractor</span><span class="arrow">→</span><span>KC</span><span class="arrow">→</span><span>Quiz</span><span class="arrow">→</span><span>Mastery</span>
+    </div>
+    <div class="notice"><strong>Publish boundary:</strong> package này chỉ chứa 4 review HTML được allowlist và {{PAGE_COUNT}} ảnh trang cần cho UI. Không chứa <code>.env</code>, API key, provider envelope, raw model response, prompt package, request preview, source PDF hoặc run khác.</div>
+
+    <section class="grid" aria-label="Authoring stages">
+      <article class="card">
+        <div class="card-top"><span class="step">01 · Extractor</span><span class="badge {{EXTRACTOR_STATUS_CLASS}}">{{EXTRACTOR_STATUS_LABEL}}</span></div>
+        <h2>Extraction review</h2>
+        <p>{{EXTRACTOR_STATUS_DESCRIPTION}}</p>
+        <div class="actions"><a class="button primary" href="{{EXTRACTOR_HREF}}">Mở Extractor</a></div>
+      </article>
+
+      <article class="card">
+        <div class="card-top"><span class="step">02 · KC</span><span class="badge proposed">PROPOSED</span></div>
+        <h2>KC review</h2>
+        <p>KC generation và hai review view đang dùng được. Output hiện vẫn là proposed; tool chưa có approval boundary chính thức cho KC.</p>
+        <div class="actions"><a class="button primary" href="{{KC_RECALL_HREF}}">Recall view</a><a class="button" href="{{KC_SCROLL_HREF}}">Scroll view</a></div>
+      </article>
+
+      <article class="card">
+        <div class="card-top"><span class="step">03 · Quiz</span><span class="badge experimental">EXPERIMENTAL · UNAPPROVED</span></div>
+        <h2>Quiz experiment</h2>
+        <p>UI hiển thị raw candidate từ pilot gần nhất. Contract/form checks không chứng minh semantic quality; bộ quiz này chưa được duyệt và không phải output production.</p>
+        <div class="actions"><a class="button primary" href="{{QUIZ_HREF}}">Mở Quiz pilot</a></div>
+      </article>
+
+      <article class="card disabled">
+        <div class="card-top"><span class="step">04 · Mastery</span><span class="badge missing">NOT IMPLEMENTED</span></div>
+        <h2>Mastery</h2>
+        <p>Chưa có generator, contract, review UI hay approved artifact. Showcase không giả lập phase này.</p>
+      </article>
+    </section>
+  </main>
+  <footer>Static snapshot only · Không có backend, credential, deploy action hoặc VLearn importer. Mọi browser-local review note, nếu UI có, không sửa artifact nguồn.</footer>
+</body>
+</html>
