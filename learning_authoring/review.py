@@ -158,10 +158,10 @@ function formatDuration(seconds){if(!Number.isFinite(Number(seconds)))return nul
 function renderStats(){
   const repaired=(metrics.repair?.applied_pages||[]).length;
   const warnings=warningScope.record_count;
-  const elapsed=Number(metrics.total_elapsed_seconds||0)+Number(sourceManifest.elapsed_seconds||0);
+  const elapsed=metrics.execution_mode==='agent_subscription_session'?'model time unavailable':formatDuration(Number(metrics.total_elapsed_seconds||0)+Number(sourceManifest.elapsed_seconds||0));
   const missingGeometry=Number(audit.missing_geometry_block_count||0);
   const usage=metrics.usage_available===false?'usage unavailable':`${formatNumber(metrics.usage?.total_tokens)} tokens`;
-  const rows=[`${source.pages.length}/${source.source.page_count} pages`,usage,formatDuration(elapsed),`${repaired} repaired`,`${missingGeometry} missing regions`,`${warnings} review warnings`].filter(Boolean);
+  const rows=[`${source.pages.length}/${source.source.page_count} pages`,usage,elapsed,`${repaired} repaired`,`${missingGeometry} missing regions`,`${warnings} review warnings`].filter(Boolean);
   el('stats').innerHTML=rows.map(value=>`<span class="stat">${escapeHtml(value)}</span>`).join('');
 }
 function searchableText(page){return [page.page_number,page.role,...page.blocks.flatMap(block=>[block.block_id,block.kind,JSON.stringify(block.content)])].join(' ').toLocaleLowerCase()}

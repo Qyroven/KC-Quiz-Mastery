@@ -20,6 +20,7 @@ from learning_authoring.kc_review import (
     _recall_html,
 )
 from learning_authoring.quiz_review import _TEMPLATE, build_quiz_review
+from learning_authoring.review import _REVIEW_TEMPLATE
 from learning_authoring.showcase import (
     PublishSafetyError,
     SourceMetadata,
@@ -98,6 +99,38 @@ def run_js(script: str, assertions: str, *, data: dict | None = None) -> None:
 
 def inline_script(html: str) -> str:
     return re.findall(r"<script>(.*?)</script>", html, re.DOTALL)[0]
+
+
+@pytest.mark.parametrize("native", [True, False])
+def test_extraction_stats_do_not_present_native_import_time_as_model_time(native) -> None:
+    stats_script = "function formatNumber" + _REVIEW_TEMPLATE.split(
+        "function formatNumber", 1
+    )[1].split("function searchableText", 1)[0]
+    run_js(
+        """
+        const metrics = JSON.parse(view('payload').textContent);
+        const source = {pages: [{}], source: {page_count: 1}};
+        const audit = {}, warningScope = {record_count: 0};
+        const sourceManifest = {elapsed_seconds: 1};
+        const el = view, escapeHtml = String;
+        """ + stats_script,
+        """
+        renderStats();
+        const markup = view('stats').innerHTML;
+        if (metrics.execution_mode === 'agent_subscription_session') {
+          assert.match(markup, /model time unavailable/);
+          assert.doesNotMatch(markup, />6s</);
+        } else {
+          assert.match(markup, />6s</);
+          assert.doesNotMatch(markup, /model time unavailable/);
+        }
+        """,
+        data={
+            "execution_mode": "agent_subscription_session" if native else "legacy_api",
+            "total_elapsed_seconds": 5,
+            "usage_available": not native,
+        },
+    )
 
 
 def context_candidate(source) -> dict:
