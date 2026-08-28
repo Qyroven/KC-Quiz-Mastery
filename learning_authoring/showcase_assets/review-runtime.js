@@ -5,8 +5,12 @@
   if (!config || !config.enabled) return;
 
   const projectKey = new URL(config.supabaseUrl).hostname;
-  const sessionStorageKey = `la-review-session:${projectKey}`;
-  const nameStorageKey = `la-review-name:${projectKey}`;
+  // Teacher and same-origin review iframes share one authenticated identity.
+  // A learner session is deliberately never used as an authorization shortcut.
+  const sessionStorageKey = `la-teacher-session:${projectKey}`;
+  const nameStorageKey = `la-teacher-name:${projectKey}`;
+  const legacySessionStorageKey = `la-review-session:${projectKey}`;
+  const legacyNameStorageKey = `la-review-name:${projectKey}`;
   const baselineByTarget = new Map();
   const appliedRevisionByTarget = new Map();
   const kcChoiceByPage = new Map();
@@ -14,7 +18,9 @@
     adapter: null,
     events: [],
     session: readStoredSession(),
-    displayName: localStorage.getItem(nameStorageKey) || "",
+    displayName: readStoredName(),
+    canReview: false,
+    accessChecked: false,
     loading: false,
     lastKey: "",
     upstreamStale: "",
@@ -190,8 +196,25 @@
   }
 
   function readStoredSession() {
-    try { return JSON.parse(localStorage.getItem(sessionStorageKey) || "null"); }
-    catch { return null; }
+    try {
+      const current = localStorage.getItem(sessionStorageKey);
+      if (current) return JSON.parse(current);
+      const previous = localStorage.getItem(legacySessionStorageKey);
+      if (previous) {
+        const session = JSON.parse(previous);
+        localStorage.setItem(sessionStorageKey, previous);
+        return session;
+      }
+      return null;
+    }
+    catch { throw new Error("Không đọc được phiên Teacher đã lưu. Giữ nguyên dữ liệu; không tự tạo danh tính khác."); }
+  }
+
+  function readStoredName() {
+    try {
+      const current = localStorage.getItem(nameStorageKey);
+      return current ? JSON.parse(current) : localStorage.getItem(legacyNameStorageKey) || "";
+    } catch { return ""; }
   }
 
   function storeSession(session) {
@@ -261,15 +284,32 @@
   }
 
   async function ensureSession() {
-    let session = state.session || readStoredSession();
+    let session = readStoredSession() || state.session;
     if (session?.access_token && Number(session.expires_at || 0) > Date.now() / 1000 + 60) {
       return session;
     }
     if (session?.refresh_token) {
       try { return await refreshSession(session); }
-      catch { localStorage.removeItem(sessionStorageKey); state.session = null; }
+      catch { throw new Error("Chưa làm mới được phiên Teacher. Giữ nguyên danh tính, không tự tạo tài khoản khác."); }
     }
     return createAnonymousSession();
+  }
+
+  async function refreshAccess() {
+    state.canReview = false;
+    state.accessChecked = false;
+    state.session = readStoredSession() || state.session;
+    if (!state.session) { state.accessChecked = true; return false; }
+    const access = await request("/rest/v1/rpc/get_teacher_access", {
+      method: "POST", authenticated: true, body: {p_run_id: config.runId},
+    });
+    if (!access || typeof access.can_teach !== "boolean") {
+      throw new Error("Chưa xác minh được quyền giảng viên; chỉ cho phép xem.");
+    }
+    state.canReview = access.can_teach === true;
+    state.accessChecked = true;
+    state.displayName = readStoredName() || state.displayName;
+    return state.canReview;
   }
 
   function openModal(title, bodyHtml, footerHtml, {wide = false} = {}) {
@@ -313,7 +353,8 @@
       body: {user_id: session.user.id, display_name: clean},
     });
     state.displayName = clean;
-    localStorage.setItem(nameStorageKey, clean);
+    localStorage.setItem(nameStorageKey, JSON.stringify(clean));
+    await refreshAccess();
     renderPerson();
     return clean;
   }
@@ -322,19 +363,14 @@
     return new Promise((resolve, reject) => {
       openModal(
         "Bạn đang review với tên gì?",
-        `<div class="la-review-field"><label for="la-review-name">Tên hiển thị</label><input id="la-review-name" maxlength="80" autocomplete="name" value="${escapeHtml(state.displayName)}" placeholder="Ví dụ: Quỳên"><p class="la-review-help">Không cần email, mật khẩu hay tài khoản. Tên này được ghi vào lịch sử review.</p></div><div id="la-review-error" class="la-review-error"></div>`,
-        `<button id="la-review-new-person" class="la-review-secondary" type="button">Người review khác</button><span class="la-review-spacer"></span><button id="la-review-name-cancel" class="la-review-secondary" type="button">Hủy</button><button id="la-review-name-save" class="la-review-primary" type="button">Bắt đầu review</button>`,
+        `<div class="la-review-field"><label for="la-review-name">Tên hiển thị</label><input id="la-review-name" maxlength="80" autocomplete="name" value="${escapeHtml(state.displayName)}" placeholder="Tên của bạn"><p class="la-review-help">Tên chỉ ghi vào lịch sử. Quyền sửa/duyệt phải được quản trị viên cấp cho đúng tài khoản của bài học.</p>${state.session?.user?.id ? `<label for="la-review-account-id">Mã tài khoản để xin cấp quyền</label><input id="la-review-account-id" readonly value="${escapeHtml(state.session.user.id)}">` : ""}</div><div id="la-review-error" class="la-review-error"></div>`,
+        `<a class="la-review-secondary" href="index.html" target="_top">Mở Teacher</a><span class="la-review-spacer"></span><button id="la-review-name-cancel" class="la-review-secondary" type="button">Hủy</button><button id="la-review-name-save" class="la-review-primary" type="button">Lưu tên</button>`,
       );
       const input = byId("la-review-name");
       input.focus(); input.select();
       const cancel = () => reject(new Error("cancelled"));
       modalCancelHandler = cancel;
       byId("la-review-name-cancel").onclick = cancelActiveModal;
-      byId("la-review-new-person").onclick = () => {
-        localStorage.removeItem(sessionStorageKey);
-        localStorage.removeItem(nameStorageKey);
-        state.session = null; state.displayName = ""; input.value = ""; input.focus();
-      };
       byId("la-review-name-save").onclick = async () => {
         const button = byId("la-review-name-save");
         button.disabled = true;
@@ -346,11 +382,12 @@
   }
 
   async function ensureReviewer() {
-    if (state.displayName) {
-      try { await saveProfile(state.displayName); return state.displayName; }
-      catch { /* recreate/profile through the modal */ }
+    if (!state.displayName) await askForName();
+    if (!await refreshAccess()) {
+      setLoading(false);
+      throw new Error("Tài khoản chưa được cấp quyền giảng viên của bài học này. Nhập tên không cấp quyền sửa/duyệt.");
     }
-    return askForName();
+    return state.displayName;
   }
 
   function detectAdapter() {
@@ -419,6 +456,7 @@
   async function fetchEvents(adapter, baseArtifactSha256) {
     return (await request("/rest/v1/rpc/get_review_target_events", {
       method: "POST",
+      authenticated: true,
       body: {
         p_run_id: config.runId,
         p_stage: adapter.stage,
@@ -494,6 +532,13 @@
       setQuizReviewDependencyState({uncertain: "Đang đối chiếu revision và KC nguồn với review chung."});
     }
     try {
+      if (!await refreshAccess()) {
+        state.events = [];
+        statusNode.className = "la-review-status";
+        statusNode.textContent = "Chỉ đọc · Chưa cấp quyền giảng viên";
+        renderPerson();
+        return;
+      }
       const baseline = baselineByTarget.get(id);
       state.events = await fetchEvents(adapter, baseline.sha256);
       const revision = latestRevision(state.events);
@@ -511,6 +556,7 @@
       }
       await renderStatus();
     } catch (error) {
+      state.canReview = false;
       if (adapter.stage === "quiz" && typeof setQuizReviewDependencyState === "function") {
         setQuizReviewDependencyState({uncertain: "Chưa xác minh được revision/KC nguồn từ review chung."});
       }
@@ -563,13 +609,13 @@
   }
 
   function renderPerson() {
-    personButton.textContent = state.displayName ? `👤 ${state.displayName}` : "Nhập tên để review";
+    personButton.textContent = state.displayName ? `👤 ${state.displayName}` : "Danh tính & quyền";
   }
 
   function setLoading(loading) {
     state.loading = loading;
     actionButtons.forEach(button => {
-      button.disabled = loading || (button.dataset.laAction === "approve" && Boolean(state.upstreamStale));
+      button.disabled = loading || !state.canReview || (button.dataset.laAction === "approve" && Boolean(state.upstreamStale));
     });
   }
 
@@ -616,10 +662,21 @@
     broadcastUpdate();
   }
 
-  async function makeDecision(action, note = null) {
+  async function decisionSnapshot() {
+    if (!state.adapter) throw new Error("Chưa tải được mục cần review");
+    const target = targetId(state.adapter);
+    const {revision, sha256} = await effectivePayload();
+    return {target, revisionId: revision?.id || null, sha256};
+  }
+
+  async function makeDecision(action, note = null, expected = null) {
+    const shown = expected || await decisionSnapshot();
     await loadCurrentTarget({force: true});
     const adapter = state.adapter;
-    const {revision} = await effectivePayload();
+    const {revision, sha256} = await effectivePayload();
+    if (shown.target !== targetId(adapter) || shown.revisionId !== (revision?.id || null) || shown.sha256 !== sha256) {
+      throw new Error("Nội dung đã thay đổi từ lúc bạn xem. Đã tải revision mới; hãy đọc lại trước khi duyệt hoặc từ chối.");
+    }
     await insertEvent({
       run_id: config.runId, stage: adapter.stage, item_type: adapter.itemType,
       item_key: adapter.itemKey, action, note,
@@ -1056,6 +1113,7 @@
   }
 
   async function openReject() {
+    const shown = await decisionSnapshot();
     await ensureReviewer();
     openModal(
       `Từ chối ${state.adapter.label}`,
@@ -1068,7 +1126,7 @@
       const note = byId("la-review-note").value.trim();
       if (!note) { showModalError("Cần ghi lý do từ chối"); return; }
       const button = byId("la-review-reject-save"); button.disabled = true;
-      try { await makeDecision("reject", note); closeModal(); }
+      try { await makeDecision("reject", note, shown); closeModal(); }
       catch (error) { showModalError(error.message); button.disabled = false; }
     };
   }
@@ -1096,7 +1154,7 @@
   document.querySelector('[data-la-action="reject"]').onclick = () => openReject().catch(error => { if (error.message !== "cancelled") alert(error.message); });
   document.querySelector('[data-la-action="approve"]').onclick = async () => {
     setLoading(true);
-    try { await ensureReviewer(); await makeDecision("approve"); }
+    try { const shown = await decisionSnapshot(); await ensureReviewer(); await makeDecision("approve", null, shown); }
     catch (error) { if (error.message !== "cancelled") alert(error.message); }
     finally { setLoading(false); }
   };

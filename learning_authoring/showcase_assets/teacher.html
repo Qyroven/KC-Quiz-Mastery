@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <meta name="description" content="Review nội dung, phát hành bài học và theo dõi bằng chứng của học viên." />
+    <title>Teacher · Learning Authoring</title>
+    <link rel="stylesheet" href="teacher-style.css" />
+    <script defer src="review-config.js"></script>
+    <script defer src="learning-data.js"></script>
+    <script defer src="learning-core.js"></script>
+    <script defer src="teacher-runtime.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#teacher-content">Đến nội dung</a>
+    <header class="app-header">
+      <div class="topbar">
+        <a class="brand" href="index.html"><span class="mark" aria-hidden="true"></span>Learning Authoring <span class="role-tag">Teacher</span></a>
+        <span id="teacher-course-name" class="course-name"></span>
+        <button type="button" id="teacher-person" class="secondary">Phiên giảng viên</button>
+      </div>
+    </header>
+    <main id="teacher-content" class="workspace">
+      <section id="teacher-identity" class="card identity-panel" aria-labelledby="teacher-identity-title">
+        <div>
+          <p class="eyebrow">KHÔNG CẤP QUYỀN BẰNG TÊN</p>
+          <h1 id="teacher-identity-title">Không gian giảng viên</h1>
+          <p class="muted">Tên dùng để ghi nhận người review. Quyền của bài học do quản trị viên cấp cho đúng mã tài khoản; nhập tên không tạo quyền.</p>
+        </div>
+        <form id="teacher-identity-form">
+          <label for="teacher-name">Tên hiển thị</label>
+          <div class="input-row"><input id="teacher-name" maxlength="80" autocomplete="name" required placeholder="Tên của bạn" /><button type="submit" class="primary">Tiếp tục</button></div>
+        </form>
+        <div id="teacher-account" class="account-info" hidden>
+          <label for="teacher-account-id">Mã tài khoản để quản trị viên cấp quyền</label>
+          <div class="input-row"><input id="teacher-account-id" readonly spellcheck="false" /><button id="teacher-copy-account" type="button" class="secondary" aria-label="Sao chép mã tài khoản">Sao chép</button></div>
+          <p class="muted small">Đây là mã định danh, không phải khóa truy cập. Giữ phiên trình duyệt này; không thể khôi phục bằng cách nhập lại tên.</p>
+        </div>
+      </section>
+      <div class="status-row"><p id="teacher-status" role="status" aria-live="polite">Đang mở không gian giảng viên…</p><button type="button" id="teacher-refresh" class="secondary" hidden>Cập nhật</button></div>
+      <section id="teacher-error" class="error-panel" role="alert" hidden><strong>Chưa thể hoàn tất</strong><p id="teacher-error-message"></p></section>
+      <section id="teacher-no-access" class="card empty-state" hidden><h2>Chưa được cấp quyền bài học này</h2><p>Tài khoản hiện tại không thể sửa, duyệt, phát hành hay xem dữ liệu học viên. Gửi mã tài khoản ở trên cho quản trị viên, rồi bấm Cập nhật khi đã được cấp quyền.</p></section>
+      <div id="teacher-app" hidden>
+        <nav class="teacher-tabs" aria-label="Công việc giảng viên">
+          <button type="button" data-tab="content" aria-selected="true">Nội dung & phát hành</button>
+          <button type="button" data-tab="learners" aria-selected="false">Hành trình học viên</button>
+          <button type="button" data-tab="grading" aria-selected="false">Chờ chấm rubric <span id="teacher-queue-count"></span></button>
+        </nav>
+        <section id="teacher-content-panel">
+          <div class="section-heading"><div><h2>Review trước, phát hành sau</h2><p class="muted">Bản gốc giữ nguyên. Chỉnh sửa và quyết định review được lưu riêng; học viên chỉ làm phiên bản đã phát hành.</p></div></div>
+          <nav class="review-steps" aria-label="Các bước authoring">
+            <button type="button" data-review="extraction" aria-pressed="true"><span>01</span>Extraction</button>
+            <button type="button" data-review="kc" aria-pressed="false"><span>02</span>Knowledge Components</button>
+            <button type="button" data-review="quiz" aria-pressed="false"><span>03</span>Quiz & hint</button>
+          </nav>
+          <iframe id="teacher-review-frame" title="Review Extraction" referrerpolicy="same-origin"></iframe>
+          <section class="card publication-card" aria-labelledby="publish-title">
+            <div class="section-heading"><div><h2 id="publish-title">Phát hành phiên bản bài học</h2><p class="muted">Chọn rõ các câu đã được duyệt cùng KC hiện tại. Không tự duyệt, không bỏ qua câu bị chặn và không ghi đè phiên bản cũ.</p></div><button type="button" id="teacher-refresh-reviews" class="secondary">Đối chiếu review</button></div>
+            <div id="teacher-publish-summary" class="selection-summary"></div>
+            <div class="selection-actions"><button id="teacher-select-publishable" type="button" class="quiet">Chọn các câu đủ điều kiện</button><button id="teacher-clear-selection" type="button" class="quiet">Bỏ chọn</button></div>
+            <div id="teacher-question-selection" class="question-selection"></div>
+            <form id="teacher-publish-form"><label for="teacher-release-label">Tên phiên bản</label><div class="input-row"><input id="teacher-release-label" maxlength="120" required placeholder="Ví dụ: Bản dành cho lớp học tuần này" /><button id="teacher-publish" type="submit" class="primary">Phát hành các câu đã chọn</button></div></form>
+            <div id="teacher-pending-publication" class="error-panel" hidden><p>Lần phát hành trước chưa rõ đã lưu hay chưa. Xác nhận lại đúng thao tác cũ trước khi chọn một phiên bản khác.</p><button id="teacher-retry-publication" type="button" class="secondary">Xác nhận lần phát hành đang chờ</button></div>
+            <p class="muted small">Phát hành không chứng minh nội dung hoàn hảo hay năng lực của học viên. Những mục tiêu chưa có câu được chọn vẫn được ghi rõ là chưa đo.</p>
+          </section>
+          <section class="card"><div class="section-heading"><h2>Các phiên bản đã phát hành</h2></div><div id="teacher-release-list"></div></section>
+        </section>
+        <section id="teacher-learners-panel" hidden>
+          <div class="section-heading"><div><h2>Học viên đang hiểu gì, còn thiếu bằng chứng ở đâu?</h2><p class="muted">Xem đúng người học, đúng phiên bản. Chưa đo và chờ chấm không có nghĩa là học yếu.</p></div></div>
+          <label for="teacher-learner-release">Phiên bản bài học</label><select id="teacher-learner-release"></select>
+          <div class="learner-layout"><aside class="card"><h3>Học viên</h3><div id="teacher-learner-list"></div></aside><div id="teacher-learner-detail" class="learner-detail"></div></div>
+        </section>
+        <section id="teacher-grading-panel" hidden>
+          <div class="section-heading"><div><h2>Chấm theo rubric của phiên bản đã làm</h2><p class="muted">Điểm từng tiêu chí là dữ liệu chấm bài, không phải điểm mastery. Không được chấm bài của chính mình.</p></div><button id="teacher-refresh-grading" type="button" class="secondary">Cập nhật hàng chờ</button></div>
+          <label for="teacher-grading-release">Phiên bản cần chấm</label><select id="teacher-grading-release"></select>
+          <div id="teacher-grading-queue"></div>
+        </section>
+      </div>
+      <footer class="page-foot"><span id="teacher-run-label"></span><span>Teacher · Nội dung và bằng chứng được phân quyền</span></footer>
+      <noscript><p class="error-panel">Cần bật JavaScript. Chưa có dữ liệu nào được sửa hay phát hành.</p></noscript>
+    </main>
+  </body>
+</html>

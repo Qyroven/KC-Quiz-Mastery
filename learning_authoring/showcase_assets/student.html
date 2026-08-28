@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <meta name="description" content="Học, luyện tập và chọn bước tiếp theo từ bằng chứng của chính bạn." />
+    <title>Học & luyện tập · Learning</title>
+    <link rel="stylesheet" href="student-style.css" />
+    <script defer src="student-config.js"></script>
+    <!--STUDENT_PREVIEW_SCRIPT-->
+    <script defer src="learning-core.js"></script>
+    <script defer src="student-runtime.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#question-panel">Đến câu hỏi</a>
+    <header class="app-header">
+      <div class="topbar">
+        <a class="brand" href="#" id="home-link"><span class="brand-mark" aria-hidden="true"></span>Learning</a>
+        <span class="app-label">Không gian học viên</span>
+        <button id="identity-toggle" class="quiet" type="button">Nhập tên</button>
+      </div>
+    </header>
+    <main class="workspace">
+      <section class="intro">
+        <div><p class="eyebrow">HỌC THEO BẰNG CHỨNG</p><h1 id="page-title">Bước tiếp theo của bạn.</h1><p class="muted">Làm bài, hiểu chỗ còn thiếu và biết nên ôn gì tiếp.</p></div>
+        <button id="refresh-state" class="secondary" type="button" hidden>Cập nhật</button>
+      </section>
+      <p id="storage-status" class="storage-status" role="status">Đang mở không gian học…</p>
+      <section id="identity-panel" class="identity-card" aria-labelledby="identity-title" hidden>
+        <div><h2 id="identity-title">Bạn muốn được gọi là gì?</h2><p class="muted">Không cần email hay mật khẩu. Lịch sử thuộc phiên trên trình duyệt này; tên giống nhau không phải cùng một người.</p></div>
+        <form id="identity-form"><label for="learner-name">Tên hiển thị</label><div class="name-fields"><input id="learner-name" name="display_name" maxlength="80" autocomplete="name" placeholder="Tên của bạn" required /><button class="primary" type="submit">Bắt đầu học</button></div></form>
+      </section>
+      <div id="operation-status" class="operation-status" role="status" aria-live="polite" hidden></div>
+      <div id="error-panel" class="error-panel" role="alert" hidden><div><strong>Chưa thể hoàn tất</strong><p id="error-message"></p></div><button id="retry-operation" class="secondary" type="button">Thử lại</button></div>
+      <div id="pending-panel" class="pending-panel" hidden></div>
+      <section id="catalog-panel" class="catalog" aria-labelledby="catalog-title" hidden><div class="section-head"><h2 id="catalog-title">Bài học của bạn</h2><span id="catalog-status" class="muted small">Chỉ học từ phiên bản được phát hành</span></div><div id="course-list" class="course-list"></div></section>
+      <section id="course-panel" hidden>
+        <div class="course-heading"><div><p class="eyebrow">BÀI HỌC</p><h2 id="course-title"></h2><p id="version-label" class="muted small"></p></div><button id="courses-toggle" class="quiet" type="button">Các bài học</button></div>
+        <div class="study-layout">
+          <aside class="study-sidebar" aria-label="Nội dung luyện tập"><div class="section-head"><h3>Câu hỏi</h3><span id="question-count" class="muted small"></span></div><nav id="question-list" class="question-list" aria-label="Chọn câu hỏi"></nav><p class="sidebar-note">Gợi ý và lần làm lại được ghi riêng. Chưa đo không có nghĩa là chưa hiểu.</p><a class="text-link" href="#progress-panel">Xem tiến bộ ↓</a></aside>
+          <div class="study-main">
+            <section id="question-panel" class="question-card" tabindex="-1" aria-labelledby="question-title"></section>
+            <section id="next-panel" class="next-card" aria-labelledby="next-title"></section>
+            <section id="knowledge-panel" class="knowledge-card" aria-labelledby="knowledge-title"></section>
+            <section id="feedback-panel" class="feedback-card" aria-label="Góp ý về câu hỏi"></section>
+          </div>
+        </div>
+        <section id="progress-panel" class="progress-card" aria-labelledby="progress-title"><div class="section-head"><div><p class="eyebrow">TIẾN BỘ CỦA BẠN</p><h2 id="progress-title">Đã thể hiện được gì, còn cần gì?</h2></div></div><p class="muted small">Tổng hợp từng mục tiêu đã kiểm tra, không phải điểm xếp hạng hay kết luận thành thạo lâu dài.</p><div id="progress-list" class="progress-list"></div><details class="history"><summary>Lịch sử của bạn <span id="history-count"></span></summary><div id="history-list"></div></details></section>
+      </section>
+      <footer class="page-footer">Nội dung và kết quả gắn với đúng phiên bản bài học. Góp ý không tự thay đổi kết quả học.</footer>
+      <noscript><p class="error-panel">Cần bật JavaScript để làm bài. Chưa có lần thử nào được ghi.</p></noscript>
+    </main>
+  </body>
+</html>

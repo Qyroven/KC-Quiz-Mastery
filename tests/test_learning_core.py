@@ -357,7 +357,9 @@ def test_recommendation_is_deterministic_context_aware_and_finishes(call_core):
                 _attempt(data, "Q-003", number=3, score=0, correct=False)]
     action = call_core("recommendNext", data, attempts)
     assert action == call_core("recommendNext", data, list(reversed(attempts)))
-    assert action["question_id"] == "Q-004" and action["review"]["kc_id"] == "KC-001"
+    assert action["question_id"] is None and action["review"]["kc_id"] == "KC-001"
+    assert action["reason"] == "no_variant_for_target_slot"
+    assert action["alternative"]["question_id"] == "Q-004"
     attempts.append(_attempt(data, "Q-004", number=4))
     action = call_core("recommendNext", data, attempts)
     assert action["action"] == "need_more_evidence" and action["question_id"] is None
@@ -378,3 +380,53 @@ def test_pending_terminal_and_legacy_without_slots_do_not_fabricate_coverage(cal
     result = call_core("computeEvidence", data, attempts)
     assert all(kc["state"] == "no_evidence" and not kc["coverage_available"]
                and kc["total_slots"] == 0 for kc in result["kcs"])
+
+
+def test_recommendation_targets_missing_slot_not_redundant_variant(call_core):
+    data = _package()
+    action = call_core("recommendNext", data, [_attempt(data)])
+    assert action["question_id"] == "Q-003"
+    assert action["slot_id"] == "slot-b"
+    # No hint or answer key is needed for server-graded evidence/routing.
+    for question in data["questions"]:
+        question.pop("correct_answer")
+        for hint in question["hints"]:
+            hint.pop("text")
+    assert call_core("recommendNext", data, [])["question_id"] == "Q-001"
+
+
+def test_resolved_gap_is_not_recommended_again(call_core):
+    data = _package()
+    attempts = [_attempt(data, score=0, correct=False),
+                _attempt(data, "Q-002", number=2)]
+    action = call_core("recommendNext", data, attempts)
+    assert action["action"] == "practice" and action["question_id"] == "Q-003"
+    assert action["review"] is None
+
+
+def test_pending_is_not_weak_and_does_not_trigger_redundant_slot_question(call_core):
+    data = _package()
+    pending = _attempt(data, "Q-003", status="pending_grade", score=None, correct=None,
+                       evidence_eligible=False, grading_method="pending",
+                       exclusion_reasons=["not_graded"])
+    action = call_core("recommendNext", data, [_attempt(data), pending])
+    assert action["question_id"] == "Q-004" and action["review"] is None
+    assert call_core("evidenceLabel", "no_evidence") == "Chưa đo"
+    assert call_core("evidenceLabel", "pending_grade") == "Chờ chấm — chưa kết luận"
+
+
+def test_published_human_review_is_separate_from_original_ai_check(call_core):
+    data = _package()
+    meta = data["question_meta"]["Q-001"]
+    meta.update(initial_check_status="REVIEW", human_approved=True, quality_status="PASS")
+    attempt = _attempt(data)
+    assert call_core("isQuestionEligible", data, "Q-001") is False
+    data["publication"] = {
+        "status": "PUBLISHED", "release_id": data["run_id"], "review_method": "human",
+    }
+    assert call_core("isQuestionEligible", data, "Q-001") is True
+    assert call_core("computeEvidence", data, [attempt])["kcs"][0]["state"] == "developing"
+    # A stale or revoked backend state must dominate earlier human approval.
+    meta["quality_status"] = "STALE"
+    assert call_core("isQuestionEligible", data, "Q-001") is False
+    assert data["question_meta"]["Q-001"]["initial_check_status"] == "REVIEW"

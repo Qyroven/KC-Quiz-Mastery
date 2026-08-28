@@ -42,7 +42,8 @@ PORTAL_BUILD_RECORD = "portal-build-record.json"
 NATIVE_COMMANDS = (
     "source-preflight", "agent-init", "agent-context", "agent-schema", "agent-task",
     "agent-import", "batch-plan", "batch-preflight", "review", "approve", "kc-review",
-    "quiz-review", "portal-build", "learning-register", "status",
+    "quiz-review", "portal-build", "learning-register", "role-apps-build",
+    "authoring-register", "status",
 )
 LEGACY_API_COMMANDS = frozenset({
     "doctor", "extract", "batch-extract", "kc-preview", "kc-generate",
@@ -450,6 +451,26 @@ def _parser() -> argparse.ArgumentParser:
     )
     learning_register.add_argument("run_dir", type=_path)
     learning_register.add_argument("output_sql", type=_path)
+
+    role_apps = subcommands.add_parser(
+        "role-apps-build", help="build separate Teacher and Student apps offline; never deploy",
+    )
+    role_apps.add_argument("run_dir", type=_path)
+    role_apps.add_argument("output_dir", type=_path)
+    role_apps.add_argument("--local-preview", action="store_true",
+                           help="explicit local, unapproved preview; not deployable")
+    role_apps.add_argument("--review-supabase-url")
+    role_apps.add_argument("--review-supabase-publishable-key")
+    role_apps.add_argument("--extractor-review", default="extraction-review.html")
+    role_apps.add_argument("--kc-recall-review", default="kc-recall.html")
+    role_apps.add_argument("--kc-scroll-review", default="kc-scroll.html")
+    role_apps.add_argument("--quiz-review", default="quiz-review.html")
+
+    authoring_register = subcommands.add_parser(
+        "authoring-register", help="export immutable authoring package SQL offline; no grants",
+    )
+    authoring_register.add_argument("run_dir", type=_path)
+    authoring_register.add_argument("output_sql", type=_path)
 
     status = subcommands.add_parser("status", help="show canonical run artifacts")
     status.add_argument("run_dir", type=_path)
@@ -987,6 +1008,38 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
         )
+        return 0
+    if args.command == "role-apps-build":
+        from learning_authoring.role_apps import build_role_apps
+
+        if bool(args.review_supabase_url) != bool(args.review_supabase_publishable_key):
+            parser.error("Supply both the Supabase project URL and its public browser key")
+        backend = ReviewBackendConfig(
+            args.review_supabase_url, args.review_supabase_publishable_key,
+        ) if args.review_supabase_url else None
+        try:
+            result = build_role_apps(
+                args.run_dir, args.output_dir, review_backend=backend,
+                local_preview=args.local_preview,
+                review_files=ReviewFiles(args.extractor_review, args.kc_recall_review,
+                                         args.kc_scroll_review, args.quiz_review),
+            )
+        except (PublishSafetyError, ValueError, OSError) as exc:
+            print(json.dumps({"built": False, "error": str(exc)}), file=sys.stderr)
+            return 1
+        print(json.dumps({"built": True, "output_dir": str(args.output_dir),
+                          "deployment_performed": False, "manifest": result},
+                         ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "authoring-register":
+        from learning_authoring.role_apps import export_authoring_registration
+
+        try:
+            result = export_authoring_registration(args.run_dir, args.output_sql)
+        except (PublishSafetyError, ValueError, OSError) as exc:
+            print(json.dumps({"exported": False, "error": str(exc)}), file=sys.stderr)
+            return 1
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command == "learning-register":
         from learning_authoring.learning import export_learning_registration

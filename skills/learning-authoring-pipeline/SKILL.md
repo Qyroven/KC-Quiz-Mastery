@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Run a PDF with optional lecturer context through subscription-native Extraction, KC, Quiz with hints and an initial check, then a connected review and Learning MVP. Use for authoring, review, local learner practice or explicitly authorized publishing; never for provider-API generation.
 metadata:
   author: Qyroven
-  version: "1.5.0"
+  version: "1.6.0"
 ---
 
 # Learning Authoring Pipeline
@@ -27,6 +27,8 @@ Read [session-workflow.md](references/session-workflow.md) before starting or re
 performing a later human approval, or publishing static results.
 Read [learning-mvp.md](references/learning-mvp.md) when building the default Learning-enabled
 portal, configuring shared learner persistence, or explaining evidence/mastery behavior.
+Read [teacher-student.md](references/teacher-student.md) when separating the two role apps,
+publishing reviewed lesson versions, or configuring teacher access and student practice.
 
 ## Non-negotiable boundaries
 
@@ -110,7 +112,7 @@ mutation. The subscription-native commands must include `agent-init`, `agent-con
 `--task-package`, the `quiz-review` stage and its `--reviewer-mode`, and a default Quiz schema with
 explicit `hints` and `hint_absence_reason`. If the installed version does not expose them, stop and report a runtime-version
 mismatch instead of falling back to an API command or stale portal files.
-Version 1.5 requires runtime 0.5.0 or a compatible newer version, including KC
+Version 1.6 requires runtime 0.6.0 or a compatible newer version, including KC
 `context_audit`, `portal-build --with-learning`, and `learning-register`. Check `--version`,
 `agent-schema kc`, and command help; an outdated cached CLI
 must be updated before proceeding. The default install needs neither an OpenAI
@@ -165,3 +167,9 @@ and the exact Vercel target is authorized. Publish only the generated allowliste
 never deploy this skill, the repository runtime, a run directory, or source/candidate material.
 Shared review/Learning use Supabase only for authenticated persistence and deterministic grading;
 that is distinct from, and never permission for, a model-provider API call.
+
+For the separate Teacher/Student product, use `role-apps-build` rather than exposing the
+combined authoring preview as the Student app. The Student app reads published versions,
+records only its own learner actions and has no authoring controls. Course-scoped teacher
+authorization is enforced by the backend, not by a display name or a hidden button. Neither
+building apps nor registering a package authorizes granting a role or publishing a lesson.

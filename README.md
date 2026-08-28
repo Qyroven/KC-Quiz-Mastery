@@ -26,7 +26,7 @@ deployed there.
 | Stage | Current status |
 |---|---|
 | Extractor | Implemented: source binding, structured candidate import, deterministic audit, review UI, explicit human approval |
-| KC | Implemented as contract-valid proposed output with local review; there is no KC approval command yet |
+| KC | Proposed output plus Teacher revision review/approval on the shared backend; no standalone KC approval/export command yet |
 | Quiz | Experimental and unapproved; adaptive hints, structural/form checks and a source-bound initial semantic review; not certified teaching quality |
 | Learning / Mastery | MVP: versioned attempts, hint-aware evidence, provisional slot/KC states and next action; not calibrated learner ability |
 | VLearn importer | Not implemented |
@@ -57,7 +57,7 @@ provider credential, creates no provider-billed request, and records `provider_a
 Provider token usage and dollar cost are unavailable because subscription clients do not expose
 those values to this local runtime.
 
-Current package: runtime **0.5.0**, skill **1.5.0**. The default installation does
+Current package: runtime **0.6.0**, skill **1.6.0**. The default installation does
 not install the OpenAI SDK or dotenv. Native commands do not read `.env`, create
 a provider client, or make a model API request. Historical API adapters remain
 isolated behind the optional `legacy-api` extra; they are not part of the skill
@@ -355,10 +355,12 @@ Objective responses are graded against the frozen key. Short-text responses rema
 an explicitly authorized staff member grades the authored rubric; there is no keyword grader or
 hosted LLM fallback. Invalid/incomplete submissions are not recorded as wrong answers.
 
-`evidence-rules.v1` distinguishes unhinted correct work, assisted work, difficulty and missing
+`evidence-rules.v1` distinguishes unhinted correct work, assisted work, gaps and missing
 evidence. It measures coverage of the actual assessment slots, not a fixed number of questions
-per KC. Repeated items after answer exposure are practice-only. Initial-check non
-`PASS`, stale or rejected content cannot inflate trusted evidence. States are provisional,
+per KC. Bloom/intended difficulty are metadata, not score weights. Repeated items after answer
+exposure are practice-only. In the draft preview, initial-check non-`PASS` content is excluded.
+A published, explicitly human-reviewed version may admit a corrected item while preserving its
+original AI status; stale or rejected current content stays excluded. States are provisional,
 not a mastery probability, psychometric calibration or proof of competency.
 
 The learner loop chooses relevant review material or another unattempted question. Separately,
@@ -371,6 +373,9 @@ not verified accounts; clearing browser storage loses that device's identity and
 automatic cross-device recovery. A failed shared save is an error, never a silent local fallback.
 Learners can read only their own private histories; content reviewers do not thereby become graders.
 Because the public review portal contains answers, this is formative practice, not a secure exam.
+
+The next setup notes describe the legacy combined portal. For the two role apps, continue with
+the separate-app migration below: course-scoped Teacher grants replace the global grader rule.
 
 To enable shared Learning after registering an existing review run, apply
 `supabase/migrations/202608280001_learning_mvp.sql` once, then export this run's immutable items:
@@ -428,6 +433,55 @@ The publishable key is intentionally browser-visible and constrained by RLS/RPC 
 service-role key must remain server-only and is rejected by the portal builder. This name-only flow
 is intended for a shared review link among known collaborators; add CAPTCHA or an invite-token
 boundary before advertising it as an unrestricted public service.
+
+## Separate Teacher and Student apps
+
+The combined portal remains a backward-compatible authoring/practice preview. It is not the
+Student product. Build the separate MVP without changing a completed run:
+
+```bash
+learning-authoring role-apps-build /absolute/run /absolute/new-role-apps --local-preview
+```
+
+Serve `new-role-apps/teacher` and `new-role-apps/student` on different local ports. This explicit
+preview cannot publish, approve or impersonate a teacher and is marked **not deployable**.
+It contains no fabricated learner history. Local Student grading is formative practice only.
+
+For shared apps, omit `--local-preview` and supply the exact public backend configuration:
+
+```bash
+learning-authoring role-apps-build /absolute/run /absolute/new-shared-apps \
+  --review-supabase-url https://PROJECT_REF.supabase.co \
+  --review-supabase-publishable-key sb_publishable_PUBLIC_BROWSER_KEY
+learning-authoring authoring-register /absolute/run /absolute/private-authoring-registration.sql
+```
+
+The operator applies `supabase/migrations/202608280002_teacher_student.sql` after the previous
+migrations, registers the immutable authoring package after the existing review/learning items,
+and grants `learning_course_teachers` only for a verified user ID and course. No CLI command
+above connects to the backend, grants a role or creates a publication. Never rerun historical
+seed files or overwrite registration/history. The new migration restricts review mutations and
+teacher reads to explicit course permissions; a name or legacy global grader grant is not enough.
+
+- Teacher: review/edit/approve current revisions, select reviewed items to publish, inspect
+  versioned learners' attempts/hints/evidence, and grade short-text using its frozen rubric.
+- Student: choose a published lesson version, answer/use hints, see own evidence and teacher
+  comments, and follow a reasoned next step. No content-editing or approval capabilities.
+- Release: an immutable snapshot, not a live alias to a draft. In-progress learning and past
+  answers remain on the selected version. Missing slot coverage remains unmeasured.
+- Evidence: no mastery percentage or student ranking. Pending grading, assisted success and
+  partial coverage are not labelled independent achievement. Recommendations target actual
+  missing slots; no new question is silently generated if a fresh variant is unavailable.
+
+The shared Student bundle ships no keys or authoring artifacts. The Teacher static review files
+still contain answer material; protect that deployment separately if secrecy is needed. Backend
+role enforcement protects changes and private learner records even if someone opens the other URL.
+Two deployments share data, but anonymous browser identities do not automatically roam between
+devices/origins. A teacher's display name is never authorization.
+
+See [the role workflow](skills/learning-authoring-pipeline/references/teacher-student.md) for
+setup, versioned publishing and the limits of the MVP. Deploy only the generated `teacher/` and
+`student/` directories to explicitly authorized targets, never the repository or registration SQL.
 
 ## Vercel is an optional static result layer
 

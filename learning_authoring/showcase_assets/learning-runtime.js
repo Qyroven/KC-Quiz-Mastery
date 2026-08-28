@@ -31,11 +31,11 @@
         String(b.started_at).localeCompare(String(a.started_at)),
       )[0] || null;
   const stateNames = {
-    no_evidence: "Chưa có bằng chứng",
+    no_evidence: "Chưa đo",
     pending_grade: "Chờ chấm rubric",
     needs_practice: "Cần ôn thêm",
     assisted: "Đúng khi có hỗ trợ",
-    developing: "Đang hình thành",
+    developing: "Mới đo một phần",
     demonstrated: "Đã có bằng chứng độc lập",
   };
   const reasonNames = {
@@ -72,6 +72,8 @@
       "Còn câu trả lời đang chờ người được cấp quyền chấm theo rubric; chưa suy đoán đúng hoặc sai.",
     no_unattempted_eligible_question:
       "Bộ học hiện không còn câu PASS chưa làm. Có thể ôn lại hoặc luyện lại, nhưng cần câu mới để có thêm bằng chứng độc lập.",
+    no_variant_for_target_slot:
+      "Mục tiêu này cần ôn nhưng chưa có biến thể chưa làm để đo lại. Ôn kiến thức liên quan; không dùng một câu ở mục tiêu khác để kết luận đã hiểu mục tiêu này.",
     mixed_learner_scope:
       "Chưa thể đề xuất từ lịch sử có nhiều người học. Cần kiểm tra lại phạm vi phiên học.",
   };

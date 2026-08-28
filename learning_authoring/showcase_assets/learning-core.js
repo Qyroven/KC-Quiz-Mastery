@@ -37,6 +37,17 @@
   const idList = (values) =>
     Array.isArray(values) && values.every(nonblank) && unique(values);
 
+  function isQuestionEligible(data, questionId) {
+    const meta = (data.question_meta || {})[questionId];
+    if (!meta) return false;
+    if (meta.quality_status && meta.quality_status !== "PASS") return false;
+    const releasedHumanReview = data.publication?.status === "PUBLISHED" &&
+      data.publication.release_id === data.run_id &&
+      data.publication.review_method === "human" && meta.human_approved === true &&
+      meta.quality_status === "PASS";
+    return releasedHumanReview || meta.initial_check_status === "PASS";
+  }
+
   function optionIds(options) {
     if (!Array.isArray(options) || options.some((item) => !object(item)))
       return null;
@@ -451,7 +462,7 @@
         continue;
       }
       if (
-        meta.initial_check_status !== "PASS" ||
+        !isQuestionEligible(data, attempt.question_id) ||
         attempt.quality_status !== "PASS"
       )
         reasons.push("initial_check_not_pass");
@@ -617,29 +628,22 @@
   }
 
   function recommendNext(data, attempts, options) {
+    const history = Array.isArray(attempts) ? attempts : [];
     const inspected = inspectAttempts(
       data,
-      Array.isArray(attempts) ? attempts : [],
+      history,
       options,
     );
+    const evidence = computeEvidence(data, history, options);
+    const slotStates = new Map(evidence.kcs.flatMap((kc) => kc.slots.map(
+      (slot) => [slot.slot_id, { ...slot, kc_id: kc.kc_id }],
+    )));
     const candidates = (data.questions || []).filter(
       (question) =>
-        (data.question_meta || {})[question.question_id]
-          ?.initial_check_status === "PASS" &&
+        isQuestionEligible(data, question.question_id) &&
         !questionShape(question) &&
         !inspected.firstByQuestion.has(question.question_id),
     );
-    const latest = [...inspected.current]
-      .filter((attempt) => attempt.status === "graded")
-      .sort(latestEvidence)
-      .pop();
-    const needsReview =
-      latest && ["needs_practice", "assisted"].includes(attemptState(latest));
-    const review = needsReview ? reviewContext(data, latest.kc_id) : null;
-    const next =
-      (needsReview &&
-        candidates.find((question) => question.kc_id === latest.kc_id)) ||
-      candidates[0];
     if (inspected.scope_error)
       return {
         action: "need_more_evidence",
@@ -648,18 +652,41 @@
         question_id: null,
         review: null,
       };
-    if (next)
+    // Only the currently effective evidence for a slot can request remediation.
+    // A later independent variant resolves the earlier failed/hinted attempt.
+    const unresolved = [...inspected.current]
+      .filter((attempt) => attempt.status === "graded" &&
+        ["needs_practice", "assisted"].includes(attemptState(attempt)) &&
+        (!attempt.slot_id || slotStates.get(attempt.slot_id)?.attempt_id === attempt.attempt_id))
+      .sort(latestEvidence).reverse();
+    const focus = unresolved[0];
+    const unmeasured = candidates.filter((question) => !question.slot_id ||
+      slotStates.get(question.slot_id)?.state === "no_evidence");
+    if (focus) {
+      const sameNeed = candidates.find((question) => question.kc_id === focus.kc_id &&
+        (!focus.slot_id || question.slot_id === focus.slot_id));
+      const alternative = unmeasured.find((question) => question.slot_id !== focus.slot_id);
       return {
-        action: needsReview ? "review_and_practice" : "practice",
-        reason: needsReview
-          ? latest.correct
-            ? "after_assisted"
-            : "after_incorrect"
-          : "unattempted_eligible_question",
-        kc_id: next.kc_id,
-        question_id: next.question_id,
-        review,
+        action: sameNeed ? "review_and_practice" : "need_more_evidence",
+        reason: sameNeed ? (focus.correct ? "after_assisted" : "after_incorrect") :
+          "no_variant_for_target_slot",
+        kc_id: focus.kc_id,
+        slot_id: focus.slot_id || null,
+        question_id: sameNeed?.question_id || null,
+        based_on_attempt_id: focus.attempt_id,
+        review: reviewContext(data, focus.kc_id),
+        alternative: !sameNeed && alternative ? {
+          question_id: alternative.question_id, kc_id: alternative.kc_id,
+          slot_id: alternative.slot_id || null, reason: "another_unmeasured_objective",
+        } : null,
       };
+    }
+    const next = unmeasured[0];
+    if (next) return {
+      action: "practice", reason: "unattempted_eligible_question",
+      kc_id: next.kc_id, slot_id: next.slot_id || null,
+      question_id: next.question_id, review: null,
+    };
     const pending = inspected.current.some(
       (attempt) => attempt.status === "pending_grade",
     );
@@ -668,10 +695,22 @@
       reason: pending
         ? "human_rubric_required"
         : "no_unattempted_eligible_question",
-      kc_id: needsReview ? latest.kc_id : null,
+      kc_id: null,
       question_id: null,
-      review,
+      review: null,
     };
+  }
+
+  // Shared Teacher/Student vocabulary: these labels are observations, not scores.
+  function evidenceLabel(state) {
+    return ({
+      no_evidence: "Chưa đo",
+      needs_practice: "Cần ôn",
+      demonstrated: "Đã có bằng chứng độc lập",
+      pending_grade: "Chờ chấm — chưa kết luận",
+      assisted: "Đúng với hỗ trợ — cần thử độc lập",
+      developing: "Mới đo một phần",
+    })[state] || "Chưa đủ thông tin";
   }
 
   return Object.freeze({
@@ -684,5 +723,7 @@
     computeEvidence,
     recommendNext,
     reviewContext,
+    evidenceLabel,
+    isQuestionEligible,
   });
 });

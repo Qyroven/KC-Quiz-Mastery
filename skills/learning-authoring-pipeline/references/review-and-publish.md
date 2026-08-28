@@ -3,6 +3,11 @@
 Read this reference when building the default local portal, performing later human review or
 approval, or handling an explicitly requested publication.
 
+For separate Teacher/Student deployments, read [teacher-student.md](teacher-student.md).
+The role-app backend adds course-scoped authorization and an explicit immutable lesson release.
+The combined portal described here remains available for local review; do not deploy its full
+answer-bearing bundle as the Student app.
+
 ## Honest statuses and review boundaries
 
 The status vocabulary is:
@@ -45,6 +50,10 @@ An explicitly configured shared-review backend may persist reviewer-authored rev
 Approve/Edit/Reject events for Extraction, KC, and Quiz. Raw candidates remain immutable, and
 these collaborative events never authorize source mutation or create a canonical approved
 pipeline artifact.
+
+Runtime 0.6 can publish an immutable Learning release from explicitly selected current approved
+KC/question revisions. This is a separate human decision, not a replacement AI check or an edit
+of the original candidate. Missing/unpublished assessment coverage must remain visible.
 
 ## Build one connected local portal
 
@@ -114,6 +123,10 @@ transaction that validates target existence, stage payload shape, payload size, 
 the latest expected revision. Once a target has review history, changed output requires a new run ID.
 Name-only anonymous review is suitable for a link shared with known collaborators; require an
 additional CAPTCHA or invite-token boundary before treating it as unrestricted public write access.
+
+With the Teacher/Student migration installed, course-scoped teacher authorization is required
+even for shared review writes and review history. Anonymous sign-in plus a display name alone
+does not grant edit, approval, publication, grading or private learner-history access.
 
 ## Publish to Vercel only with separate authorization
 

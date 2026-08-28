@@ -2,6 +2,11 @@
 
 This is a small continuation of Authoring, not another model pipeline:
 
+For the separate Teacher/Student apps in runtime 0.6, also read
+[teacher-student.md](teacher-student.md). The original combined portal below remains a local
+practice/review surface; it is not the Student deployment. Shared role apps require a
+course-scoped teacher grant and an explicit immutable release before Student can enroll.
+
 ```text
 Frozen Quiz + hints + key/rubric + KC/slot lineage
   -> a person answers and optionally asks for authored hints
@@ -47,8 +52,9 @@ migration in the repository. Export immutable learning items offline:
 
 Apply SQL only through the authorized administrator surface. The exporter must not connect to a
 database or use a service key. Publish the portal, not the SQL. Never replace registered snapshots
-or historical evidence on a content change. Staff rubric grading requires an explicit database
-staff allowlist; typing a teacher's name grants no role.
+or historical evidence on a content change. Legacy combined-portal grading uses a staff
+allowlist; the role-app migration replaces this with course-scoped teacher grants. A legacy
+global grader is not automatically a teacher for every course. Typing a teacher's name grants no role.
 The operator must verify the exact existing authenticated user ID before granting that role.
 With no staff configured, objective questions still complete the loop; short-text remains pending.
 
@@ -62,8 +68,10 @@ With no staff configured, objective questions still complete the loop; short-tex
   with no arbitrary percentage penalty per hint.
 - An item whose answer was exposed by a submitted attempt is practice on retry, not new independent
   evidence. Public review access means perfect blindness cannot be claimed even on a first attempt.
-- Non-PASS, rejected, stale or changed-question/upstream content is not trusted independent
-  evidence. Preserve attempts and explain exclusions instead of deleting inconvenient data.
+- In draft/local practice, non-PASS, rejected, stale or changed-question/upstream content is not
+  trusted independent evidence. A Teacher's explicit reviewed release can authorize corrected
+  items separately from their original AI status; it never rewrites that AI status or raw output.
+  Preserve attempts and explain exclusions instead of deleting inconvenient data.
 - Keep question/KC/source/context hashes, grader method/version, timestamps, response, hint IDs
   and repeat/exposure status. Retrying the same request must not double-count it.
 
@@ -76,6 +84,12 @@ content without slots can be practiced but cannot claim complete assessment cove
 The next action can point to relevant KC/source material, another unattempted question for the
 same need, or the next unmeasured KC. If no suitable item remains, explain that more evidence or
 grading is needed; do not regenerate invisibly or loop forever.
+
+In separate role apps, an unresolved slot is matched to a fresh variant of that same slot.
+If none exists, say the target lacks another suitable item; a different objective is offered
+separately, not labelled remediation. Repeated/exposed question identities remain exposed across
+course releases. Unpublished KC content stays hidden from Student while its unmeasured coverage
+remains visible. Use evidence labels, not a mastery percentage or rank.
 
 ## Two separate feedback loops
 

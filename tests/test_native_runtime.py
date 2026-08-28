@@ -24,7 +24,7 @@ PROVIDER_MODULES = {
 
 def test_base_install_has_no_provider_or_dotenv_dependency() -> None:
     project = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text())
-    assert project["project"]["version"] == "0.5.0"
+    assert project["project"]["version"] == "0.6.0"
     assert project["project"]["dependencies"] == ["pydantic>=2.10,<3", "pypdfium2"]
     assert project["project"]["optional-dependencies"]["legacy-api"] == [
         "openai>=2,<3", "python-dotenv",
