@@ -62,8 +62,10 @@ KC must preserve source-qualified evidence, meaningful exclusions, and context p
 flag allows an uninterrupted draft flow; it is not approval. Before grouping, inventory the
 source-supported capabilities internally. Split candidates when knowledge, observable response, or
 remediation can stand independently; merge only paraphrases, supporting examples, or inseparable
-parts. Re-run those tests after every merge. Do not use a page ratio, KC target, or source-specific
-keyword list.
+parts. Re-run those tests after every merge. Before import, trace every positive statement in each
+KC description, observable claim, and included boundary to evidence cited on that KC; add the real
+reference, narrow the statement, or omit it. Do not use a page ratio, KC target, source-specific
+keyword list, or uncited course summary.
 
 After import, inspect `granularity_diagnostics` in `kc-run-metrics.json`. It surfaces exact review
 signals such as learning pages without KC links, repeated uncovered reasons, and repeated evidence
@@ -81,6 +83,14 @@ Use explicit `--include-kc`, language, or budget flags only when the user asks. 
 determine item type and variant count. After import, inspect the deterministic form audit. A contract
 failure permits one fresh replacement. A quality warning stays visible for the initial check; do
 not loop until all warnings disappear.
+
+Before importing the first candidate, solve every learner-visible item without its key. If material
+facts leave more than one defensible conclusion, supply the missing bounded facts or ask for a
+conditional conclusion and score it accordingly. Make a criterion-to-prompt check for every rubric
+point, remove answer-bearing labels or checklists from the learner view, and prevent one-to-one
+matching from claiming independent evidence for a final pair obtained only by elimination. Re-check
+uniform variant counts against item-specific evidence needs; do not add variants merely to break a
+uniform pattern.
 
 ## 6. Initial check
 

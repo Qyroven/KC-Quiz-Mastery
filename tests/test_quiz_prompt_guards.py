@@ -57,6 +57,22 @@ def normalized(text: str) -> str:
             "never silently treat `...` or an omitted operation as working code",
             "do not assume `...` performs an omitted operation",
         ),
+        (
+            "construct the strongest plausible alternative answer",
+            "Construct the strongest plausible competing answer",
+        ),
+        (
+            "Do not state that each required evidence category is absent",
+            "explicitly announces each missing evidence category",
+        ),
+        (
+            "including a rationale, derivation, evidence citation, required category, example",
+            "An unrequested example is also a hidden deliverable",
+        ),
+        (
+            "include at least one plausible unused right-side option",
+            "the final pair derivable by elimination",
+        ),
     ],
 )
 def test_generator_and_independent_review_share_quality_guards(

@@ -10,6 +10,13 @@ Choose an interaction that captures the evidence named by the KC, not merely an 
 
 The visible task and its scoring must agree. Assess the requested evidence, not an unstated ideal answer: accept valid alternative explanations, criteria, methods, and equivalent numerical answers when they satisfy the task. Recall and ordinary calculation can be useful evidence without pretending to be analysis or transfer.
 
+A decisive answer requires decisive facts. When a scenario leaves a material
+factor unknown, either provide a bounded value or ask for a conditional judgment
+that identifies what follows and what remains unresolved. Never force one
+categorical conclusion merely because the exemplar chose it. Likewise, do not
+announce every missing criterion in the stimulus and then call copying those
+labels an evaluation.
+
 An assessment slot is one distinct, bounded piece of learner evidence or cognitive operation that can test the KC. A variant is another item for the same slot: it preserves that evidence intent, operation, and intended difficulty while changing the concrete instance. Different reasoning targets belong in different slots, not under a misleading variant label.
 
 For a selected-response item, make every option a credible decision by a partially informed learner. A useful near miss preserves most of the case and gets one consequential condition, threshold, relationship, or exception wrong. The keyed option must not be the only answer that sounds nuanced, safe, complete, or professional. If the stem names every decisive criterion and the key simply repeats that list, the item is recognition even when its topic is complex.

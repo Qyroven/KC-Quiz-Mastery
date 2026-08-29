@@ -326,12 +326,14 @@ def test_quiz_prompt_package_requires_post_draft_consistency_and_cue_checks() ->
         "answer_explanation",
         "correct-option positions",
         "independently re-solve every item",
+        "strongest plausible competing answer",
+        "criterion-to-prompt matrix",
     ):
         assert required.casefold() in combined
 
     assert "update option ids, keys, and explanations together" in task
     assert "compare the resulting semantic answer" in task
-    assert "locate every rubric criterion" in task
+    assert "criterion-to-prompt matrix" in task
 
 
 def test_bundle_quiz_worked_example_is_source_qualified_and_contract_valid() -> None:

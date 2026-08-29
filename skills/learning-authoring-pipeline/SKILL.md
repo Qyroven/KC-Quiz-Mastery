@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Turn one or more PDFs plus optional lecturer context into reviewable Extraction, shared Knowledge Components, Quiz with hints, and a connected local portal using the active coding-agent subscription. Use for end-to-end authoring or review; never call a model-provider API.
 metadata:
   author: Qyroven
-  version: "2.1.0"
+  version: "2.2.0"
 ---
 
 # Learning Authoring Pipeline
@@ -50,11 +50,17 @@ are not automatic pause gates. Do not invent approval.
   source-supported capabilities before grouping. One Leaf KC represents one coherent observable
   capability; split when knowledge, learner response, or remediation is independently meaningful,
   and merge only paraphrases, supporting examples, or inseparable parts. Never optimize toward a
-  count. Exclude unsupported claims with claim-specific reasons rather than guessing or repeating
-  one generic omission reason.
+  count. Every positive claim in a KC description, observable response, or included boundary must
+  be supported by evidence cited on that same KC; never borrow an uncited summary or nearby page.
+  Exclude unsupported claims with claim-specific reasons rather than guessing or repeating one
+  generic omission reason.
 - Quiz receives the selected complete KCs, not a fresh dump of PDFs. It chooses assessment slots,
   item types, and variant counts from the evidence needed. Generate hints with the question;
-  hints must support without revealing the answer.
+  hints must support without revealing the answer. Do not force a categorical verdict when
+  material factors are unknown, announce the deciding categories and then ask the learner to copy
+  them, or score a deliverable that the learner-visible task did not request. When every slot lands
+  on the same variant count, re-check the item-specific justifications; uniformity is allowed only
+  when it genuinely follows from the evidence needs.
 - The initial quality check catches source mismatch, ambiguity, cueing, answer/rubric defects, and
   hint leakage. It is not human approval or proof of learner validity. Do not add a multi-agent lab,
   A/B benchmark, or repeated reviewer loop unless the user explicitly asks for an evaluation.

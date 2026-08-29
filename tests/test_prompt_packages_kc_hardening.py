@@ -31,6 +31,15 @@ def test_kc_prompts_require_minimal_evidence_spans() -> None:
     assert "do not copy every block from the page by default" in bundle
 
 
+def test_singular_kc_prompt_requires_claim_level_evidence_closure() -> None:
+    instructions = _compact(load_prompt_package().instructions)
+
+    assert "Apply claim-level closure" in instructions
+    assert "evidence record cited on that same KC" in instructions
+    assert "claim-to-reference pass" in instructions
+    assert "never import a useful conclusion from an uncited summary page" in instructions
+
+
 def test_bundle_kc_prompt_keeps_visual_gaps_independent_per_source() -> None:
     instructions, _ = _bundle_kc_prompt_fields(SourceBundleKCSet.model_json_schema())
     instructions = _compact(instructions)

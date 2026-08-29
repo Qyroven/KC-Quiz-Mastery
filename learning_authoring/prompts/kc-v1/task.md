@@ -30,6 +30,10 @@ the supplied output schema:
    attachment give a `description` with `excerpt: null`. Explain what each item
    supports and disclose optional page mapping method/confidence. A context-only
    KC has `source_evidence: []`, never fabricated blocks or page anchors.
+   Before moving on, perform a claim-to-reference pass: every positive assertion
+   in `knowledge_description`, `observable_claim`, and the included boundary must
+   resolve to evidence cited on this KC. If support lives on another source page,
+   cite that actual page; otherwise narrow or remove the assertion.
 6. For every Leaf KC, write `observable_claim` as a conditional capability:
    given an identifiable task condition, state the observable learner response.
    Keep the condition supported by the supplied extraction and/or cited context;

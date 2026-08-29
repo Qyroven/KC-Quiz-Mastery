@@ -44,6 +44,10 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   omitted operation. Flag an ambiguous placeholder only when it changes the
   assessed behavior or leaves the answer underdetermined, not merely because an
   ellipsis appears in otherwise sufficient pseudocode or irrelevant context.
+  Construct the strongest plausible competing answer from the learner-visible
+  facts. When material factors have no supplied magnitude or condition, flag a
+  categorical key that rejects a defensible conditional or uncertain answer;
+  an exemplar's confidence cannot manufacture missing evidence.
   Read the text as a learner: flag material confusion from authoring jargon,
   model-directed restrictions, unnecessary prose, or an unnatural task. A brief
   question and necessary response limits are not defects by themselves.
@@ -60,6 +64,9 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   If the stimulus already supplies the deciding distinction, naming it is not
   analysis of that distinction. Do not penalize honest recognition, ordinary
   calculation, or necessary givens just for being simple.
+  Likewise, if the stimulus explicitly announces each missing evidence category
+  and the task asks the learner to list those categories, do not credit the item
+  with independent evaluation merely because the labels are domain-specific.
 - **scoring:** Is the supplied key uniquely defensible where uniqueness is
   required? For multi-select, matching, and ordering, check all required
   relationships and allowable alternatives. Objective interactions use their
@@ -71,7 +78,8 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   demand absent information or an unrequested deliverable. Compare every scored
   requirement with the visible task. An open request for criteria does not imply
   a hidden mandatory set of categories; choosing different supported criteria may
-  be correct. A numeric-answer-only task need not show an unrequested derivation,
+  be correct. An unrequested example is also a hidden deliverable, not evidence
+  of a stronger response. A numeric-answer-only task need not show an unrequested derivation,
   and equivalent values or methods must not lose credit just for differing from
   the exemplar. Partial credit for necessary intermediate work is valid when it
   does not impose extra conditions for a fully correct requested answer. State
@@ -95,6 +103,10 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   numbers may provide useful fresh calculation or a boundary case, but alone
   do not prove broader evidence coverage. Conversely, do not reject a numerical
   practice item solely because its wording resembles another item.
+  For matching, an equal number of left and right options makes the final pair
+  derivable by elimination. Flag this when the item or scoring treats every pair
+  as independent evidence; an intrinsically closed-set task may instead narrow
+  that evidence claim.
 - **hints:** Inspect all supplied hints, their order, their intended support, and
   their relationship to the learner view and answer. A useful hint helps the
   learner take a next step without directly revealing the scored response,

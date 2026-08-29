@@ -83,6 +83,12 @@ existing block IDs instead of copying it into a second artifact registry.
    `description` instead of an unverified quote. A context-only KC uses
    `source_evidence: []` with nonempty valid `context_evidence`; never fabricate
    PDF block IDs or pages to make it look PDF-supported.
+   Apply claim-level closure: every positive instructional assertion in the KC
+   `knowledge_description`, `observable_claim`, and included assessment boundary
+   must be supported by at least one evidence record cited on that same KC. A
+   claim visible elsewhere in the course is not grounded here until that page or
+   context is actually cited. Add the real evidence reference, narrow the claim,
+   or omit it; never import a useful conclusion from an uncited summary page.
 5. **Evidence preservation:** do not transcribe, summarize, relocate, or
    regenerate an evidence artifact in the KC output. The supplied extraction is
    the canonical registry for content, modality, geometry, asset references,
@@ -192,6 +198,12 @@ record. Evidence descriptions must state the exact claim supported rather than
 a generic phrase such as "evidence for this KC". If the comparison reveals
 independently scorable operations or decisions, split the KC or disclose a
 genuine source ambiguity for review.
+
+Then run the comparison in reverse: underline each positive assertion in the
+description, observable response, and included boundary and locate the evidence
+record on that KC that supports it. Mere truth somewhere in the source, a page
+note summary, or the author's memory does not close this check. This is a
+claim-to-reference audit, not a requirement to cite every decorative block.
 
 ## KC count policy
 
