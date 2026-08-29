@@ -47,7 +47,8 @@ Shared setup requires the existing shared-review migrations/run registry and the
 migration in the repository. Export immutable learning items offline:
 
 ```bash
-<la> learning-register <run-dir> <absolute-path-outside-run-and-portal.sql>
+learning-authoring-product export-learning-registration \
+  <run-dir> <absolute-path-outside-run-and-portal.sql>
 ```
 
 Apply SQL only through the authorized administrator surface. The exporter must not connect to a

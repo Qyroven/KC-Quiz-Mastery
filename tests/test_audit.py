@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from learning_authoring.audit import build_audit
+import pytest
+
+from learning_authoring.audit import build_audit, validate_extraction_geometry
 from learning_authoring.contracts import SourceRegion
 from tests.conftest import make_run_dir, payload
 
@@ -45,3 +47,22 @@ def test_audit_distinguishes_invalid_from_unresolved_geometry(tmp_path, source) 
     assert audit["invalid_geometry_block_count"] == 1
     assert audit["invalid_geometry_blocks"] == [{"page": 2, "block_id": "b2", "kind": "text"}]
     assert audit["pages"][1]["invalid_geometry_block_ids"] == ["b2"]
+
+
+def test_invalid_geometry_is_a_contract_error_but_unresolved_is_allowed(source) -> None:
+    unresolved = payload().with_source(source)
+    unresolved.pages[1].blocks[0].region = SourceRegion(
+        page=2,
+        localization_status="unresolved",
+        geometry={},
+    )
+    validate_extraction_geometry(unresolved)
+
+    invalid = payload().with_source(source)
+    invalid.pages[1].blocks[0].region = SourceRegion(
+        page=2,
+        localization_status="located",
+        geometry={"x": 0.8, "y": 0.2, "w": 0.3, "h": 0.4},
+    )
+    with pytest.raises(ValueError, match="invalid normalized geometry"):
+        validate_extraction_geometry(invalid)

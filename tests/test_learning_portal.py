@@ -6,14 +6,14 @@ import shutil
 import pytest
 
 from learning_authoring.artifacts import sha256_file
-from learning_authoring.cli import main
-from learning_authoring.showcase import (
+from learning_authoring.product.showcase import (
     LEARNING_GENERATED_FILES,
     LEARNING_TEMPLATE_FILES,
     ReviewBackendConfig,
     _json_assignment,
     build_showcase,
 )
+from learning_authoring.product_cli import main as product_main
 from tests.test_agent_quiz_review import _import_report, _quiz_run, _review_task
 from tests.test_agent_session import _forbid_provider_use
 from tests.test_review_registration import _inventory
@@ -79,7 +79,7 @@ def test_cli_exports_learning_registration_offline_without_changing_run(
     run = _quiz_run(tmp_path)
     before = _inventory(run)
     output = tmp_path / "registration.sql"
-    assert main(["learning-register", str(run), str(output)]) == 0
+    assert product_main(["export-learning-registration", str(run), str(output)]) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["backend_writes"] == 0
     assert result["item_count"] == 3

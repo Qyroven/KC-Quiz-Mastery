@@ -9,9 +9,9 @@ import pytest
 from learning_authoring.agent_session import agent_import, prepare_agent_task
 from learning_authoring.artifacts import read_json, sha256_file, write_json
 from learning_authoring.cli import main
+from learning_authoring.product.showcase import PublishSafetyError, build_showcase
 from learning_authoring.quiz_review import build_quiz_review
 from learning_authoring.quiz_review_state import load_quiz_semantic_state, quiz_review_material
-from learning_authoring.showcase import PublishSafetyError, build_showcase
 from tests.test_agent_context_slots import _adaptive_candidate, _import_kcs, _init
 from tests.test_agent_session import _forbid_provider_use, _write_raw
 from tests.test_quiz_semantics import _flag, _report
@@ -48,7 +48,9 @@ def test_review_keeps_key_out_of_initial_packet_and_binds_source(tmp_path, monke
     _forbid_provider_use(monkeypatch)
     run = _quiz_run(tmp_path)
     task, _ = _review_task(run)
-    boundary = read_json(Path(task["task_package"]))["input_boundary"]
+    task_package = read_json(Path(task["task_package"]))
+    boundary = task_package["input_boundary"]
+    assert task_package["worked_examples"][0]["example_id"] == "source-bound-review"
     assert boundary["reviewer_mode"] == "independent"
     for question in boundary["learner_questions"]:
         assert not {"hints", "correct_answer", "rubric", "answer_explanation"} & question.keys()
@@ -64,15 +66,20 @@ def test_review_keeps_key_out_of_initial_packet_and_binds_source(tmp_path, monke
 
 @pytest.mark.parametrize("notes", [False, True])
 def test_initial_report_and_quiz_bytes_preserved_no_api_or_approval(
-    tmp_path, monkeypatch, notes,
+    tmp_path,
+    monkeypatch,
+    notes,
 ) -> None:
     _forbid_provider_use(monkeypatch)
     run = _quiz_run(tmp_path, notes=notes)
     before = {
         relative: sha256_file(run / relative)
         for relative in (
-            "source.pdf", "extracted-source.proposed.json", "kc-proposed.json",
-            "quiz/quiz-proposed.json", "quiz/quiz-input.json",
+            "source.pdf",
+            "extracted-source.proposed.json",
+            "kc-proposed.json",
+            "quiz/quiz-proposed.json",
+            "quiz/quiz-input.json",
         )
     }
     task, report = _review_task(run)
@@ -114,7 +121,8 @@ def test_reject_findings_are_retained_and_do_not_rewrite_or_drop_items(tmp_path)
 def test_limited_review_is_not_presented_as_pass(tmp_path, limited) -> None:
     run = _quiz_run(tmp_path)
     task, report = _review_task(
-        run, mode="self_review" if limited == "self_review" else "independent",
+        run,
+        mode="self_review" if limited == "self_review" else "independent",
     )
     if limited != "self_review":
         report["scope"]["limitations"] = ["Original source could not be fully inspected."]
@@ -151,7 +159,8 @@ def test_stale_source_or_quiz_cannot_keep_old_green_report(tmp_path, change) -> 
 
 @pytest.mark.parametrize("change", ["key_companion", "task", "report", "record", "mode"])
 def test_review_integrity_and_execution_provenance_cannot_be_silently_changed(
-    tmp_path, change,
+    tmp_path,
+    change,
 ) -> None:
     run = _quiz_run(tmp_path)
     task, report = _review_task(run)
@@ -189,7 +198,7 @@ def test_invalid_report_is_archived_without_replacing_previous_valid_report(tmp_
     report["questions"][0]["kc_id"] = "KC-999"
     bad_path = run / "bad-report.json"
     raw = _write_raw(bad_path, report)
-    with pytest.raises(ValueError, match="changed KC"):
+    with pytest.raises(ValueError, match="fresh retry is not authorized"):
         agent_import("quiz-review", run, bad_path, task_package=Path(task["task_package"]))
     assert Path(good["report"]).read_bytes() == original
     assert load_quiz_semantic_state(run)["status"] == "PASS"
@@ -204,14 +213,30 @@ def test_missing_review_is_gray_and_cli_requires_frozen_review_mode(tmp_path) ->
     assert load_quiz_semantic_state(run)["status"] == "NOT_REVIEWED"
     with pytest.raises(SystemExit):
         main(["agent-task", "kc", str(run), "--reviewer-mode", "self_review"])
-    with pytest.raises(SystemExit):
-        main(["agent-import", "quiz-review", str(run), str(run / "missing.json")])
+    unbound = run / "unbound-review.json"
+    unbound.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="exact frozen --task-package"):
+        main(["agent-import", "quiz-review", str(run), str(unbound)])
+    assert any(
+        path.read_bytes() == b"{}\n"
+        for path in (run / "agent-session/candidates").glob("quiz-review-*.json")
+    )
     task, report = _review_task(run)
     candidate = run / "candidate-review.json"
     _write_raw(candidate, report)
     with pytest.raises(SystemExit):
-        main(["agent-import", "quiz-review", str(run), str(candidate),
-              "--task-package", task["task_package"], "--reviewer-mode", "independent"])
+        main(
+            [
+                "agent-import",
+                "quiz-review",
+                str(run),
+                str(candidate),
+                "--task-package",
+                task["task_package"],
+                "--reviewer-mode",
+                "independent",
+            ]
+        )
 
 
 def test_portal_binds_semantic_payload_and_does_not_publish_private_review_material(tmp_path):

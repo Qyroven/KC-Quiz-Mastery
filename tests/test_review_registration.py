@@ -11,17 +11,17 @@ from pathlib import Path
 
 import pytest
 
-import learning_authoring.review_registration as registration_module
+import learning_authoring.product.review_registration as registration_module
 from learning_authoring.agent_session import agent_import, prepare_agent_task
 from learning_authoring.artifacts import read_json, sha256_file
-from learning_authoring.review_registration import (
+from learning_authoring.product.review_registration import (
     RegistrationSafetyError,
     export_review_registration,
     prepare_review_registration,
     registration_sql,
     renderer_payload_sha256,
 )
-from learning_authoring.showcase import (
+from learning_authoring.product.showcase import (
     DEFAULT_TEMPLATE_DIR,
     PublishSafetyError,
     ReviewFiles,

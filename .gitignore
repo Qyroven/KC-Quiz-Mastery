@@ -22,5 +22,6 @@ runs/
 slides/
 showcase-dist/
 *-batch.json
+tmp/
 
 .vercel/

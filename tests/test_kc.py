@@ -12,7 +12,7 @@ from learning_authoring.kc import (
     run_kc_generation,
 )
 from learning_authoring.kc_contracts import ProposedKCSet
-from learning_authoring.requests import build_kc_request
+from learning_authoring.legacy_api.requests import build_kc_request
 from tests.conftest import FakeResponse, fake_client, file_sha256, payload
 
 
@@ -59,12 +59,18 @@ def test_kc_request_has_only_complete_approved_json_as_model_input(source) -> No
     assert "input_image" not in json.dumps(request["input"])
 
 
-def test_kc_prompt_package_is_exactly_foundation_rulebook_task_and_schema() -> None:
+def test_kc_prompt_package_keeps_rules_schema_and_examples_distinct() -> None:
     package = load_prompt_package()
     components = package.manifest["components"]
 
     assert list(package.manifest["instruction_order"]) == ["foundation", "rulebook", "task"]
-    assert set(components) == {"foundation", "rulebook", "task", "output_schema"}
+    assert set(components) == {
+        "foundation",
+        "rulebook",
+        "task",
+        "output_schema",
+        "worked_examples",
+    }
     assert package.instructions == "\n\n".join(
         components[name]["content"] for name in ("foundation", "rulebook", "task")
     )

@@ -6,9 +6,13 @@ Each question must let a reviewer answer one thing: would a learner who understa
 
 Write a question a teacher could actually ask a learner. Give necessary facts and a clear task, then leave the target decision or reasoning to the learner. Generation constraints, warnings to the model, and the author's own checklist are not learner-facing content. A short, direct foundational question is preferable to a contrived scenario pretending to be difficult. Name Bloom and intended difficulty from the work left in the final, unhinted question, not from its topic, verb, length, or response format.
 
+Choose an interaction that captures the evidence named by the KC, not merely an answer that can be keyed. If the observable claim requires the learner to explain, justify, diagnose, design, trace, calculate, or produce a bounded artifact, a bare selected response usually proves only recognition. Use a constructed or structured response when that production is the evidence; use selected response when choosing among alternatives is itself sufficient. This is a semantic decision, not a keyword mapping or an interaction-diversity quota.
+
 The visible task and its scoring must agree. Assess the requested evidence, not an unstated ideal answer: accept valid alternative explanations, criteria, methods, and equivalent numerical answers when they satisfy the task. Recall and ordinary calculation can be useful evidence without pretending to be analysis or transfer.
 
 An assessment slot is one distinct, bounded piece of learner evidence or cognitive operation that can test the KC. A variant is another item for the same slot: it preserves that evidence intent, operation, and intended difficulty while changing the concrete instance. Different reasoning targets belong in different slots, not under a misleading variant label.
+
+For a selected-response item, make every option a credible decision by a partially informed learner. A useful near miss preserves most of the case and gets one consequential condition, threshold, relationship, or exception wrong. The keyed option must not be the only answer that sounds nuanced, safe, complete, or professional. If the stem names every decisive criterion and the key simply repeats that list, the item is recognition even when its topic is complex.
 
 Use only the frozen input. Let the KC's actual scope determine its slots and useful variants. There is no universal question count, Bloom ladder, difficulty mix, or interaction quota. Questions and slot choices are proposals for human review, never approved content. Structural validation checks identities, counts, references, and response shapes; it does not establish pedagogical validity.
 

@@ -1,0 +1,13 @@
+{
+  "suite_version": "worked-example-suite.v1",
+  "stage": "kc-source-bundle",
+  "contract_version": "source-bundle-kc-set.v1",
+  "example_order": [
+    "qualified-independent-capabilities",
+    "qualified-merge-with-context"
+  ],
+  "examples": {
+    "qualified-independent-capabilities": "qualified-independent-capabilities.json",
+    "qualified-merge-with-context": "qualified-merge-with-context.json"
+  }
+}

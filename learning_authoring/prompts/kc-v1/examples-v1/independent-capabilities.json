@@ -1,0 +1,155 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "independent-capabilities",
+  "teaching_points": [
+    "Split claims when they support independently observable responses and different remediation.",
+    "Do not split merely because the source uses separate blocks; use capability independence.",
+    "Treat every identifier, phrase, count and hash here as illustrative; derive fresh values from the current source."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "extraction": {
+      "schema_version": "extracted-source.v2",
+      "source": {
+        "source_id": "sha256:bbbbbbbbbbbbbbbb",
+        "filename": "neutral-capabilities.pdf",
+        "media_type": "application/pdf",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "page_count": 1
+      },
+      "pages": [
+        {
+          "page_number": 1,
+          "role": "lesson",
+          "blocks": [
+            {
+              "block_id": "acceptance-rule",
+              "kind": "text",
+              "content": "A Lumen record is accepted only when Marker North matches Marker South.",
+              "region": {
+                "page": 1,
+                "coordinate_system": "normalized_top_left",
+                "localization_status": "located",
+                "geometry": {"x": 0.1, "y": 0.2, "w": 0.8, "h": 0.2}
+              },
+              "asset_refs": [],
+              "relations": [],
+              "attributes": {},
+              "uncertainties": []
+            },
+            {
+              "block_id": "recovery-step",
+              "kind": "text",
+              "content": "Before retrying a rejected Lumen record, archive the rejected version.",
+              "region": {
+                "page": 1,
+                "coordinate_system": "normalized_top_left",
+                "localization_status": "located",
+                "geometry": {"x": 0.1, "y": 0.55, "w": 0.8, "h": 0.2}
+              },
+              "asset_refs": [],
+              "relations": [],
+              "attributes": {},
+              "uncertainties": []
+            }
+          ],
+          "reading_order": ["acceptance-rule", "recovery-step"],
+          "page_note": {
+            "summary": "The page teaches an acceptance decision and a separate recovery procedure.",
+            "explanation": null,
+            "key_takeaways": [
+              "Accept a record only when the markers match.",
+              "Archive a rejected version before retrying."
+            ],
+            "evidence_block_ids": ["acceptance-rule", "recovery-step"],
+            "uncertainties": []
+          },
+          "warnings": []
+        }
+      ],
+      "cross_page_relations": [],
+      "warnings": []
+    },
+    "authoring_context": null
+  },
+  "output": {
+    "source_ref": {
+      "schema_version": "extracted-source.v2",
+      "source_id": "sha256:bbbbbbbbbbbbbbbb",
+      "source_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "authoring_context_sha256": null
+    },
+    "source_summary": "The source teaches one acceptance decision and one independently demonstrable recovery step.",
+    "page_audit": [
+      {
+        "page": 1,
+        "classification": "learning_content",
+        "summary": "The page contains two independently assessable capabilities.",
+        "kc_ids": ["KC-001", "KC-002"],
+        "source_block_ids": ["acceptance-rule", "recovery-step"],
+        "warning_codes": []
+      }
+    ],
+    "kc_groups": [
+      {
+        "group_id": "KCG-001",
+        "name": "Lumen record handling",
+        "description": "Decision and recovery capabilities for Lumen records.",
+        "leaf_kc_ids": ["KC-001", "KC-002"]
+      }
+    ],
+    "leaf_kcs": [
+      {
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "name": "Decide whether a Lumen record is accepted",
+        "semantic_form": "decision_rule",
+        "knowledge_description": "A Lumen record is accepted only when Marker North matches Marker South.",
+        "observable_claim": "Given the two marker values, the learner can decide whether the record is accepted.",
+        "assessment_boundary": {
+          "included": ["Compare Marker North with Marker South", "Apply the acceptance condition"],
+          "excluded": ["Perform recovery after rejection"]
+        },
+        "source_evidence": [
+          {
+            "evidence_id": "EVD-001",
+            "page": 1,
+            "block_ids": ["acceptance-rule"],
+            "description": "The source states the condition for accepting a Lumen record.",
+            "supports": "Acceptance requires the two markers to match."
+          }
+        ],
+        "context_evidence": [],
+        "warning_codes": [],
+        "status": "PROPOSED"
+      },
+      {
+        "kc_id": "KC-002",
+        "group_id": "KCG-001",
+        "name": "Prepare a rejected Lumen record for retry",
+        "semantic_form": "procedure",
+        "knowledge_description": "Archive the rejected version before retrying a Lumen record.",
+        "observable_claim": "Given a rejected record that will be retried, the learner can identify the required preparation step.",
+        "assessment_boundary": {
+          "included": ["Archive the rejected version before retry"],
+          "excluded": ["Decide whether marker values satisfy acceptance"]
+        },
+        "source_evidence": [
+          {
+            "evidence_id": "EVD-002",
+            "page": 1,
+            "block_ids": ["recovery-step"],
+            "description": "The source states the preparation step required before a retry.",
+            "supports": "A rejected version is archived before retrying."
+          }
+        ],
+        "context_evidence": [],
+        "warning_codes": [],
+        "status": "PROPOSED"
+      }
+    ],
+    "uncovered_content": [],
+    "generation_warnings": [],
+    "context_audit": []
+  }
+}

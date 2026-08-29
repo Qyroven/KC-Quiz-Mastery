@@ -1,0 +1,166 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "neutral-structure",
+  "teaching_points": [
+    "Preserve every visible element with page-local geometry.",
+    "Represent a visible directed relationship without inventing a conclusion.",
+    "Treat every name, identifier, coordinate, and count in this example as illustrative; derive fresh values from the current source."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "source": {
+      "source_id": "sha256:aaaaaaaaaaaaaaaa",
+      "filename": "neutral-source.pdf",
+      "media_type": "application/pdf",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "page_count": 1
+    },
+    "visible_pages": [
+      {
+        "page_number": 1,
+        "visible_elements": [
+          "Marker A",
+          "Marker B",
+          "a directed arrow from Marker A to Marker B with an unreadable small label"
+        ]
+      }
+    ]
+  },
+  "output": {
+    "schema_version": "extracted-source.v2",
+    "pages": [
+      {
+        "page_number": 1,
+        "role": "lesson",
+        "blocks": [
+          {
+            "block_id": "marker-a",
+            "kind": "label",
+            "content": "Marker A",
+            "region": {
+              "page": 1,
+              "coordinate_system": "normalized_top_left",
+              "localization_status": "located",
+              "geometry": {
+                "x": 0.1,
+                "y": 0.4,
+                "w": 0.2,
+                "h": 0.1
+              }
+            },
+            "asset_refs": [
+              "pages/page-0001.png"
+            ],
+            "relations": [
+              {
+                "relation_type": "directed_to",
+                "target_block_id": "marker-b",
+                "attributes": {}
+              }
+            ],
+            "attributes": {},
+            "uncertainties": []
+          },
+          {
+            "block_id": "arrow-a-b",
+            "kind": "connector",
+            "content": {
+              "direction": "marker-a_to_marker-b",
+              "label": null
+            },
+            "region": {
+              "page": 1,
+              "coordinate_system": "normalized_top_left",
+              "localization_status": "located",
+              "geometry": {
+                "x": 0.32,
+                "y": 0.43,
+                "w": 0.36,
+                "h": 0.04
+              }
+            },
+            "asset_refs": [
+              "pages/page-0001.png"
+            ],
+            "relations": [
+              {
+                "relation_type": "starts_at",
+                "target_block_id": "marker-a",
+                "attributes": {}
+              },
+              {
+                "relation_type": "ends_at",
+                "target_block_id": "marker-b",
+                "attributes": {
+                  "direction": "forward"
+                }
+              }
+            ],
+            "attributes": {},
+            "uncertainties": [
+              "The small connector label is unreadable."
+            ]
+          },
+          {
+            "block_id": "marker-b",
+            "kind": "label",
+            "content": "Marker B",
+            "region": {
+              "page": 1,
+              "coordinate_system": "normalized_top_left",
+              "localization_status": "located",
+              "geometry": {
+                "x": 0.7,
+                "y": 0.4,
+                "w": 0.2,
+                "h": 0.1
+              }
+            },
+            "asset_refs": [
+              "pages/page-0001.png"
+            ],
+            "relations": [],
+            "attributes": {},
+            "uncertainties": []
+          }
+        ],
+        "reading_order": [
+          "marker-a",
+          "arrow-a-b",
+          "marker-b"
+        ],
+        "page_note": {
+          "summary": "The page shows two labeled markers joined by a directed arrow.",
+          "explanation": "The visible arrow runs from Marker A to Marker B.",
+          "key_takeaways": [],
+          "evidence_block_ids": [
+            "marker-a",
+            "arrow-a-b",
+            "marker-b"
+          ],
+          "uncertainties": [
+            "The arrow direction is visible, but its small label is unreadable."
+          ]
+        },
+        "warnings": [
+          {
+            "code": "unreadable_connector_label",
+            "message": "The arrow label requires isolated page-image review.",
+            "page": 1,
+            "block_ids": [
+              "arrow-a-b"
+            ],
+            "details": {
+              "review_disposition": "review",
+              "issue_class": "recoverable_content_loss",
+              "repair_route": "png_repair",
+              "repair_recommended": true
+            }
+          }
+        ]
+      }
+    ],
+    "cross_page_relations": [],
+    "warnings": []
+  }
+}

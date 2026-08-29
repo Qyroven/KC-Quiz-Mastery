@@ -1,0 +1,202 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "primary-plus-context",
+  "teaching_points": [
+    "Keep canonical extraction evidence separate from supplementary context evidence.",
+    "Account for each supplied context claim without rewriting the extraction.",
+    "Treat every name, identifier, excerpt, and count in this example as illustrative; derive fresh values from the current source and context."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "extraction": {
+      "schema_version": "extracted-source.v2",
+      "source": {
+        "source_id": "sha256:aaaaaaaaaaaaaaaa",
+        "filename": "neutral-source.pdf",
+        "media_type": "application/pdf",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "page_count": 1
+      },
+      "pages": [
+        {
+          "page_number": 1,
+          "role": "lesson",
+          "blocks": [
+            {
+              "block_id": "signal-order",
+              "kind": "text",
+              "content": "Signal Ember precedes Signal Quartz.",
+              "region": {
+                "page": 1,
+                "coordinate_system": "normalized_top_left",
+                "localization_status": "located",
+                "geometry": {
+                  "x": 0.15,
+                  "y": 0.35,
+                  "w": 0.7,
+                  "h": 0.15
+                }
+              },
+              "asset_refs": [],
+              "relations": [],
+              "attributes": {},
+              "uncertainties": []
+            }
+          ],
+          "reading_order": [
+            "signal-order"
+          ],
+          "page_note": {
+            "summary": "The page states an order between two signals.",
+            "explanation": null,
+            "key_takeaways": [
+              "Signal Ember precedes Signal Quartz."
+            ],
+            "evidence_block_ids": [
+              "signal-order"
+            ],
+            "uncertainties": []
+          },
+          "warnings": []
+        }
+      ],
+      "cross_page_relations": [],
+      "warnings": []
+    },
+    "authoring_context": {
+      "schema_version": "authoring-context.v1",
+      "source_ref": {
+        "source_id": "sha256:aaaaaaaaaaaaaaaa",
+        "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "page_count": 1
+      },
+      "items": [
+        {
+          "context_id": "CTX-001",
+          "origin": "inline_text",
+          "original_path": null,
+          "filename": null,
+          "raw_path": "authoring-context/raw/551bc04f131f006109be97009849896b34761d238d068fc1989953963a29f3b4.txt",
+          "media_type": "text/plain",
+          "sha256": "551bc04f131f006109be97009849896b34761d238d068fc1989953963a29f3b4",
+          "size_bytes": 52,
+          "text": "If Signal Quartz is absent, stop after Signal Ember.",
+          "encoding": "utf-8"
+        },
+        {
+          "context_id": "CTX-002",
+          "origin": "inline_text",
+          "original_path": null,
+          "filename": null,
+          "raw_path": "authoring-context/raw/1c6b434199b80c126a2cb269bf77de4399de9814bdd69b2591a29618e6ff6145.txt",
+          "media_type": "text/plain",
+          "sha256": "1c6b434199b80c126a2cb269bf77de4399de9814bdd69b2591a29618e6ff6145",
+          "size_bytes": 56,
+          "text": "Signal colors are decorative and should not be assessed.",
+          "encoding": "utf-8"
+        }
+      ],
+      "sha256": "87e53330ead9893b309afcc639d191ed14c2106ec6b26f93e3f8dcb3766c6f15"
+    }
+  },
+  "output": {
+    "source_ref": {
+      "schema_version": "extracted-source.v2",
+      "source_id": "sha256:aaaaaaaaaaaaaaaa",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "authoring_context_sha256": "87e53330ead9893b309afcc639d191ed14c2106ec6b26f93e3f8dcb3766c6f15"
+    },
+    "source_summary": "The primary source gives an order; one supplementary context item gives a stopping condition and another marks decorative detail as out of scope.",
+    "page_audit": [
+      {
+        "page": 1,
+        "classification": "learning_content",
+        "summary": "The page teaches the order of two signals.",
+        "kc_ids": [
+          "KC-001"
+        ],
+        "source_block_ids": [
+          "signal-order"
+        ],
+        "warning_codes": []
+      }
+    ],
+    "kc_groups": [
+      {
+        "group_id": "KCG-001",
+        "name": "Signal sequence",
+        "description": "Rules governing the neutral signal sequence.",
+        "leaf_kc_ids": [
+          "KC-001"
+        ]
+      }
+    ],
+    "leaf_kcs": [
+      {
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "name": "Apply the signal stopping rule",
+        "semantic_form": "decision_rule",
+        "knowledge_description": "Signal Ember precedes Signal Quartz; if Signal Quartz is absent, the sequence stops after Signal Ember.",
+        "observable_claim": "Given whether Signal Quartz is present, the learner can identify the valid stopping point.",
+        "assessment_boundary": {
+          "included": [
+            "Order of Signal Ember and Signal Quartz",
+            "Stopping when Signal Quartz is absent"
+          ],
+          "excluded": [
+            "Decorative signal colors"
+          ]
+        },
+        "source_evidence": [
+          {
+            "evidence_id": "EVD-001",
+            "page": 1,
+            "block_ids": [
+              "signal-order"
+            ],
+            "description": "The source-visible ordering statement.",
+            "supports": "Signal Ember precedes Signal Quartz."
+          }
+        ],
+        "context_evidence": [
+          {
+            "context_id": "CTX-001",
+            "excerpt": "If Signal Quartz is absent, stop after Signal Ember.",
+            "description": null,
+            "supports": "The stopping condition when Signal Quartz is absent.",
+            "pages": [],
+            "mapping_method": "document_level",
+            "mapping_confidence": "high"
+          }
+        ],
+        "warning_codes": [],
+        "status": "PROPOSED"
+      }
+    ],
+    "uncovered_content": [],
+    "generation_warnings": [],
+    "context_audit": [
+      {
+        "context_id": "CTX-001",
+        "excerpt": "If Signal Quartz is absent, stop after Signal Ember.",
+        "description": null,
+        "claim": "The sequence stops after Signal Ember when Signal Quartz is absent.",
+        "disposition": "represented",
+        "kc_ids": [
+          "KC-001"
+        ],
+        "reason": "The condition is represented separately and cited by the proposed KC."
+      },
+      {
+        "context_id": "CTX-002",
+        "excerpt": "Signal colors are decorative and should not be assessed.",
+        "description": null,
+        "claim": "Signal colors are decorative and outside the assessment scope.",
+        "disposition": "not_assessed",
+        "kc_ids": [],
+        "reason": "The decorative note does not define learnable knowledge for this KC set."
+      }
+    ]
+  }
+}

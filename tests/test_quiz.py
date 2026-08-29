@@ -5,6 +5,7 @@ import json
 
 from learning_authoring.artifacts import RunArtifacts, read_json, write_json
 from learning_authoring.kc_contracts import ProposedKCSet
+from learning_authoring.legacy_api.requests import build_quiz_request
 from learning_authoring.quiz import (
     QuizConfig,
     build_quiz_input,
@@ -13,7 +14,6 @@ from learning_authoring.quiz import (
     run_quiz_generation,
 )
 from learning_authoring.quiz_contracts import QuizBatch
-from learning_authoring.requests import build_quiz_request
 from tests.conftest import FakeResponse, fake_client
 
 KC_SHA256 = "b" * 64
@@ -162,6 +162,7 @@ def test_quiz_prompt_package_is_one_small_canonical_package() -> None:
         "rulebook",
         "task",
         "output_schema",
+        "worked_examples",
     }
     assert "assessment planner" not in package.instructions.lower()
     assert "candidate generator" not in package.instructions.lower()

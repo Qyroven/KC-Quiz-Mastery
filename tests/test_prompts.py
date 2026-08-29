@@ -11,10 +11,11 @@ def sha256(path: Path) -> str:
 
 
 def test_main_prompt_source_fidelity_revision() -> None:
-    # Intentional v1.4 extension: retain the PM contract and explicitly check
-    # image-only content, endpoint tracing and non-placeholder geometry.
+    # Intentional extension: retain the PM contract, explicitly check image-only
+    # content, endpoint tracing and non-placeholder geometry, and keep unresolved
+    # instructional relationships local to the PDF that contains them.
     assert sha256(PROMPTS / "extractor-v2.md") == (
-        "cfddc6bdd85b329c96babffc1cbd472a1a53d4a61908f6ac3bd22b3538ceef98"
+        "ffe2af5e2e712192cc86efb2e1c9101fbd5d9852b60a1d3773a89288c3b7f8eb"
     )
     prompt = (PROMPTS / "extractor-v2.md").read_text()
     assert "Trace the\nline to its endpoint" in prompt

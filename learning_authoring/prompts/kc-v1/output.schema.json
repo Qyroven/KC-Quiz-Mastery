@@ -156,6 +156,19 @@
           "title": "Supports",
           "type": "string"
         },
+        "source_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Id"
+        },
         "pages": {
           "items": {
             "minimum": 1,

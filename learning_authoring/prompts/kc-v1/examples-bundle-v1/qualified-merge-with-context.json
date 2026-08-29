@@ -1,0 +1,313 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "qualified-merge-with-context",
+  "teaching_points": [
+    "Keep every PDF page and block locator qualified by its source_id.",
+    "Merge a shared KC only when each source contributes explicit evidence; preserve source-specific limits.",
+    "Keep lecturer context on its own lineage axis and never project one context page ordinal across PDFs.",
+    "Treat every identifier, phrase, count and hash here as illustrative; derive fresh values from the current bundle."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "source_bundle": {
+      "schema_version": "source-bundle.v1",
+      "sources": [
+        {
+          "run_ref": "sources/source-001",
+          "source_manifest_ref": "sources/source-001/source-manifest.json",
+          "source_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "extraction_ref": "sources/source-001/extracted-source.proposed.json",
+          "extraction_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "extraction_status": "PROPOSED",
+          "source": {
+            "source_id": "sha256:1111111111111111",
+            "filename": "neutral-alpha.pdf",
+            "media_type": "application/pdf",
+            "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "page_count": 1
+          }
+        },
+        {
+          "run_ref": "sources/source-002",
+          "source_manifest_ref": "sources/source-002/source-manifest.json",
+          "source_manifest_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "extraction_ref": "sources/source-002/extracted-source.proposed.json",
+          "extraction_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "extraction_status": "PROPOSED",
+          "source": {
+            "source_id": "sha256:4444444444444444",
+            "filename": "neutral-beta.pdf",
+            "media_type": "application/pdf",
+            "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "page_count": 1
+          }
+        }
+      ],
+      "bundle_sha256": "f34b4637071e460f55768c35782ca8609007cd9de02b90ee4036274be53c0d39"
+    },
+    "payload": [
+      {
+        "schema_version": "extracted-source.v2",
+        "source": {
+          "source_id": "sha256:1111111111111111",
+          "filename": "neutral-alpha.pdf",
+          "media_type": "application/pdf",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "page_count": 1
+        },
+        "pages": [
+          {
+            "page_number": 1,
+            "role": "definition",
+            "blocks": [
+              {
+                "block_id": "alpha-rule",
+                "kind": "text",
+                "content": "A gate opens only after the signal is verified.",
+                "region": {
+                  "page": 1,
+                  "coordinate_system": "normalized_top_left",
+                  "localization_status": "located",
+                  "geometry": {
+                    "x": 0.1,
+                    "y": 0.1,
+                    "w": 0.8,
+                    "h": 0.2
+                  }
+                },
+                "asset_refs": [],
+                "relations": [],
+                "attributes": {},
+                "uncertainties": []
+              }
+            ],
+            "reading_order": [
+              "alpha-rule"
+            ],
+            "page_note": {
+              "summary": "Verification is stated as a prerequisite.",
+              "explanation": null,
+              "key_takeaways": [
+                "Verify the signal before opening the gate."
+              ],
+              "evidence_block_ids": [
+                "alpha-rule"
+              ],
+              "uncertainties": []
+            },
+            "warnings": []
+          }
+        ],
+        "cross_page_relations": [],
+        "warnings": []
+      },
+      {
+        "schema_version": "extracted-source.v2",
+        "source": {
+          "source_id": "sha256:4444444444444444",
+          "filename": "neutral-beta.pdf",
+          "media_type": "application/pdf",
+          "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "page_count": 1
+        },
+        "pages": [
+          {
+            "page_number": 1,
+            "role": "definition",
+            "blocks": [
+              {
+                "block_id": "beta-limit",
+                "kind": "text",
+                "content": "Verification is required, but it does not guarantee a useful signal.",
+                "region": {
+                  "page": 1,
+                  "coordinate_system": "normalized_top_left",
+                  "localization_status": "located",
+                  "geometry": {
+                    "x": 0.1,
+                    "y": 0.1,
+                    "w": 0.8,
+                    "h": 0.2
+                  }
+                },
+                "asset_refs": [],
+                "relations": [],
+                "attributes": {},
+                "uncertainties": []
+              }
+            ],
+            "reading_order": [
+              "beta-limit"
+            ],
+            "page_note": {
+              "summary": "Verification is necessary but not a guarantee of usefulness.",
+              "explanation": null,
+              "key_takeaways": [
+                "Do not confuse a prerequisite with a guarantee."
+              ],
+              "evidence_block_ids": [
+                "beta-limit"
+              ],
+              "uncertainties": []
+            },
+            "warnings": []
+          }
+        ],
+        "cross_page_relations": [],
+        "warnings": []
+      }
+    ],
+    "authoring_context": {
+      "schema_version": "authoring-context.v1",
+      "source_ref": {
+        "schema_version": "source-bundle.v1",
+        "source_bundle_sha256": "f34b4637071e460f55768c35782ca8609007cd9de02b90ee4036274be53c0d39",
+        "sources": [
+          {
+            "source_id": "sha256:1111111111111111",
+            "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "page_count": 1
+          },
+          {
+            "source_id": "sha256:4444444444444444",
+            "source_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "page_count": 1
+          }
+        ]
+      },
+      "items": [
+        {
+          "context_id": "CTX-001",
+          "origin": "inline_text",
+          "original_path": null,
+          "filename": null,
+          "raw_path": "authoring-context/raw/CTX-001.txt",
+          "media_type": "text/plain",
+          "sha256": "64a69c125cdc4e6911aac8f11db7dd84ef472cdd1a9f4cdba674979b44e5b8ca",
+          "size_bytes": 60,
+          "text": "Ask learners to distinguish a prerequisite from a guarantee.",
+          "encoding": "utf-8"
+        }
+      ],
+      "sha256": "cba19c119416ed83bb7fa52a0529e4a7de0a05ab5e697029609d0f4e5a34c1fe"
+    }
+  },
+  "output": {
+    "source_ref": {
+      "schema_version": "source-bundle.v1",
+      "source_bundle_sha256": "f34b4637071e460f55768c35782ca8609007cd9de02b90ee4036274be53c0d39",
+      "authoring_context_sha256": "cba19c119416ed83bb7fa52a0529e4a7de0a05ab5e697029609d0f4e5a34c1fe"
+    },
+    "source_summary": "Both sources require verification; the second source limits what verification proves.",
+    "page_audit": [
+      {
+        "source_id": "sha256:1111111111111111",
+        "page": 1,
+        "classification": "learning_content",
+        "summary": "States the prerequisite rule.",
+        "kc_ids": [
+          "KC-001"
+        ],
+        "source_block_ids": [
+          "alpha-rule"
+        ],
+        "warning_codes": []
+      },
+      {
+        "source_id": "sha256:4444444444444444",
+        "page": 1,
+        "classification": "learning_content",
+        "summary": "Adds a limit to the prerequisite rule.",
+        "kc_ids": [
+          "KC-001"
+        ],
+        "source_block_ids": [
+          "beta-limit"
+        ],
+        "warning_codes": []
+      }
+    ],
+    "kc_groups": [
+      {
+        "group_id": "KCG-001",
+        "name": "Conditions and limits",
+        "description": "Rules whose prerequisites and guarantees must be distinguished.",
+        "leaf_kc_ids": [
+          "KC-001"
+        ]
+      }
+    ],
+    "leaf_kcs": [
+      {
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "name": "Verification is necessary but not sufficient",
+        "semantic_form": "distinction",
+        "knowledge_description": "Verification is a prerequisite for opening the gate, not proof that the verified signal is useful.",
+        "observable_claim": "Given a new case, the learner can distinguish a prerequisite from a guarantee.",
+        "assessment_boundary": {
+          "included": [
+            "Identify the prerequisite",
+            "Reject an unsupported guarantee"
+          ],
+          "excluded": [
+            "Invent a verification algorithm"
+          ]
+        },
+        "source_evidence": [
+          {
+            "source_id": "sha256:1111111111111111",
+            "evidence_id": "EVD-001",
+            "page": 1,
+            "block_ids": [
+              "alpha-rule"
+            ],
+            "description": "The first source states verification as a prerequisite.",
+            "supports": "Verification is necessary."
+          },
+          {
+            "source_id": "sha256:4444444444444444",
+            "evidence_id": "EVD-002",
+            "page": 1,
+            "block_ids": [
+              "beta-limit"
+            ],
+            "description": "The second source denies that verification guarantees utility.",
+            "supports": "Verification is not sufficient."
+          }
+        ],
+        "context_evidence": [
+          {
+            "context_id": "CTX-001",
+            "excerpt": "Ask learners to distinguish a prerequisite from a guarantee.",
+            "description": null,
+            "supports": "The lecturer wants this distinction assessed.",
+            "source_id": "sha256:4444444444444444",
+            "pages": [
+              1
+            ],
+            "mapping_method": "semantic_alignment",
+            "mapping_confidence": "high"
+          }
+        ],
+        "warning_codes": [],
+        "status": "PROPOSED"
+      }
+    ],
+    "uncovered_content": [],
+    "generation_warnings": [],
+    "context_audit": [
+      {
+        "context_id": "CTX-001",
+        "excerpt": "Ask learners to distinguish a prerequisite from a guarantee.",
+        "description": null,
+        "claim": "Assess the prerequisite-versus-guarantee distinction.",
+        "disposition": "represented",
+        "kc_ids": [
+          "KC-001"
+        ],
+        "reason": "KC-001 makes the requested distinction observable and assessable."
+      }
+    ]
+  }
+}

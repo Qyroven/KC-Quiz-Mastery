@@ -19,14 +19,14 @@ from learning_authoring.kc_review import (
     _load_candidate,
     _recall_html,
 )
-from learning_authoring.quiz_review import _TEMPLATE, build_quiz_review
-from learning_authoring.review import _REVIEW_TEMPLATE
-from learning_authoring.showcase import (
+from learning_authoring.product.showcase import (
     PublishSafetyError,
     SourceMetadata,
     _require_context_lineage,
     build_showcase,
 )
+from learning_authoring.quiz_review import _TEMPLATE, build_quiz_review
+from learning_authoring.review import _REVIEW_TEMPLATE
 from tests.conftest import payload
 from tests.test_agent_context_slots import _adaptive_candidate, _import_kcs, _init
 from tests.test_agent_session import _forbid_provider_use, _quiz_candidate, _write_raw
@@ -544,13 +544,16 @@ def test_showcase_rejects_stale_context_without_changing_pdf_lineage(tmp_path, s
     assert metadata.source_sha256 == source.sha256
 
 
-def test_legacy_v1_import_with_omitted_context_hash_builds_portal(tmp_path, monkeypatch) -> None:
+def test_legacy_v1_import_with_omitted_optional_hashes_builds_portal(
+    tmp_path, monkeypatch
+) -> None:
     _forbid_provider_use(monkeypatch)
     run, source = _init(tmp_path)
     _import_kcs(run, source)
     task = prepare_agent_task("quiz", run, include_all_kcs=True, variants_per_kc=2)
     candidate = _quiz_candidate(source, sha256_file(run / "kc-proposed.json"), variants=2)
     assert "authoring_context_sha256" not in candidate["source_ref"]
+    candidate["source_ref"]["source_bundle_sha256"] = None
     candidate_path = run / "candidate-quiz.json"
     raw = _write_raw(candidate_path, candidate)
     imported = agent_import("quiz", run, candidate_path, task_package=Path(task["task_package"]))
@@ -558,6 +561,7 @@ def test_legacy_v1_import_with_omitted_context_hash_builds_portal(tmp_path, monk
     original_input = read_json(input_path)
     assert "authoring_context_sha256" in original_input["source_ref"]
     assert original_input["source_ref"]["authoring_context_sha256"] is None
+    assert "source_bundle_sha256" not in original_input["source_ref"]
     assert imported["provider_api_calls"] == 0
     assert Path(imported["proposed"]).read_bytes() == raw
 
@@ -572,8 +576,9 @@ def test_legacy_v1_import_with_omitted_context_hash_builds_portal(tmp_path, monk
         re.search(r'type="application/json">(.*?)</script>', published_html).group(1)
     )
     assert "authoring_context_sha256" not in published_payload["quiz"]["source_ref"]
+    assert published_payload["quiz"]["source_ref"]["source_bundle_sha256"] is None
 
-    # Only absent/null context hashes are equivalent; all other identity keys
+    # Only absent/null optional hashes are equivalent; all other identity keys
     # remain strict even if a corrupt input and review HTML agree with each other.
     review_path = run / "quiz-review.html"
     original_html = review_path.read_text(encoding="utf-8")
@@ -586,6 +591,7 @@ def test_legacy_v1_import_with_omitted_context_hash_builds_portal(tmp_path, monk
             "extraction_source_sha256",
             "kc_set_sha256",
             "authoring_context_sha256",
+            "source_bundle_sha256",
             "unknown_identity",
         ]
     ):

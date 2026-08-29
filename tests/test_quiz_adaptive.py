@@ -561,6 +561,6 @@ def test_prompt_labels_the_remaining_task_not_scaffolding_or_response_format() -
     assert "actual unhinted work" in instructions
     assert "not independent diagnosis" in instructions
     assert "not independent planning" in instructions
-    assert "do not default every slot to short text" in instructions
+    assert "do not default every slot to either selected response or short text" in instructions
     assert "Numeric variants are useful" in instructions
     assert "not by editing saved output afterwards" in instructions

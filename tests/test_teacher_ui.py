@@ -220,10 +220,12 @@ def test_revoked_or_unverifiable_role_clears_private_data() -> None:
       f.session.state.queue=[{secret:'must disappear'}];
       f.revoke();await f.session.reload();
       assert.equal(f.session.state.access.can_teach,false);
+      assert.equal(f.session.state.accessStatus,'denied');
       assert.equal(f.session.state.learner,null);assert.deepEqual(f.session.state.queue,[]);
       f.grant();await f.session.reload();f.failures.set('get_teacher_access','unreachable');
       await assert.rejects(()=>f.session.reload(),/unreachable/);
       assert.equal(f.session.state.workspace,null);assert.equal(f.session.state.access.can_teach,false);
+      assert.equal(f.session.state.accessStatus,'error');
     """)
 
 
@@ -237,6 +239,117 @@ def test_auth_refresh_failure_preserves_existing_identity_without_signup() -> No
       await assert.rejects(()=>f.session.reload(),/giữ nguyên danh tính/);
       assert.equal(f.calls.filter(c=>c.name==='signup').length,signups);
       assert.equal(JSON.parse(f.storage.getItem('la-teacher-session:teacher-test.supabase.co')).user.id,f.auth.user.id);
+    """)
+
+
+def test_initial_refresh_401_is_unverified_not_denied_and_retries_same_identity() -> None:
+    run_js("""
+      const f=fixture();f.grant();
+      const stored={...f.auth,expires_at:0};
+      f.storage.setItem('la-teacher-session:teacher-test.supabase.co',JSON.stringify(stored));
+      f.storage.setItem('la-teacher-name:teacher-test.supabase.co',JSON.stringify('Mai Anh'));
+      const original=f.fetch;let rejectRefresh=true;
+      f.fetch=async(url,options)=>{
+        const response=await original(url,options);
+        if(rejectRefresh&&url.includes('/token?')) return {ok:false,status:401,
+          async text(){return JSON.stringify({message:'session refresh failed'})}};
+        return response;
+      };
+      const {app,view}=mount(f);await app.ready;
+      assert.equal(app.session.state.accessStatus,'auth_error');
+      assert.equal(app.session.state.identity.user_id,f.auth.user.id);
+      assert.equal(app.session.state.identity.display_name,'Mai Anh');
+      assert.equal(view('teacher-no-access').hidden,true);
+      assert.equal(view('teacher-app').hidden,true);
+      assert.equal(view('teacher-review-frame').getAttribute('src'),null);
+      assert.equal(view('teacher-error').hidden,false);
+      assert.match(view('teacher-error-message').textContent,/Chưa làm mới được phiên Teacher/);
+      assert.match(view('teacher-status').textContent,/chưa thể kết luận tài khoản thiếu quyền/);
+      assert.equal(view('teacher-refresh').hidden,false);
+      assert.equal(view('teacher-refresh').disabled,false);
+      assert.equal(view('teacher-refresh').textContent,'Thử lại');
+      assert.equal(f.calls.some(c=>c.name==='signup'||c.name==='get_teacher_workspace'),false);
+      assert.deepEqual(JSON.parse(f.storage.getItem(
+        'la-teacher-session:teacher-test.supabase.co')),stored);
+      rejectRefresh=false;await view('teacher-refresh').onclick();
+      assert.equal(app.session.state.accessStatus,'verified');
+      assert.equal(app.session.state.identity.user_id,f.auth.user.id);
+      assert.equal(view('teacher-app').hidden,false);
+      assert.equal(view('teacher-no-access').hidden,true);
+      assert.equal(view('teacher-error').hidden,true);
+      assert.equal(f.calls.some(c=>c.name==='signup'),false);
+    """)
+
+
+def test_later_refresh_failure_hides_private_data_without_claiming_role_was_lost() -> None:
+    run_js("""
+      const f=fixture();f.grant();const original=f.fetch;let unavailable=false;
+      f.fetch=async(url,options)=>{
+        const response=await original(url,options);
+        if(unavailable&&(url.endsWith('/get_teacher_access')||url.includes('/token?')))
+          return {ok:false,status:401,
+            async text(){return JSON.stringify({message:'session rejected'})}};
+        return response;
+      };
+      const {app,view}=mount(f);await app.ready;
+      view('teacher-name').value='Mai Anh';
+      await view('teacher-identity-form').onsubmit({preventDefault(){}});
+      const identity=structuredClone(app.session.state.identity);
+      const stored=f.storage.getItem('la-teacher-session:teacher-test.supabase.co');
+      const signups=f.calls.filter(c=>c.name==='signup').length;
+      assert.equal(app.session.state.accessStatus,'verified');
+      app.session.state.learner=structuredClone(f.learnerState);
+      unavailable=true;await view('teacher-refresh').onclick();
+      assert.equal(app.session.state.accessStatus,'auth_error');
+      assert.equal(app.session.state.workspace,null);
+      assert.equal(app.session.state.learner,null);
+      assert.equal(app.session.state.access.can_teach,false);
+      assert.equal(view('teacher-no-access').hidden,true);
+      assert.equal(view('teacher-app').hidden,true);
+      assert.equal(view('teacher-refresh').textContent,'Thử lại');
+      assert.match(view('teacher-error-message').textContent,/giữ nguyên danh tính/);
+      assert.deepEqual(app.session.state.identity,identity);
+      assert.equal(f.storage.getItem('la-teacher-session:teacher-test.supabase.co'),stored);
+      assert.equal(f.calls.filter(c=>c.name==='signup').length,signups);
+      await assert.rejects(()=>app.session.publish(['Q-00001'],'No bypass'),/Chưa xác minh/);
+      assert.equal(f.publicationCount(),0);
+      unavailable=false;await view('teacher-refresh').onclick();
+      assert.equal(app.session.state.accessStatus,'verified');
+      assert.deepEqual(app.session.state.identity,identity);
+      assert.equal(view('teacher-app').hidden,false);
+    """)
+
+
+def test_only_confirmed_denial_shows_no_access_not_loading_or_connection_errors() -> None:
+    run_js("""
+      const f=fixture(),original=f.fetch;let hold=false,resume;
+      f.fetch=async(url,options)=>{
+        if(hold&&url.endsWith('/get_teacher_access'))
+          await new Promise(resolve=>{resume=resolve});
+        return original(url,options);
+      };
+      const {app,view}=mount(f);await app.ready;
+      assert.equal(app.session.state.accessStatus,'unknown');
+      assert.equal(view('teacher-no-access').hidden,true);
+      view('teacher-name').value='Mai Anh';
+      await view('teacher-identity-form').onsubmit({preventDefault(){}});
+      assert.equal(app.session.state.accessStatus,'denied');
+      assert.equal(view('teacher-no-access').hidden,false);
+      assert.equal(view('teacher-error').hidden,true);
+      hold=true;const checking=view('teacher-refresh').onclick();
+      assert.equal(app.session.state.accessStatus,'loading');
+      assert.equal(view('teacher-no-access').hidden,true);
+      assert.equal(view('teacher-refresh').disabled,true);
+      while(!resume) await Promise.resolve();resume();await checking;
+      assert.equal(app.session.state.accessStatus,'denied');
+      assert.equal(view('teacher-no-access').hidden,false);
+      hold=false;f.failures.set('get_teacher_access','connection unavailable');
+      await view('teacher-refresh').onclick();
+      assert.equal(app.session.state.accessStatus,'error');
+      assert.equal(view('teacher-no-access').hidden,true);
+      assert.equal(view('teacher-error').hidden,false);
+      assert.match(view('teacher-error-message').textContent,/connection unavailable/);
+      assert.equal(view('teacher-refresh').textContent,'Thử lại');
     """)
 
 
@@ -362,6 +475,146 @@ def test_ui_rejects_external_review_paths_and_discloses_selection_gaps() -> None
     """)
 
 
+def test_publication_filters_are_presentational_and_do_not_mutate_reviews() -> None:
+    run_js("""
+      const f=fixture(),reviews=f.workspace.question_reviews;
+      reviews[1].publishable=false;reviews[3].publishable=null;
+      const selected=new Set(['Q-00001','Q-00005']),before=JSON.stringify(reviews);
+      const ids=filter=>UI.filteredQuestionReviews(reviews,filter,selected)
+        .map(row=>row.question_id);
+      assert.deepEqual(ids('all'),data.questions.map(q=>q.question_id));
+      assert.deepEqual(ids('publishable'),['Q-00001','Q-00003','Q-00005']);
+      assert.deepEqual(ids('blocked'),['Q-00002','Q-00004']);
+      assert.deepEqual(ids('selected'),['Q-00001','Q-00005']);
+      assert.deepEqual(ids('unknown'),ids('all'));
+      assert.deepEqual([...selected],['Q-00001','Q-00005']);
+      assert.equal(JSON.stringify(reviews),before);
+    """)
+
+
+def test_select_all_uses_whole_workspace_even_when_filtered_to_blocked_questions() -> None:
+    run_js(r"""
+      const f=fixture();f.grant();
+      for(const index of [1,3]) Object.assign(f.workspace.question_reviews[index],
+        {publishable:false,kc_approved:false,reason:'kc_not_approved'});
+      const {app,view}=mount(f);await app.ready;
+      view('teacher-name').value='An';
+      await view('teacher-identity-form').onsubmit({preventDefault(){}});
+      const callsBefore=f.calls.length;
+      const visible=()=>[...view('teacher-question-selection').innerHTML
+        .matchAll(/data-publish-question="([^"]+)"/g)].map(match=>match[1]);
+      view('teacher-question-selection').onchange({target:{
+        dataset:{publishQuestion:'Q-00001'},checked:true}});
+      view('teacher-publication-filter').onchange({target:{value:'blocked'}});
+      assert.deepEqual(visible(),['Q-00002','Q-00004']);
+      assert.deepEqual([...app.ui.selected],['Q-00001']);
+      assert.match(view('teacher-publish-summary').innerHTML,/1 câu được chọn/);
+      assert.match(view('teacher-publish-summary').innerHTML,/4 câu chưa chọn/);
+      assert.match(view('teacher-select-publishable').textContent,
+        /Chọn tất cả câu đủ điều kiện \(3\)/);
+      assert.match(view('teacher-question-selection').innerHTML,/KC chưa duyệt/);
+      assert.match(view('teacher-question-selection').innerHTML,
+        /data-publish-question="Q-00002"[^>]*disabled/);
+      view('teacher-select-publishable').onclick();
+      assert.deepEqual([...app.ui.selected],['Q-00001','Q-00003','Q-00005']);
+      assert.deepEqual(visible(),['Q-00002','Q-00004']);
+      assert.match(view('teacher-publish-summary').innerHTML,/3 câu được chọn/);
+      assert.match(view('teacher-publish-summary').innerHTML,/2 câu bị chặn/);
+      assert.match(view('teacher-publish-summary').innerHTML,/2 câu chưa chọn/);
+      assert.match(view('teacher-publish-summary').innerHTML,/2 mục tiêu chưa có câu/);
+      assert.equal(f.calls.length,callsBefore);
+      assert.equal(f.publicationCount(),0);
+    """)
+
+
+def test_selected_filter_tracks_deselection_and_clear_all_including_hidden_items() -> None:
+    run_js(r"""
+      const f=fixture();f.grant();const {app,view}=mount(f);await app.ready;
+      view('teacher-name').value='An';
+      await view('teacher-identity-form').onsubmit({preventDefault(){}});
+      const callsBefore=f.calls.length;
+      const change=value=>view('teacher-publication-filter').onchange({target:{value}});
+      view('teacher-select-publishable').onclick();change('selected');
+      assert.equal(app.ui.selected.size,5);
+      view('teacher-question-selection').onchange({target:{
+        dataset:{publishQuestion:'Q-00003'},checked:false}});
+      assert.equal(app.ui.selected.size,4);
+      assert.doesNotMatch(view('teacher-question-selection').innerHTML,
+        /data-publish-question="Q-00003"/);
+      assert.match(view('teacher-publish-summary').innerHTML,/4 câu được chọn/);
+      change('blocked');
+      assert.match(view('teacher-question-selection').innerHTML,/Không có câu hỏi/);
+      assert.equal(view('teacher-clear-selection').disabled,false);
+      view('teacher-clear-selection').onclick();change('selected');
+      assert.equal(app.ui.selected.size,0);
+      assert.match(view('teacher-question-selection').innerHTML,/Không có câu hỏi/);
+      assert.equal(view('teacher-publish').disabled,true);
+      assert.equal(view('teacher-clear-selection').disabled,true);
+      change('publishable');
+      assert.equal([...view('teacher-question-selection').innerHTML
+        .matchAll(/data-publish-question=/g)].length,5);
+      assert.equal(f.calls.length,callsBefore);
+    """)
+
+
+def test_publication_selection_controls_respect_busy_and_publish_permissions() -> None:
+    run_js(r"""
+      const f=fixture();f.grant();const {app,view}=mount(f);await app.ready;
+      view('teacher-name').value='An';
+      await view('teacher-identity-form').onsubmit({preventDefault(){}});
+      app.ui.selected.add('Q-00001');app.ui.busy=true;app.render();
+      for(const id of ['teacher-publication-filter','teacher-select-publishable',
+        'teacher-clear-selection','teacher-publish']) assert.equal(view(id).disabled,true);
+      assert.match(view('teacher-question-selection').innerHTML,
+        /data-publish-question="Q-00002"[^>]*disabled/);
+      view('teacher-publication-filter').onchange({target:{value:'selected'}});
+      view('teacher-select-publishable').onclick();view('teacher-clear-selection').onclick();
+      view('teacher-question-selection').onchange({target:{
+        dataset:{publishQuestion:'Q-00002'},checked:true}});
+      assert.deepEqual([...app.ui.selected],['Q-00001']);
+      assert.equal(app.ui.publicationFilter,'all');
+      app.ui.busy=false;app.session.state.access.can_publish=false;app.render();
+      assert.equal(view('teacher-publication-filter').disabled,false);
+      for(const id of ['teacher-select-publishable','teacher-clear-selection','teacher-publish'])
+        assert.equal(view(id).disabled,true);
+      view('teacher-select-publishable').onclick();view('teacher-clear-selection').onclick();
+      view('teacher-question-selection').onchange({target:{
+        dataset:{publishQuestion:'Q-00002'},checked:true}});
+      assert.deepEqual([...app.ui.selected],['Q-00001']);
+      view('teacher-publication-filter').onchange({target:{value:'selected'}});
+      assert.equal(app.ui.publicationFilter,'selected');
+      assert.match(view('teacher-question-selection').innerHTML,
+        /data-publish-question="Q-00001"[^>]*disabled/);
+      assert.equal(f.publicationCount(),0);
+    """)
+
+
+def test_eligible_count_updates_and_blocked_or_unknown_ids_cannot_be_selected() -> None:
+    run_js(r"""
+      const f=fixture();f.grant();const {app,view}=mount(f);await app.ready;
+      view('teacher-name').value='An';
+      await view('teacher-identity-form').onsubmit({preventDefault(){}});
+      view('teacher-select-publishable').onclick();
+      for(const row of app.session.state.workspace.question_reviews) row.publishable=false;
+      app.render();
+      assert.equal(app.ui.selected.size,0);
+      assert.match(view('teacher-select-publishable').textContent,/\(0\)$/);
+      assert.equal(view('teacher-select-publishable').disabled,true);
+      assert.equal(view('teacher-publish').disabled,true);
+      assert.match(view('teacher-publish-summary').innerHTML,/5 câu bị chặn/);
+      for(const id of ['Q-00001','Q-does-not-exist'])
+        view('teacher-question-selection').onchange({target:{
+          dataset:{publishQuestion:id},checked:true}});
+      assert.equal(app.ui.selected.size,0);
+      app.session.state.workspace.question_reviews[2].publishable=true;app.render();
+      assert.match(view('teacher-select-publishable').textContent,/\(1\)$/);
+      assert.equal(view('teacher-select-publishable').disabled,false);
+      view('teacher-select-publishable').onclick();
+      assert.deepEqual([...app.ui.selected],['Q-00003']);
+      assert.equal(f.publicationCount(),0);
+    """)
+
+
 def test_switching_learner_clears_old_detail_and_blocks_racing_selection() -> None:
     run_js("""
       const f=fixture();f.grant();
@@ -401,6 +654,7 @@ def test_local_preview_displays_read_only_authoring_without_inventing_role() -> 
       assert.equal(view('teacher-app').hidden,false);
       assert.equal(view('teacher-review-frame').getAttribute('src'),'extraction-review.html');
       assert.equal(view('teacher-publish').disabled,true);
+      assert.equal(view('teacher-publication-filter').disabled,true);
       assert.equal(view('teacher-identity').hidden,true);
       assert.match(view('teacher-status').textContent,/Chỉ đọc/);
       assert.equal(app.session.state.access.can_teach,false);

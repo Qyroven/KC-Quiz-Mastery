@@ -92,7 +92,7 @@
     }
     const prefix = `la-student:${config.mode}:${project}`;
     const keys = { identity: `${prefix}:identity`, auth: `${prefix}:session`, pending: `${prefix}:pending`, selected: `${prefix}:selected` };
-    const state = { mode: config.mode, identity: null, courses: [], data: null, attempts: [], feedback: [], itemQuality: {}, pending: {}, loaded: false };
+    const state = { mode: config.mode, identity: null, courses: [], catalogStatus: "unloaded", data: null, attempts: [], feedback: [], itemQuality: {}, pending: {}, loaded: false };
     let auth = null;
     const read = (key, fallback) => {
       let value;
@@ -180,7 +180,10 @@
     }
     async function refreshAuth() {
       try { return saveAuth(await raw("/auth/v1/token?grant_type=refresh_token", { refresh_token: auth.refresh_token })); }
-      catch { throw new Error("Chưa làm mới được phiên hiện tại. Đã giữ nguyên phiên; không đăng ký người học mới thay thế."); }
+      catch {
+        state.catalogStatus = "error";
+        throw new Error("Chưa làm mới được phiên hiện tại. Đã giữ nguyên phiên; không đăng ký người học mới thay thế.");
+      }
     }
     async function ensureAuth() {
       if (auth?.access_token && Number(auth.expires_at) > Date.now() / 1000 + 60) return auth;
@@ -239,12 +242,19 @@
     }
     async function catalog() {
       if (!state.identity) return;
-      const courses = shared ? await rpc("list_learning_courses", {}) : [{ course_id: previewData.run_id,
-        title: previewData.source?.filename || "Bản xem thử", source_filename: previewData.source?.filename,
-        latest_release: { release_id: previewData.run_id, label: "Bản xem thử cục bộ", question_count: previewData.questions.length, kc_count: previewData.kcs.length },
-        enrollment: { release_id: previewData.run_id } }];
-      if (!Array.isArray(courses)) throw new Error("Danh sách bài học chưa đọc được.");
-      state.courses = courses;
+      state.catalogStatus = "loading";
+      try {
+        const courses = shared ? await rpc("list_learning_courses", {}) : [{ course_id: previewData.run_id,
+          title: previewData.source?.filename || "Bản xem thử", source_filename: previewData.source?.filename,
+          latest_release: { release_id: previewData.run_id, label: "Bản xem thử cục bộ", question_count: previewData.questions.length, kc_count: previewData.kcs.length },
+          enrollment: { release_id: previewData.run_id } }];
+        if (!Array.isArray(courses)) throw new Error("Danh sách bài học chưa đọc được.");
+        state.courses = courses; state.catalogStatus = "ready";
+      } catch (error) {
+        // A failed read is not an empty catalog. Keep the last confirmed list.
+        state.catalogStatus = "error";
+        throw error;
+      }
     }
     async function openCourse(courseId) {
       requireIdentity();
@@ -505,6 +515,27 @@
     return cards + `<article class="progress-item unpublished-summary"><strong>${hidden.length} nội dung · ${slots} mục tiêu chưa phát hành</strong><p>Chưa được giảng viên phát hành không có nghĩa là bạn chưa hiểu. Các mục tiêu này vẫn thuộc phạm vi bài học, chưa dùng để kết luận năng lực.</p></article>`;
   }
 
+  function catalogView(state, busy = false) {
+    const ready = state.catalogStatus === "ready";
+    const status = ready ? state.mode === "local_preview"
+      ? "Bản xem thử cục bộ — chưa phát hành" : "Chỉ học từ phiên bản được phát hành"
+      : state.catalogStatus === "loading" ? "Đang tải danh sách bài học…"
+      : state.catalogStatus === "error" ? "Chưa cập nhật được danh sách bài học"
+      : "Danh sách bài học chưa được tải";
+    if (!state.courses.length) return { status, html: `<p class="empty-state">${ready
+      ? "Chưa có bài học được phát hành cho không gian này."
+      : state.catalogStatus === "error"
+        ? "Chưa tải được danh sách bài học. Chưa xác định có bài học để mở; hãy thử cập nhật lại."
+        : status}</p>` };
+    const notice = ready ? "" : '<p class="empty-state">Đang hiển thị danh sách đã tải trước đó; chưa xác nhận trạng thái mới. Cập nhật thành công trước khi mở bài.</p>';
+    const cards = state.courses.map((course) => {
+      const release = course.latest_release, available = Boolean(course.enrollment?.release_id || release?.release_id);
+      const earlier = course.enrollment && release && course.enrollment.release_id !== release.release_id;
+      return `<button class="course-item" data-action="course" data-course="${esc(course.course_id)}" type="button" ${!ready || !available || busy ? "disabled" : ""}><strong>${esc(course.title || course.source_filename || "Bài học")}</strong><small>${earlier ? "Giữ nguyên phiên bản bạn đã bắt đầu." : esc(release?.label || "Chưa có phiên bản phát hành")}</small>${earlier ? `<small>Có bản mới: ${esc(release.label)}. Lượt học hiện tại không tự đổi sang bản này.</small>` : release ? `<small>${Number(release.question_count) || 0} câu hỏi · ${Number(release.kc_count) || 0} mục kiến thức trong bài</small>` : ""}<span class="open-label">${course.enrollment ? "Tiếp tục phiên bản đang học →" : available ? "Mở bài học →" : "Giảng viên chưa phát hành"}</span></button>`;
+    }).join("");
+    return { status, html: notice + cards };
+  }
+
   function mount({ document: doc, config, previewData, core, storage, fetch: fetcher, crypto, locks, location, history }) {
     const session = createSession({ config, previewData, core, storage, fetch: fetcher, crypto, locks });
     const $ = (id) => doc.getElementById(id);
@@ -548,13 +579,9 @@
     function renderCatalog() {
       const state = session.state;
       $("catalog-panel").hidden = !state.identity || (!ui.catalog && Boolean(state.data));
-      $("catalog-status").textContent = state.mode === "local_preview"
-        ? "Bản xem thử cục bộ — chưa phát hành" : "Chỉ học từ phiên bản được phát hành";
-      $("course-list").innerHTML = state.courses.length ? state.courses.map((course) => {
-        const release = course.latest_release, available = Boolean(course.enrollment?.release_id || release?.release_id);
-        const earlier = course.enrollment && release && course.enrollment.release_id !== release.release_id;
-        return `<button class="course-item" data-action="course" data-course="${esc(course.course_id)}" type="button" ${!available || ui.busy ? "disabled" : ""}><strong>${esc(course.title || course.source_filename || "Bài học")}</strong><small>${earlier ? "Giữ nguyên phiên bản bạn đã bắt đầu." : esc(release?.label || "Chưa có phiên bản phát hành")}</small>${earlier ? `<small>Có bản mới: ${esc(release.label)}. Lượt học hiện tại không tự đổi sang bản này.</small>` : release ? `<small>${Number(release.question_count) || 0} câu hỏi · ${Number(release.kc_count) || 0} mục kiến thức trong bài</small>` : ""}<span class="open-label">${course.enrollment ? "Tiếp tục phiên bản đang học →" : available ? "Mở bài học →" : "Giảng viên chưa phát hành"}</span></button>`;
-      }).join("") : '<p class="empty-state">Chưa có bài học được phát hành cho không gian này.</p>';
+      const view = catalogView(state, ui.busy);
+      $("catalog-status").textContent = view.status;
+      $("course-list").innerHTML = view.html;
     }
     function renderKnowledge() {
       const data = session.state.data;
@@ -596,6 +623,7 @@
       $("storage-status").className = `storage-status ${state.mode === "local_preview" ? "preview" : ""}`;
       $("storage-status").textContent = state.mode === "local_preview"
         ? "Xem thử cục bộ · chưa phát hành. Chỉ lưu trên trình duyệt này; dữ liệu bản xem thử có đáp án, không dùng làm bài thi bảo mật."
+        : state.catalogStatus === "error" ? "Chưa cập nhật được dữ liệu dùng chung. Phiên và lịch sử đã tải được giữ nguyên; chưa xác nhận dữ liệu mới."
         : "Phiên học riêng của bạn · lưu dùng chung theo phiên bản giảng viên phát hành. Tên hiển thị không cấp quyền quản lý nội dung.";
       renderCatalog();
       $("course-panel").hidden = !state.data;
@@ -676,5 +704,5 @@
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   }
-  return { createSession, mount, validatePackage, previewPacket, questionHtml, controlsHtml, nextHtml, progressHtml, evidenceNote, stateTag, answerText, emptyResponse, shuffled };
+  return { createSession, mount, validatePackage, previewPacket, questionHtml, controlsHtml, nextHtml, progressHtml, catalogView, evidenceNote, stateTag, answerText, emptyResponse, shuffled };
 });

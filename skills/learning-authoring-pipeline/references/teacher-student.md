@@ -6,10 +6,10 @@ global content object. No model-provider API is involved.
 
 ## Build
 
-Inspect `role-apps-build --help` and `authoring-register --help` first. Both are offline commands.
+Inspect `learning-authoring-product --help` first. Its product/export commands are offline.
 
 ```text
-learning-authoring role-apps-build <run> <fresh-output> --local-preview
+learning-authoring-product build-role-apps <run> <fresh-output> --local-preview
 ```
 
 This creates `teacher/` and `student/`. Local Student preview may include frozen answer material
@@ -35,7 +35,7 @@ learning items and the authoring package must be installed through an authorized
 Export the last package with:
 
 ```text
-learning-authoring authoring-register <run> <new-private-path.sql>
+learning-authoring-product export-authoring-registration <run> <new-private-path.sql>
 ```
 
 That SQL requires the existing review/learning baseline and never grants a role or publishes a

@@ -58,7 +58,11 @@
           <section class="card publication-card" aria-labelledby="publish-title">
             <div class="section-heading"><div><h2 id="publish-title">Phát hành phiên bản bài học</h2><p class="muted">Chọn rõ các câu đã được duyệt cùng KC hiện tại. Không tự duyệt, không bỏ qua câu bị chặn và không ghi đè phiên bản cũ.</p></div><button type="button" id="teacher-refresh-reviews" class="secondary">Đối chiếu review</button></div>
             <div id="teacher-publish-summary" class="selection-summary"></div>
-            <div class="selection-actions"><button id="teacher-select-publishable" type="button" class="quiet">Chọn các câu đủ điều kiện</button><button id="teacher-clear-selection" type="button" class="quiet">Bỏ chọn</button></div>
+            <div class="selection-actions">
+              <button id="teacher-select-publishable" type="button" class="quiet" title="Chọn toàn bộ câu đủ điều kiện của bài học, không phụ thuộc bộ lọc.">Chọn tất cả câu đủ điều kiện</button>
+              <button id="teacher-clear-selection" type="button" class="quiet">Bỏ chọn tất cả</button>
+              <div class="selection-filter"><label for="teacher-publication-filter">Hiển thị</label><select id="teacher-publication-filter"><option value="all">Tất cả</option><option value="publishable">Đủ điều kiện</option><option value="blocked">Chưa đủ điều kiện</option><option value="selected">Đã chọn</option></select></div>
+            </div>
             <div id="teacher-question-selection" class="question-selection"></div>
             <form id="teacher-publish-form"><label for="teacher-release-label">Tên phiên bản</label><div class="input-row"><input id="teacher-release-label" maxlength="120" required placeholder="Ví dụ: Bản dành cho lớp học tuần này" /><button id="teacher-publish" type="submit" class="primary">Phát hành các câu đã chọn</button></div></form>
             <div id="teacher-pending-publication" class="error-panel" hidden><p>Lần phát hành trước chưa rõ đã lưu hay chưa. Xác nhận lại đúng thao tác cũ trước khi chọn một phiên bản khác.</p><button id="teacher-retry-publication" type="button" class="secondary">Xác nhận lần phát hành đang chờ</button></div>

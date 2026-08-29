@@ -28,28 +28,56 @@ CognitiveOperation = Literal["remember", "understand", "apply", "analyze", "eval
 
 
 class QuizSourceRef(BaseModel):
+    """Immutable KC lineage for either one Extraction or one source bundle."""
+
     model_config = ConfigDict(extra="forbid")
 
-    extraction_source_id: str = Field(min_length=1)
-    extraction_source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    extraction_source_id: str | None = Field(default=None, min_length=1)
+    extraction_source_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    source_bundle_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     kc_set_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     authoring_context_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def exactly_one_source_mode(self) -> QuizSourceRef:
+        single_fields = (self.extraction_source_id, self.extraction_source_sha256)
+        if (single_fields[0] is None) != (single_fields[1] is None):
+            raise ValueError("single-source Quiz lineage requires both source ID and SHA-256")
+        single_source = single_fields[0] is not None
+        source_bundle = self.source_bundle_sha256 is not None
+        if single_source == source_bundle:
+            raise ValueError("Quiz lineage must bind exactly one Extraction or source bundle")
+        return self
 
     @model_serializer(mode="wrap")
     def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         result = handler(self)
-        if self.authoring_context_sha256 is None and (
-            "authoring_context_sha256" not in self.model_fields_set
+        for name in (
+            "extraction_source_id",
+            "extraction_source_sha256",
+            "source_bundle_sha256",
+            "authoring_context_sha256",
         ):
-            result.pop("authoring_context_sha256", None)
+            if getattr(self, name) is None and name not in self.model_fields_set:
+                result.pop(name, None)
         return result
 
 
 class QuizEvidenceRef(BaseModel):
+    """A PDF locator; bundle-mode locators must state their source explicitly."""
+
     model_config = ConfigDict(extra="forbid")
 
+    source_id: str | None = Field(default=None, min_length=1)
     page: int = Field(ge=1)
     block_ids: list[str] = Field(min_length=1)
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if self.source_id is None and "source_id" not in self.model_fields_set:
+            result.pop("source_id", None)
+        return result
 
 
 class QuizContextEvidenceRef(BaseModel):
@@ -60,6 +88,7 @@ class QuizContextEvidenceRef(BaseModel):
     context_id: str = Field(pattern=r"^CTX-[0-9]+$")
     excerpt: str | None = Field(default=None, min_length=1)
     description: str | None = Field(default=None, min_length=1)
+    source_id: str | None = Field(default=None, min_length=1)
     pages: list[Annotated[int, Field(ge=1, strict=True)]] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -70,7 +99,16 @@ class QuizContextEvidenceRef(BaseModel):
             raise ValueError("context evidence requires an excerpt or attachment description")
         if any(page < 1 for page in self.pages) or len(self.pages) != len(set(self.pages)):
             raise ValueError("context evidence pages must be unique positive page numbers")
+        if self.source_id is not None and not self.pages:
+            raise ValueError("document-level context evidence must not name a PDF source")
         return self
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if self.source_id is None and "source_id" not in self.model_fields_set:
+            result.pop("source_id", None)
+        return result
 
 
 class AssessmentSlot(BaseModel):
@@ -358,6 +396,26 @@ class QuizBatch(BaseModel):
         question_ids = [question.question_id for question in self.questions]
         if len(question_ids) != len(set(question_ids)):
             raise ValueError("duplicate question IDs")
+        bundle_mode = self.source_ref.source_bundle_sha256 is not None
+        for question in self.questions:
+            for reference in question.evidence_refs:
+                if bundle_mode and reference.source_id is None:
+                    raise ValueError(
+                        f"{question.question_id} bundle PDF evidence requires source_id"
+                    )
+                if not bundle_mode and reference.source_id is not None:
+                    raise ValueError(
+                        f"{question.question_id} single-source PDF evidence must not add source_id"
+                    )
+            for reference in question.context_evidence_refs:
+                if bundle_mode and reference.pages and reference.source_id is None:
+                    raise ValueError(
+                        f"{question.question_id} bundle page-mapped context requires source_id"
+                    )
+                if not bundle_mode and reference.source_id is not None:
+                    raise ValueError(
+                        f"{question.question_id} single-source context must not add source_id"
+                    )
         if self.schema_version == "quiz-batch.v1":
             if self.assessment_slots:
                 raise ValueError("assessment slots require quiz-batch.v2 or quiz-batch.v3")
@@ -411,11 +469,11 @@ class QuizBatch(BaseModel):
         expected_schema = (
             CURRENT_QUIZ_SCHEMA_VERSION
             if input_version == CURRENT_QUIZ_INPUT_VERSION
-            else "quiz-batch.v2" if adaptive else "quiz-batch.v1"
+            else "quiz-batch.v2"
+            if adaptive
+            else "quiz-batch.v1"
         )
-        known_input_versions = {
-            None, "quiz-input.v1", "quiz-input.v2", CURRENT_QUIZ_INPUT_VERSION
-        }
+        known_input_versions = {None, "quiz-input.v1", "quiz-input.v2", CURRENT_QUIZ_INPUT_VERSION}
         if (input_version == CURRENT_QUIZ_INPUT_VERSION and not adaptive) or (
             input_version not in known_input_versions
         ):
@@ -483,15 +541,24 @@ class QuizBatch(BaseModel):
 
             kc = kc_by_id[kc_id]
             allowed_evidence = {
-                (evidence["page"], block_id)
+                (evidence.get("source_id"), evidence["page"], block_id)
                 for evidence in kc["source_evidence"]
                 for block_id in evidence["block_ids"]
             }
+            bundle_mode = self.source_ref.source_bundle_sha256 is not None
+            for evidence in kc.get("context_evidence", []):
+                pages = evidence.get("pages", [])
+                source_id = evidence.get("source_id")
+                if bundle_mode and pages and not source_id:
+                    raise ValueError("bundle page-mapped context evidence requires source_id")
+                if not bundle_mode and source_id is not None:
+                    raise ValueError("single-source context evidence must not add source_id")
             allowed_context = {
                 (
                     evidence["context_id"],
                     evidence.get("excerpt"),
                     evidence.get("description"),
+                    evidence.get("source_id"),
                     tuple(evidence.get("pages", [])),
                 )
                 for evidence in kc.get("context_evidence", [])
@@ -502,7 +569,7 @@ class QuizBatch(BaseModel):
                 if question.interaction not in allowed_interactions:
                     raise ValueError(f"{question.question_id} uses a disabled interaction")
                 cited = {
-                    (reference.page, block_id)
+                    (reference.source_id, reference.page, block_id)
                     for reference in question.evidence_refs
                     for block_id in reference.block_ids
                 }
@@ -513,6 +580,7 @@ class QuizBatch(BaseModel):
                         reference.context_id,
                         reference.excerpt,
                         reference.description,
+                        reference.source_id,
                         tuple(reference.pages),
                     )
                     for reference in question.context_evidence_refs

@@ -91,20 +91,32 @@ existing block IDs instead of copying it into a second artifact registry.
 6. **Evidence locality:** every PDF evidence record declares one page and may cite
    only block IDs belonging to that page. Preserve every page that contributes
    a materially distinct definition, operation, interpretation, exception, or
-   result to a multi-page KC. For context evidence, `pages` is an optional semantic
-   mapping, not proof that the note occurs in the PDF. Use `mapping_method` of
+   result to a multi-page KC. Within that page, cite the smallest set of blocks
+   that directly supports the stated claim, including relation endpoints,
+   conditions, labels, or values only when they are material. Do not copy every
+   page block by default or include unrelated titles, footers, examples, or
+   decoration. For context evidence, `pages` is an optional semantic mapping,
+   not proof that the note occurs in the PDF. Use `mapping_method` of
    `explicit_page_reference` or `semantic_alignment` with valid mapped pages and
    qualitative `mapping_confidence` of `high`, `medium`, or `low`. Use
    `document_level` or `unmapped` with `pages: []` when no page mapping is justified;
    `unmapped` uses `mapping_confidence: "unmapped"`. Missing notes on a page are
    normal and do not create missing-content errors. Do not force unrelated notes
    onto nearby slides or create a KC just because an attachment exists.
-7. **Atomicity and split:** split candidates when independent learning or
-   performance is meaningful. Do not split merely because a page has several
-   bullets, blocks, or modalities.
-8. **Merge and deduplicate:** merge paraphrases and instances that do not
-   justify a separate knowledge state. Keep distinct procedures or decision
-   rules apart.
+7. **Capability inventory and atomicity:** before grouping or compression,
+   make an internal inventory of the source-supported capabilities a learner
+   could demonstrate. This is reasoning within this same stage, not an extra
+   model call, output quota, or one-KC-per-item rule. Split candidates when at
+   least one of these tests is meaningful: a learner could know one without the
+   other; the observable responses differ; or an error would require different
+   remediation. Do not split merely because a page has several bullets, blocks,
+   modalities, examples, or phrasings.
+8. **Merge and deduplicate:** merge only paraphrases, supporting instances, or
+   inseparable parts of one observable capability. Adjacency, shared vocabulary,
+   a common workflow, or one heading is insufficient. After every merge, list
+   the independently scorable responses still implied by the candidate; undo
+   the merge when more than one response remains independently learnable or
+   diagnosable. Keep distinct procedures or decision rules apart.
 9. **KC expression:** write a concise name, semantic form, knowledge
    description, observable claim, and explicit included/excluded boundary.
    Preserve precise technical terms. Express `observable_claim` conditionally:
@@ -121,9 +133,14 @@ existing block IDs instead of copying it into a second artifact registry.
     context-to-PDF conflicts, uncertain mappings, and context that is irrelevant
     or cannot be inspected. Mention the affected `context_id` in the warning
     description so the lecturer can trace what was considered or left unused.
+    Treat an unresolved instructional visual relationship as local to its source
+    page: text or a similar visual elsewhere may support a KC, but cannot erase
+    that page's missing relationship or extraction warning.
 12. **Uncovered content:** record learning-relevant source content not
-    represented by a Leaf KC, citing existing same-page block IDs. Do not hide
-    it or convert it into a coverage score.
+    represented by a Leaf KC, citing existing same-page block IDs. State the
+    specific omitted claim and the claim-specific reason; do not reuse one
+    generic explanation across unrelated pages or mechanisms. Do not hide
+    omissions or convert them into a coverage score.
 13. **Uncertainty:** use evidence-linked warnings rather than KC quality scores.
     Context mapping confidence is only a qualitative disclosure of a link; it is
     not a quality, approval, mastery, or correctness score.
@@ -168,6 +185,13 @@ what is fixed versus controllable, and operational steps when the input teaches
 them. Combine related claims when justified without reducing them to a generic
 topic sentence. Explicitly record meaningful omissions instead of inflating KC
 count or treating every example as a new KC.
+
+For each final KC, compare its description, observable response, included
+boundary, and excluded boundary with every materially contributing evidence
+record. Evidence descriptions must state the exact claim supported rather than
+a generic phrase such as "evidence for this KC". If the comparison reveals
+independently scorable operations or decisions, split the KC or disclose a
+genuine source ambiguity for review.
 
 ## KC count policy
 

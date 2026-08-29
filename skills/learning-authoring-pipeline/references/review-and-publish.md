@@ -51,15 +51,16 @@ Approve/Edit/Reject events for Extraction, KC, and Quiz. Raw candidates remain i
 these collaborative events never authorize source mutation or create a canonical approved
 pipeline artifact.
 
-Runtime 0.6 can publish an immutable Learning release from explicitly selected current approved
+Runtime 0.7 can publish an immutable Learning release from explicitly selected current approved
 KC/question revisions. This is a separate human decision, not a replacement AI check or an edit
 of the original candidate. Missing/unpublished assessment coverage must remain visible.
 
-## Build one connected local portal
+## Build the matching connected local portal
 
-Use the installed runtime's deterministic portal builder after the run has produced Extraction,
-both KC review views, and Quiz review. The source run is the single data boundary: never combine
-review files from unrelated runs or use checked-in demo content as a fallback.
+Use the installed runtime's deterministic matching portal builder after the authoring root has
+produced Extraction, KC, and Quiz artifacts. A single-source run or exact source bundle is one data
+boundary: never combine review files from unrelated runs/bundles or use checked-in demo content as
+a fallback.
 
 Inspect the builder's current help because flags may evolve, choose a fresh output directory, and
 build:
@@ -67,29 +68,38 @@ build:
 ```bash
 <la> portal-build --help
 <la> portal-build <run-dir> --with-learning --output-dir <fresh-portal-dir>
+<la> bundle-portal-build --help
+<la> bundle-portal-build <bundle-root> --output-dir <fresh-portal-dir>
 ```
 
-The CLI resolves the current run's review artifacts; do not pass paths from a prior run or rewrite
-their content. The portal must connect the journey from current run data and its generated manifest:
+Use `portal-build --with-learning` for one source. Use `bundle-portal-build` for an exact source
+bundle; its current surface is connected read-only Authoring review, not the Learning MVP. The CLI
+resolves current artifacts; do not pass paths from a prior run/bundle, rewrite candidate content,
+or manually stitch one-source portals. The portal must connect the journey from current data and
+its generated manifest:
 
 ```text
-PDF/source identity
-  -> Extraction review: PROPOSED (or verified HUMAN_APPROVED on a later rebuild)
-  -> KC reviews: PROPOSED; upstream PROPOSED_DEMO_ONLY in the default journey
+one PDF/source identity or PDF 1..N/source-bundle identity
+  -> independent Extraction review(s): PROPOSED (or verified HUMAN_APPROVED on a later rebuild)
+  -> shared KC review: PROPOSED; upstream PROPOSED_DEMO_ONLY in the default journey
   -> Quiz review: EXPERIMENTAL_UNAPPROVED
-  -> Learning: attempts/hints -> grading -> evidence -> provisional mastery -> next action
+  -> when enabled by the selected builder:
+     Learning attempts/hints -> grading -> evidence -> provisional mastery -> next action
 ```
 
-Inspect `<fresh-portal-dir>/showcase-manifest.json` and verify:
+Inspect `<fresh-portal-dir>/showcase-manifest.json` for one source or
+`<fresh-portal-dir>/bundle-portal-manifest.json` for a bundle and verify:
 
-- `source_run`, source filename, source ID, and page count come from this run;
+- source-run or source-bundle hash, every source filename/ID, and per-source page count come from
+  this exact authoring root;
 - every stage label matches the actual artifact metadata;
-- `quiz_initial_check` matches the bound report (or clearly states missing/stale), separately from
-  approval, and the Quiz view displays both hint controls and review findings;
+- when the selected manifest exposes `quiz_initial_check`, it matches the bound report (or clearly
+  states missing/stale), separately from approval; the Quiz view never implies a missing check;
 - every entrypoint exists and opens the matching current-run review;
 - the page inventory is derived from the manifest rather than a fixed count;
 - no stale course title, run name, content string, page number, or KC ID is embedded in the shell;
-- Learning starts with no fabricated attempts or mastery; its configured storage mode is clear.
+- when Learning is enabled, it starts with no fabricated attempts or mastery and its configured
+  storage mode is clear.
 
 Treat the manifest as an allowlist. The local package may contain only:
 
@@ -131,7 +141,8 @@ does not grant edit, approval, publication, grading or private learner-history a
 ## Publish to Vercel only with separate authorization
 
 For shared Learning, also apply the Learning migration and register immutable snapshots using the
-offline `learning-register` command. A browser key does not confer staff grading permission.
+offline `learning-authoring-product export-learning-registration` command. A browser key does not
+confer staff grading permission.
 Do not infer a trusted grader from a display name or expose learner responses to public reviewers.
 Read `learning-mvp.md` before enabling this backend. Updating the app never authorizes overwriting
 historical attempts.

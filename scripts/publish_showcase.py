@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from learning_authoring.showcase import (
+from learning_authoring.product.showcase import (
     DEFAULT_REVIEW_FILES,
     DEFAULT_TEMPLATE_DIR,
     MANAGED_BY,

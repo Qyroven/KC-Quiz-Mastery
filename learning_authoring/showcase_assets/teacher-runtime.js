@@ -59,7 +59,7 @@
     const nameKey = `la-teacher-name:${project}`;
     const pendingKey = `la-teacher-pending:${project}:${config?.runId || "local"}`;
     let auth = null;
-    const state = { enabled, identity: null, access: noAccess(), workspace: null,
+    const state = { enabled, identity: null, access: noAccess(), accessStatus: "unknown", workspace: null,
       draft: null, learner: null, queue: [], pending: { publication: null, grades: {} }, loaded: false };
     function read(key, fallback) {
       try {
@@ -73,9 +73,9 @@
       try { storage.setItem(key, JSON.stringify(value)); }
       catch { throw new Error("Không lưu được phiên trên trình duyệt; chưa xác nhận thao tác thành công."); }
     }
-    function clearPrivate() {
+    function clearPrivate(accessStatus) {
       state.access = noAccess(); state.workspace = null; state.draft = null;
-      state.learner = null; state.queue = [];
+      state.learner = null; state.queue = []; state.accessStatus = accessStatus;
     }
     function uuid() {
       if (!cryptoApi?.randomUUID) throw new Error("Cần HTTPS hoặc localhost để tạo mã thao tác an toàn.");
@@ -117,7 +117,12 @@
     }
     async function refreshAuth() {
       try { return saveAuth(await raw("/auth/v1/token?grant_type=refresh_token", { body: { refresh_token: auth.refresh_token } })); }
-      catch { throw new Error("Chưa làm mới được phiên Teacher. Đã giữ nguyên danh tính; không tự tạo tài khoản hay mất quyền đang có."); }
+      catch {
+        clearPrivate("auth_error");
+        const error = new Error("Chưa làm mới được phiên Teacher. Đã giữ nguyên danh tính; chưa thể xác minh quyền. Kiểm tra kết nối rồi bấm Thử lại.");
+        error.code = "TEACHER_AUTH_REFRESH_FAILED";
+        throw error;
+      }
     }
     async function ensureAuth(allowCreate = false) {
       // Re-read to share one identity with same-origin review iframes after a refresh.
@@ -138,6 +143,8 @@
     }
     const rpc = (name, body) => request(`/rest/v1/rpc/${name}`, body);
     function requireRole(key = "can_teach") {
+      if (enabled && state.identity && !["verified", "denied"].includes(state.accessStatus))
+        throw new Error("Chưa xác minh được phiên hoặc quyền Teacher. Bấm Thử lại; không cần tạo danh tính khác.");
       if (!enabled || !state.access[key]) throw new Error("Tài khoản hiện tại không được cấp quyền thao tác này cho bài học. Tên không tạo quyền.");
     }
     function savePending(next) { write(pendingKey, next); state.pending = next; }
@@ -171,7 +178,7 @@
       return reload();
     }
     async function reload() {
-      clearPrivate();
+      clearPrivate(state.identity ? "loading" : "unknown"); state.loaded = false;
       if (!state.identity) { state.loaded = true; return state; }
       try {
         state.identity.display_name = read(nameKey, state.identity.display_name);
@@ -179,7 +186,7 @@
         if (!access || typeof access.can_teach !== "boolean" || !access.user_id)
           throw new Error("Chưa xác minh được quyền Teacher từ máy chủ; không mở dữ liệu học viên.");
         state.identity.user_id = access.user_id;
-        if (!access.can_teach) { state.loaded = true; return state; }
+        if (!access.can_teach) { state.accessStatus = "denied"; state.loaded = true; return state; }
         const [workspace, draft] = await Promise.all([
           rpc("get_teacher_workspace", { p_run_id: config.runId }),
           rpc("get_teacher_learning_package", { p_run_id: config.runId }),
@@ -190,13 +197,17 @@
           throw new Error("Không gian Teacher chưa đúng contract; không thay bằng dữ liệu mẫu.");
         state.access = { ...access, can_publish: access.can_publish === true && workspace.can_publish === true,
           can_grade: access.can_grade === true && workspace.can_grade === true };
+        state.accessStatus = "verified";
         state.workspace = workspace; state.draft = draft;
         const pending = state.pending.publication;
         if (pending && workspace.releases.some((release) => release.publish_event_id === pending.event_id))
           savePending({ ...state.pending, publication: null });
         state.loaded = true;
         return state;
-      } catch (error) { clearPrivate(); throw error; }
+      } catch (error) {
+        clearPrivate(error.code === "TEACHER_AUTH_REFRESH_FAILED" || error.status === 401 ? "auth_error" : "error");
+        state.loaded = true; throw error;
+      }
     }
     async function loadLearner(learnerId, releaseId) {
       requireRole(); state.learner = null;
@@ -298,6 +309,12 @@
       uncovered_kcs: (draft?.kcs || []).filter((kc) => !kcIds.has(kc.kc_id)).length,
       uncovered_slots: (draft?.slots || []).filter((slot) => !slotIds.has(slot.slot_id)).length };
   }
+  function filteredQuestionReviews(reviews, filter, selectedIds) {
+    const selected = new Set(selectedIds);
+    return reviews.filter((row) => filter === "publishable" ? row.publishable === true :
+      filter === "blocked" ? row.publishable !== true :
+      filter === "selected" ? selected.has(row.question_id) : true);
+  }
   function time(value) {
     if (!value) return "Chưa có";
     const parsed = new Date(value);
@@ -372,12 +389,12 @@
   function mount({ document, config, data, core, storage, fetch: fetcher, crypto: cryptoApi, clipboard }) {
     const $ = (id) => document.getElementById(id);
     const session = createSession({ config, storage, fetch: fetcher, crypto: cryptoApi });
-    const ui = { tab: "content", review: "extraction", selected: new Set(), releaseId: "", gradingRelease: "",
+    const ui = { tab: "content", review: "extraction", publicationFilter: "all", selected: new Set(), releaseId: "", gradingRelease: "",
       learnerId: "", busy: false, identityOpen: false, drafts: {} };
     async function operation(message, fn) {
       if (ui.busy) return;
       ui.busy = true; $("teacher-error").hidden = true; $("teacher-status").textContent = message; render();
-      try { await fn(); $("teacher-status").textContent = "Đã cập nhật từ máy chủ. Quyền và phiên bản được kiểm tra cho từng thao tác."; }
+      try { const pending = fn(); render(); await pending; $("teacher-status").textContent = "Đã cập nhật từ máy chủ. Quyền và phiên bản được kiểm tra cho từng thao tác."; }
       catch (error) { $("teacher-error-message").textContent = error.message; $("teacher-error").hidden = false; $("teacher-status").textContent = "Chưa xác nhận thao tác hoàn tất. Dữ liệu cũ được giữ nguyên."; }
       finally { ui.busy = false; render(); }
     }
@@ -405,10 +422,13 @@
       $("teacher-account-id").value = state.identity?.user_id || "";
       $("teacher-refresh").hidden = !state.identity;
       $("teacher-refresh").disabled = ui.busy;
-      $("teacher-no-access").hidden = !state.identity || state.access.can_teach;
+      const accessUnverified = ["auth_error", "error"].includes(state.accessStatus);
+      $("teacher-refresh").textContent = accessUnverified ? "Thử lại" : "Cập nhật";
+      $("teacher-no-access").hidden = !state.identity || state.accessStatus !== "denied" || ui.busy;
       $("teacher-app").hidden = !state.access.can_teach;
       if (!state.enabled) $("teacher-status").textContent = "Chưa cấu hình backend phân quyền. Không thể sửa, phát hành hoặc xem dữ liệu học viên.";
       else if (!state.identity && !ui.busy) $("teacher-status").textContent = "Nhập tên để tạo phiên. Quyền giảng viên của bài học phải được quản trị viên cấp riêng; chưa tải dữ liệu riêng từ máy chủ.";
+      else if (accessUnverified && !ui.busy) $("teacher-status").textContent = "Chưa xác minh được phiên hoặc quyền Teacher; chưa thể kết luận tài khoản thiếu quyền. Bấm Thử lại để kiểm tra bằng cùng danh tính.";
       if (localPreview) {
         $("teacher-identity").hidden = true;
         $("teacher-person").hidden = true;
@@ -421,7 +441,7 @@
         renderReviewFrame();
         $("teacher-question-selection").innerHTML = '<p class="empty-state">Đây là bản xem trước chỉ đọc. Cần backend và quyền giảng viên để review, chọn câu và phát hành.</p>';
         $("teacher-release-list").innerHTML = '<p class="empty-state">Chưa kết nối dữ liệu phiên bản. Không tạo phiên bản mẫu.</p>';
-        for (const id of ["teacher-publish", "teacher-select-publishable", "teacher-clear-selection", "teacher-refresh-reviews", "teacher-release-label"]) $(id).disabled = true;
+        for (const id of ["teacher-publish", "teacher-select-publishable", "teacher-clear-selection", "teacher-publication-filter", "teacher-refresh-reviews", "teacher-release-label"]) $(id).disabled = true;
         return;
       }
       if (!state.access.can_teach) { $("teacher-review-frame").removeAttribute("src"); return; }
@@ -435,17 +455,21 @@
       ui.selected = new Set([...ui.selected].filter((id) => selectable.has(id)));
       const stats = selectionSummary(state.draft, reviews, ui.selected);
       $("teacher-publish-summary").innerHTML = `<span class="badge green">${stats.selected} câu được chọn</span><span class="badge">${stats.covered_kcs} KC có câu</span><span class="badge">${stats.omitted} câu chưa chọn</span><span class="badge amber">${stats.blocked} câu bị chặn</span><span class="badge amber">${stats.uncovered_slots} mục tiêu chưa có câu trong bản này</span><span class="badge">${stats.uncovered_kcs} KC chưa có câu</span>`;
-      $("teacher-question-selection").innerHTML = reviews.map((row) => {
+      $("teacher-publication-filter").value = ui.publicationFilter;
+      $("teacher-publication-filter").disabled = ui.busy;
+      const visibleReviews = filteredQuestionReviews(reviews, ui.publicationFilter, ui.selected);
+      $("teacher-question-selection").innerHTML = visibleReviews.map((row) => {
         const check = state.draft.question_meta?.[row.question_id]?.initial_check_status || "Chưa kiểm định";
         const reasons = Array.isArray(row.reasons) ? row.reasons : String(row.reason || "").split(", ").filter(Boolean);
         const reason = reasons.map((code) => publicationReasons[code] || code).join("; ");
-        return `<label class="question-option ${row.publishable ? "" : "blocked"}"><input type="checkbox" data-publish-question="${esc(row.question_id)}" ${ui.selected.has(row.question_id) ? "checked" : ""} ${!row.publishable || ui.busy ? "disabled" : ""} /><span>${esc(row.title || row.question_id)}<small>${esc(row.question_id)} · ${esc(row.kc_id)} · AI ban đầu: ${esc(check)} · ${row.question_approved ? "Câu đã duyệt" : "Câu chưa duyệt"} · ${row.kc_approved ? "KC đã duyệt" : "KC chưa duyệt"}${reason ? ` · ${esc(reason)}` : ""}</small></span><span class="badge ${row.publishable ? "green" : "amber"}">${row.publishable ? "Có thể chọn" : "Chưa được phát hành"}</span></label>`;
-      }).join("") || '<p class="empty-state">Chưa có câu hỏi được đăng ký cho bài học này.</p>';
+        return `<label class="question-option ${row.publishable ? "" : "blocked"}"><input type="checkbox" data-publish-question="${esc(row.question_id)}" ${ui.selected.has(row.question_id) ? "checked" : ""} ${!row.publishable || ui.busy || !state.access.can_publish ? "disabled" : ""} /><span>${esc(row.title || row.question_id)}<small>${esc(row.question_id)} · ${esc(row.kc_id)} · AI ban đầu: ${esc(check)} · ${row.question_approved ? "Câu đã duyệt" : "Câu chưa duyệt"} · ${row.kc_approved ? "KC đã duyệt" : "KC chưa duyệt"}${reason ? ` · ${esc(reason)}` : ""}</small></span><span class="badge ${row.publishable ? "green" : "amber"}">${row.publishable ? "Có thể chọn" : "Chưa được phát hành"}</span></label>`;
+      }).join("") || `<p class="empty-state">${reviews.length ? "Không có câu hỏi thuộc trạng thái này." : "Chưa có câu hỏi được đăng ký cho bài học này."}</p>`;
       $("teacher-publish").disabled = ui.busy || !state.access.can_publish || !stats.selected || Boolean(state.pending.publication);
       $("teacher-pending-publication").hidden = !state.pending.publication;
       $("teacher-retry-publication").disabled = ui.busy || !state.access.can_publish;
-      $("teacher-select-publishable").disabled = ui.busy || !selectable.size;
-      $("teacher-clear-selection").disabled = ui.busy || !ui.selected.size;
+      $("teacher-select-publishable").textContent = `Chọn tất cả câu đủ điều kiện (${selectable.size})`;
+      $("teacher-select-publishable").disabled = ui.busy || !state.access.can_publish || !selectable.size;
+      $("teacher-clear-selection").disabled = ui.busy || !state.access.can_publish || !ui.selected.size;
       $("teacher-release-list").innerHTML = workspace.releases.map((release) => `<article class="release-row"><div><strong>${esc(release.label || release.release_id)}</strong><p>${esc(release.release_id)} · ${release.question_count} câu · ${release.kc_count} KC</p></div><time>${esc(time(release.published_at || release.created_at))}</time></article>`).join("") || '<p class="empty-state">Chưa có bản được phát hành. Bản draft không tự thành bài test của học viên.</p>';
       if (!workspace.releases.some((release) => release.release_id === ui.releaseId)) ui.releaseId = workspace.releases[0]?.release_id || "";
       if (!workspace.releases.some((release) => release.release_id === ui.gradingRelease)) ui.gradingRelease = workspace.releases[0]?.release_id || "";
@@ -481,9 +505,22 @@
     $("teacher-refresh").onclick = reload; $("teacher-refresh-reviews").onclick = reload;
     document.querySelectorAll("[data-tab]").forEach((button) => { button.onclick = () => { if (ui.busy) return; ui.tab = button.dataset.tab; render(); if (ui.tab === "grading" && ui.gradingRelease) return operation("Đang đọc bài chờ chấm…", () => session.loadQueue(ui.gradingRelease)); }; });
     document.querySelectorAll("[data-review]").forEach((button) => { button.onclick = () => { ui.review = button.dataset.review; render(); }; });
-    $("teacher-question-selection").onchange = (event) => { const id = event.target.dataset.publishQuestion; if (!id) return; if (event.target.checked) ui.selected.add(id); else ui.selected.delete(id); render(); };
-    $("teacher-select-publishable").onclick = () => { ui.selected = new Set(session.state.workspace.question_reviews.filter((row) => row.publishable).map((row) => row.question_id)); render(); };
-    $("teacher-clear-selection").onclick = () => { ui.selected.clear(); render(); };
+    $("teacher-question-selection").onchange = (event) => {
+      if (ui.busy || !session.state.access.can_publish) return;
+      const id = event.target.dataset.publishQuestion;
+      if (!session.state.workspace.question_reviews.some((row) => row.question_id === id && row.publishable === true)) return;
+      if (event.target.checked) ui.selected.add(id); else ui.selected.delete(id); render();
+    };
+    $("teacher-publication-filter").onchange = (event) => {
+      if (ui.busy || !session.state.access.can_teach) return;
+      ui.publicationFilter = ["all", "publishable", "blocked", "selected"].includes(event.target.value) ? event.target.value : "all";
+      render();
+    };
+    $("teacher-select-publishable").onclick = () => {
+      if (ui.busy || !session.state.access.can_publish) return;
+      ui.selected = new Set(session.state.workspace.question_reviews.filter((row) => row.publishable === true).map((row) => row.question_id)); render();
+    };
+    $("teacher-clear-selection").onclick = () => { if (ui.busy || !session.state.access.can_publish) return; ui.selected.clear(); render(); };
     $("teacher-publish-form").onsubmit = (event) => { event.preventDefault(); const ids = [...ui.selected], name = $("teacher-release-label").value; return operation("Đang phát hành đúng các câu đã chọn…", async () => { const release = await session.publish(ids, name); ui.selected.clear(); $("teacher-release-label").value = ""; ui.releaseId = release.release_id; ui.gradingRelease = release.release_id; }); };
     $("teacher-retry-publication").onclick = () => operation("Đang xác nhận đúng lần phát hành trước…", async () => {
       const release = await session.retryPublication(); ui.releaseId = release.release_id; ui.gradingRelease = release.release_id; ui.selected.clear();
@@ -496,7 +533,7 @@
     return { session, ui, ready, render };
   }
 
-  const api = { createSession, selectionSummary, learnerPackage, learnerHtml, gradingHtml, localReviewPath, answerText, mount };
+  const api = { createSession, selectionSummary, filteredQuestionReviews, learnerPackage, learnerHtml, gradingHtml, localReviewPath, answerText, mount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else {
     root.LearningTeacher = api;

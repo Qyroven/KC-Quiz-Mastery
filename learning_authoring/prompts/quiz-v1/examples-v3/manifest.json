@@ -1,0 +1,15 @@
+{
+  "suite_version": "worked-example-suite.v1",
+  "stage": "quiz",
+  "contract_version": "quiz-batch.v3",
+  "example_order": [
+    "adaptive-slot-with-hint",
+    "parallel-near-miss-distractors",
+    "constructed-evidence-not-recognition"
+  ],
+  "examples": {
+    "adaptive-slot-with-hint": "adaptive-slot-with-hint.json",
+    "parallel-near-miss-distractors": "parallel-near-miss-distractors.json",
+    "constructed-evidence-not-recognition": "constructed-evidence-not-recognition.json"
+  }
+}

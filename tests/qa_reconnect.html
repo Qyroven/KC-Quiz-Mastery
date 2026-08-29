@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Kết nối lại phiên local</title>
+<style>
+  body{font:16px/1.6 system-ui,sans-serif;background:#f2f5fa;color:#19243a;margin:0;padding:8vh 24px}
+  main{max-width:620px;margin:auto;background:white;padding:32px;border-radius:20px;border:1px solid #dce4f0}
+  h1{font-size:26px;margin:0 0 16px}p{overflow-wrap:anywhere}button,a{font:inherit}
+  button{background:#2c62a0;color:white;border:0;border-radius:10px;padding:12px 20px;cursor:pointer}
+  button:disabled{opacity:.45;cursor:default}a{color:#2c62a0}small{color:#64728a}
+</style>
+<main>
+  <small>KHÔI PHỤC PHIÊN LOCAL · KHÔNG TẠO TÀI KHOẢN</small>
+  <h1>Kết nối lại đúng danh tính</h1>
+  <p id="identity"></p>
+  <p id="status" role="status">Đang kiểm tra danh tính đã lưu trong trình duyệt…</p>
+  <button id="reconnect" disabled>Kết nối lại phiên cũ</button>
+  <p><a href="/">Quay lại ứng dụng</a></p>
+  <small>Chỉ thay phiên xác thực đã hết hiệu lực. Giữ nguyên tên, quyền, bài học và lịch sử làm bài. Liên kết dùng một lần, chỉ áp dụng cho tài khoản đã được quản trị viên xác nhận.</small>
+</main>
+<script>
+(() => {
+  "use strict";
+  const config = __QA_RECOVERY_CONFIG__;
+  const query = new URLSearchParams(location.hash.slice(1));
+  const token = query.get("recovery"), expected = query.get("user_id");
+  history.replaceState(null, "", location.pathname);
+  const status = document.getElementById("status"), button = document.getElementById("reconnect");
+  const project = new URL(config.backend).hostname;
+  const isTeacher = config.application === "learning-teacher";
+  const key = isTeacher ? `la-teacher-session:${project}` : `la-student:shared:${project}:session`;
+  const read = (name) => {
+    const value = localStorage.getItem(name);
+    return value === null ? null : JSON.parse(value);
+  };
+  const stored = () => {
+    const session = read(key) || (isTeacher ? read(`la-review-session:${project}`) : null);
+    const identity = isTeacher ? null : read(`la-student:shared:${project}:identity`);
+    const id = identity?.learner_id || session?.user?.id;
+    if ((!isTeacher && !identity?.learner_id) || !id || !session?.user?.id || session.user.id !== id || id !== expected)
+      throw new Error("Trình duyệt này không lưu đúng tài khoản của liên kết. Hãy mở liên kết trong chính trình duyệt đang gặp lỗi; không xoá phiên hay nhập tên để tạo tài khoản khác.");
+    const name = isTeacher
+      ? read(`la-teacher-name:${project}`) || localStorage.getItem(`la-review-name:${project}`) || "Giảng viên"
+      : identity.display_name || "Học viên";
+    return {id, name};
+  };
+  try {
+    if (!token || !expected) throw new Error("Cần liên kết khôi phục một lần do quản trị viên local cung cấp.");
+    const identity = stored();
+    document.getElementById("identity").textContent = `${identity.name} · ${identity.id}`;
+    status.textContent = "Danh tính khớp. Bấm kết nối lại để dùng tiếp phiên và dữ liệu cũ.";
+    button.disabled = false;
+  } catch (error) { status.textContent = error.message; }
+  button.onclick = async () => {
+    button.disabled = true;
+    try {
+      const before = stored();
+      status.textContent = "Đang khôi phục phiên local…";
+      const response = await fetch(config.backend + "/__qa/reconnect", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({token, user_id: before.id, application: config.application}),
+      });
+      const session = await response.json();
+      if (!response.ok) throw new Error("Liên kết khôi phục không còn hợp lệ hoặc quyền đã thay đổi. Danh tính cũ vẫn được giữ; cần cấp lại liên kết khôi phục local.");
+      if (typeof session?.access_token !== "string" || !session.access_token.trim()
+        || typeof session.refresh_token !== "string" || !session.refresh_token.trim()
+        || !Number.isInteger(session.expires_at) || session.expires_at <= Date.now() / 1000
+        || session.user?.id !== before.id || stored().id !== before.id)
+        throw new Error("Phiên trả về không khớp tài khoản cũ. Không thay đổi phiên trên trình duyệt.");
+      localStorage.setItem(key, JSON.stringify(session));
+      status.textContent = "Đã khôi phục đúng tài khoản. Đang mở lại ứng dụng…";
+      location.replace("/");
+    } catch (error) { status.textContent = error.message; }
+  };
+})();
+</script>
+</html>

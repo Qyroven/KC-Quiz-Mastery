@@ -928,11 +928,11 @@ def test_actual_offline_export_registers_and_grades_in_postgres(
     # disposable synthetic courses. Context-only KCs must not invent PDF refs.
     from dataclasses import replace
 
-    from learning_authoring.learning import (
+    from learning_authoring.product.learning import (
         build_learning_package,
         render_learning_registration_sql,
     )
-    from learning_authoring.review_registration import (
+    from learning_authoring.product.review_registration import (
         prepare_review_registration,
         registration_sql,
     )

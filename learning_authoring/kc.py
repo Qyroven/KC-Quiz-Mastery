@@ -23,10 +23,17 @@ from learning_authoring.artifacts import (
 from learning_authoring.audit import reported_cost, response_usage
 from learning_authoring.contracts import ExtractedSource
 from learning_authoring.kc_contracts import ProposedKCSet
+from learning_authoring.kc_diagnostics import kc_review_diagnostics
+from learning_authoring.prompt_packages import (
+    WorkedExample,
+    load_worked_example_suite,
+    worked_examples_component,
+)
 
 STAGE_VERSION = "approved-extraction-to-kc.v1"
 PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_PROMPT_DIR = PACKAGE_DIR / "prompts" / "kc-v1"
+DEFAULT_EXAMPLES_DIR = DEFAULT_PROMPT_DIR / "examples-v1"
 
 
 @dataclass(frozen=True)
@@ -61,7 +68,12 @@ class KCConfig:
 class KCPromptPackage:
     instructions: str
     output_schema: dict[str, Any]
+    worked_examples: tuple[WorkedExample, ...]
     manifest: dict[str, Any]
+
+    @property
+    def lineage(self) -> dict[str, Any]:
+        return self.manifest
 
 
 @dataclass(frozen=True)
@@ -74,8 +86,12 @@ class KCGenerationResult:
     metrics: dict[str, Any]
 
 
-def load_prompt_package(prompt_dir: Path = DEFAULT_PROMPT_DIR) -> KCPromptPackage:
-    """Load exactly Foundation, Rulebook, Task, and the structured output schema."""
+def load_prompt_package(
+    prompt_dir: Path = DEFAULT_PROMPT_DIR,
+    *,
+    examples_dir: Path = DEFAULT_EXAMPLES_DIR,
+) -> KCPromptPackage:
+    """Load the ordered KC rules, schema, and stage-owned worked examples."""
 
     texts = {
         "foundation": (prompt_dir / "foundation.md").read_text(encoding="utf-8"),
@@ -98,14 +114,26 @@ def load_prompt_package(prompt_dir: Path = DEFAULT_PROMPT_DIR) -> KCPromptPackag
         "sha256": hashlib.sha256(schema_text.encode()).hexdigest(),
         "content": output_schema,
     }
+    suite = load_worked_example_suite(
+        examples_dir,
+        expected_stage="kc",
+        expected_contract_version="proposed-kc-set.v1",
+    )
+    components["worked_examples"] = worked_examples_component(
+        suite,
+        filename="examples-v1/manifest.json",
+    )
     package_bytes = json.dumps(components, ensure_ascii=False, sort_keys=True).encode()
     return KCPromptPackage(
         instructions=instructions,
         output_schema=output_schema,
+        worked_examples=suite.examples,
         manifest={
             "package_version": "kc-approved-extraction.v1",
             "instruction_order": ["foundation", "rulebook", "task"],
             "structured_output_component": "output_schema",
+            "worked_examples_component": "worked_examples",
+            "worked_example_order": list(suite.example_order),
             "package_sha256": hashlib.sha256(package_bytes).hexdigest(),
             "components": components,
         },
@@ -164,8 +192,8 @@ def prepare_kc_request(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Validate the gate and write an exact, non-generating request preview."""
 
-    from learning_authoring.provider import normalized_model
-    from learning_authoring.requests import build_kc_request
+    from learning_authoring.legacy_api.provider import normalized_model
+    from learning_authoring.legacy_api.requests import build_kc_request
 
     settings = config or KCConfig()
     settings.validate()
@@ -258,7 +286,8 @@ def _output_text(response: Any) -> str:
 def _write_contract_error(artifacts: RunArtifacts, exc: Exception) -> None:
     errors = (
         exc.errors(include_url=False, include_context=False)
-        if isinstance(exc, ValidationError) else None
+        if isinstance(exc, ValidationError)
+        else None
     )
     write_json(
         artifacts.kc_contract_errors,
@@ -282,8 +311,8 @@ def run_kc_generation(
 ) -> KCGenerationResult:
     """Generate a proposed KC set; never approve it automatically."""
 
-    from learning_authoring.gateway import execute_response
-    from learning_authoring.provider import build_client
+    from learning_authoring.legacy_api.gateway import execute_response
+    from learning_authoring.legacy_api.provider import build_client
 
     settings = config or KCConfig()
     request, metadata = prepare_kc_request(run_dir, config=settings, output_dir=output_dir)
@@ -343,6 +372,7 @@ def run_kc_generation(
         "page_audit_count": len(proposed.page_audit),
         "leaf_kc_count": len(proposed.leaf_kcs),
         "kc_group_count": len(proposed.kc_groups),
+        "granularity_diagnostics": kc_review_diagnostics(proposed),
         "human_review_required": True,
         "approved": False,
         "resumed": resumed,

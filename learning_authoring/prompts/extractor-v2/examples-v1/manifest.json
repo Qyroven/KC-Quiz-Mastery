@@ -1,0 +1,11 @@
+{
+  "suite_version": "worked-example-suite.v1",
+  "stage": "extraction",
+  "contract_version": "extracted-source.v2",
+  "example_order": [
+    "neutral-structure"
+  ],
+  "examples": {
+    "neutral-structure": "neutral-structure.json"
+  }
+}

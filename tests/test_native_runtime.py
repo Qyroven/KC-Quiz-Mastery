@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import builtins
 import importlib.abc
 import json
 import os
@@ -17,18 +16,26 @@ import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PROVIDER_MODULES = {
-    "openai", "dotenv", "learning_authoring.provider", "learning_authoring.gateway",
-    "learning_authoring.extractor", "learning_authoring.repair", "learning_authoring.requests",
+    "openai",
+    "dotenv",
+    "learning_authoring.legacy_api",
+}
+REMOVED_PROVIDER_COMMANDS = {
+    "doctor",
+    "extract",
+    "batch-extract",
+    "kc-preview",
+    "kc-generate",
+    "quiz-preview",
+    "quiz-generate",
 }
 
 
 def test_base_install_has_no_provider_or_dotenv_dependency() -> None:
     project = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text())
-    assert project["project"]["version"] == "0.6.0"
+    assert project["project"]["version"] == "0.7.0"
     assert project["project"]["dependencies"] == ["pydantic>=2.10,<3", "pypdfium2"]
-    assert project["project"]["optional-dependencies"]["legacy-api"] == [
-        "openai>=2,<3", "python-dotenv",
-    ]
+    assert "legacy-api" not in project["project"]["optional-dependencies"]
 
     # Check the locked transitive base graph, not merely its direct requirements.
     packages = {
@@ -46,7 +53,7 @@ def test_base_install_has_no_provider_or_dotenv_dependency() -> None:
 
 
 def test_native_help_has_no_legacy_generation_or_environment_setup(capsys) -> None:
-    from learning_authoring.cli import LEGACY_API_COMMANDS, NATIVE_COMMANDS, _parser, main
+    from learning_authoring.cli import NATIVE_COMMANDS, _parser, main
 
     help_text = _parser().format_help()
     assert "--env-file" not in help_text
@@ -55,12 +62,12 @@ def test_native_help_has_no_legacy_generation_or_environment_setup(capsys) -> No
     assert set(NATIVE_COMMANDS) <= set(
         item.strip("{},") for item in help_text.replace(",", " ").split()
     )
-    for legacy in LEGACY_API_COMMANDS:
+    for legacy in REMOVED_PROVIDER_COMMANDS:
         assert legacy not in help_text.split()
         with pytest.raises(SystemExit) as exc:
             main([legacy, "--help"])
-        assert exc.value.code == 0
-        assert "Legacy model-provider API adapter" in capsys.readouterr().out
+        assert exc.value.code == 2
+        assert "invalid choice" in capsys.readouterr().err
 
 
 def test_version_uses_installed_distribution_metadata(monkeypatch, capsys) -> None:
@@ -80,42 +87,19 @@ def test_native_command_rejects_explicit_env_before_reading_file(tmp_path, capsy
     with pytest.raises(SystemExit) as exc:
         main(["--env-file", str(tmp_path / "does-not-exist"), "agent-schema", "quiz"])
     assert exc.value.code == 2
-    assert "only for historical model-provider API commands" in capsys.readouterr().err
-
-
-def test_missing_legacy_dependencies_have_explicit_non_native_guidance(
-    tmp_path, monkeypatch, capsys,
-) -> None:
-    from learning_authoring.cli import _load_env_before_parser
-    from learning_authoring.provider import build_client, normalized_base_url
-
-    real_import = builtins.__import__
-
-    def without_legacy_modules(name, *args, **kwargs):
-        if name in {"openai", "dotenv"}:
-            raise ModuleNotFoundError(f"Optional module intentionally unavailable: {name}")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", without_legacy_modules)
-    assert normalized_base_url(" ") is None
-    with pytest.raises(RuntimeError, match="optional 'legacy-api' extra"):
-        build_client(api_key="unused-test-value", base_url=None)
-    env_file = tmp_path / "explicit-legacy.env"
-    env_file.write_text("LEARNING_AUTHORING_MODEL=unused-test-model\n", encoding="utf-8")
-    with pytest.raises(SystemExit) as exc:
-        _load_env_before_parser(["--env-file", str(env_file), "doctor"])
-    assert exc.value.code == 2
-    assert "subscription-native commands do not use dotenv" in capsys.readouterr().err
+    assert "invalid choice" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("with_context", [False, True])
 def test_native_cli_journey_without_provider_imports_environment_or_network(
-    tmp_path, with_context,
+    tmp_path,
+    with_context,
 ) -> None:
     # Run a completely fresh interpreter: a pre-imported SDK must not mask a leak.
     (tmp_path / ".env").write_text("NATIVE_DOTENV_MUST_STAY_UNLOADED=yes\n", encoding="utf-8")
     env = {
-        key: value for key, value in os.environ.items()
+        key: value
+        for key, value in os.environ.items()
         if not key.startswith(("OPENAI_", "LEARNING_AUTHORING_"))
     }
     env["PYTHONPATH"] = str(REPOSITORY_ROOT)
@@ -130,8 +114,11 @@ def test_native_cli_journey_without_provider_imports_environment_or_network(
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == {
-        "native_journey": "complete", "provider_imports": [], "network_calls": 0,
-        "context": with_context, "shared_review_configured_offline": True,
+        "native_journey": "complete",
+        "provider_imports": [],
+        "network_calls": 0,
+        "context": with_context,
+        "shared_review_configured_offline": True,
     }
 
 
@@ -188,8 +175,12 @@ def _native_probe(root: Path, with_context: bool) -> None:
     extraction_candidate = root / "extraction.json"
     _write_raw(extraction_candidate, _extraction_candidate())
     call(
-        "agent-import", "extraction", run, extraction_candidate,
-        "--task-package", extraction_task["task_package"],
+        "agent-import",
+        "extraction",
+        run,
+        extraction_candidate,
+        "--task-package",
+        extraction_task["task_package"],
     )
     call("review", run, structured=False)
     source = ExtractedSource.model_validate(read_json(run / "extracted-source.proposed.json"))
@@ -202,9 +193,12 @@ def _native_probe(root: Path, with_context: bool) -> None:
         kc["source_ref"] = kc_package["input_boundary"]["expected_source_ref"]
         kc["context_audit"] = [
             {
-                "context_id": item["context_id"], "excerpt": item["text"],
-                "description": None, "claim": "Synthetic non-assessed instructor comment.",
-                "disposition": "not_assessed", "kc_ids": [],
+                "context_id": item["context_id"],
+                "excerpt": item["text"],
+                "description": None,
+                "claim": "Synthetic non-assessed instructor comment.",
+                "disposition": "not_assessed",
+                "kc_ids": [],
                 "reason": "Fixture covers runtime mechanics, not semantic authoring quality.",
             }
             for item in read_json(run / "authoring-context.json")["items"]
@@ -230,16 +224,21 @@ def _native_probe(root: Path, with_context: bool) -> None:
         "source_ref": review_boundary["expected_source_ref"],
         "reviewer": {"mode": "independent", "label": "offline fixture", "model": None},
         "scope": {
-            "source_coverage": "complete", "checked_source_pages": [1],
-            "checked_context_ids": [], "limitations": [],
+            "source_coverage": "complete",
+            "checked_source_pages": [1],
+            "checked_context_ids": [],
+            "limitations": [],
         },
         "questions": [
             {
-                "question_id": question["question_id"], "kc_id": question["kc_id"],
-                "slot_id": question["slot_id"], "independent_answer": "Synthetic answer B.",
+                "question_id": question["question_id"],
+                "kc_id": question["kc_id"],
+                "slot_id": question["slot_id"],
+                "independent_answer": "Synthetic answer B.",
                 **{
                     criterion: {
-                        "verdict": "PASS", "rationale": "Offline mechanical test fixture.",
+                        "verdict": "PASS",
+                        "rationale": "Offline mechanical test fixture.",
                         "issues": [],
                     }
                     for criterion in CRITERIA
@@ -251,8 +250,12 @@ def _native_probe(root: Path, with_context: bool) -> None:
     review_candidate = root / "semantic-review.json"
     _write_raw(review_candidate, review)
     call(
-        "agent-import", "quiz-review", run, review_candidate,
-        "--task-package", review_task["task_package"],
+        "agent-import",
+        "quiz-review",
+        run,
+        review_candidate,
+        "--task-package",
+        review_task["task_package"],
     )
     call("quiz-review", run, structured=False)
     local_portal = call("portal-build", run)
@@ -261,9 +264,14 @@ def _native_probe(root: Path, with_context: bool) -> None:
     # Supabase review is optional browser configuration, not a model-provider API.
     # It remains supported even though this entire build is network-forbidden.
     shared_portal = call(
-        "portal-build", run, "--output-dir", root / "shared-review-portal",
-        "--review-supabase-url", "https://abcdefghij.supabase.co",
-        "--review-supabase-publishable-key", "sb_publishable_" + "a" * 32,
+        "portal-build",
+        run,
+        "--output-dir",
+        root / "shared-review-portal",
+        "--review-supabase-url",
+        "https://abcdefghij.supabase.co",
+        "--review-supabase-publishable-key",
+        "sb_publishable_" + "a" * 32,
     )
     assert shared_portal["built"] is True and shared_portal["deployment_performed"] is False
     status = call("status", run)
@@ -275,10 +283,17 @@ def _native_probe(root: Path, with_context: bool) -> None:
     assert sha256_file(run / "extracted-source.proposed.json") == extraction_sha256
     assert "NATIVE_DOTENV_MUST_STAY_UNLOADED" not in os.environ
     assert not PROVIDER_MODULES & sys.modules.keys()
-    print(json.dumps({
-        "native_journey": "complete", "provider_imports": [], "network_calls": 0,
-        "context": with_context, "shared_review_configured_offline": True,
-    }))
+    print(
+        json.dumps(
+            {
+                "native_journey": "complete",
+                "provider_imports": [],
+                "network_calls": 0,
+                "context": with_context,
+                "shared_review_configured_offline": True,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

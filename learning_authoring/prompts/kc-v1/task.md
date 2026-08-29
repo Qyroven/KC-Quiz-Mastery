@@ -15,9 +15,14 @@ the supplied output schema:
    Do not require a template, page anchors, or a note for every slide. Preserve
    document-level and unmapped context; identify unreadable or unrelated inputs.
    Audit every PDF page `1..source.page_count` from the canonical extraction.
-2. Propose source-supported Leaf KC candidates without a target count or a
-   one-KC-per-page rule.
-3. Apply the Rulebook to split, merge, deduplicate, and normalize candidates.
+2. Build an internal, source-grounded capability inventory: identify the
+   distinct responses the learner could demonstrate and where different errors
+   would imply different remediation. This stays inside this KC stage and is
+   not an extra output, model call, count target, or one-KC-per-page rule.
+3. Propose source-supported Leaf KC candidates, then apply the Rulebook to
+   split, merge, deduplicate, and normalize them. After each merge, re-run the
+   knowledge-independence, response-independence, and remediation-independence
+   tests; undo a merge that still contains independently scorable capabilities.
 4. Create Groups only after Leaf KCs are stable.
 5. Ground each KC in PDF `source_evidence`, separate `context_evidence`, or both.
    Cite existing same-page PDF `block_id` values only in `source_evidence`.

@@ -1,0 +1,270 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "source-qualified-bundle-review",
+  "teaching_points": [
+    "Review the frozen bundle Quiz against each supplied source snapshot without collapsing page ordinals across PDFs.",
+    "Qualify every checked PDF page and every Extraction issue locator with its source_id.",
+    "Keep Quiz, KC, and lecturer-context pointers separate from source-qualified Extraction pointers.",
+    "Treat every name, identifier, hash, and finding here as illustrative; independently inspect the current frozen bundle artifacts."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "expected_source_ref": {
+      "quiz_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "kc_set_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "source_sha256": null,
+      "source_bundle_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "authoring_context_sha256": null,
+      "review_input_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    "reviewer_mode": "independent",
+    "artifacts": {
+      "quiz": {
+        "schema_version": "quiz-batch.v3",
+        "source_ref": {
+          "source_bundle_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "kc_set_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "authoring_context_sha256": null
+        },
+        "assessment_slots": [
+          {
+            "slot_id": "slot-transition",
+            "kc_id": "KC-001",
+            "evidence_intent": "Choose the valid transition from a stated condition state.",
+            "cognitive_operation": "apply",
+            "intended_difficulty": "easy",
+            "variant_count": 1,
+            "justification": "The slot asks for one bounded application of the two-source transition rule."
+          }
+        ],
+        "questions": [
+          {
+            "question_id": "Q-001",
+            "slot_id": "slot-transition",
+            "variant_index": 1,
+            "kc_id": "KC-001",
+            "group_id": "KCG-001",
+            "title": "Transition check",
+            "interaction": "single_select",
+            "stimulus": {
+              "kind": "text",
+              "text": "Transition X requires Condition C to be active. Transition Y requires Condition C to be inactive.",
+              "table_columns": [],
+              "table_rows": [],
+              "formula": ""
+            },
+            "prompt": "Which transition is valid?",
+            "choice_options": [
+              {
+                "option_id": "A",
+                "text": "Transition X"
+              },
+              {
+                "option_id": "B",
+                "text": "Transition Y"
+              },
+              {
+                "option_id": "C",
+                "text": "Both transitions"
+              },
+              {
+                "option_id": "D",
+                "text": "Neither transition"
+              }
+            ],
+            "matching_left": [],
+            "matching_right": [],
+            "ordering_options": [],
+            "correct_answer": {
+              "selection_ids": [
+                "A"
+              ],
+              "ordering": [],
+              "mappings": [],
+              "text": ""
+            },
+            "rubric": [],
+            "answer_explanation": "Transition X is valid when Condition C is active.",
+            "hints": [],
+            "hint_absence_reason": "A useful hint would first require the missing state of Condition C.",
+            "evidence_refs": [
+              {
+                "source_id": "sha256:aaaaaaaaaaaaaaaa",
+                "page": 1,
+                "block_ids": [
+                  "alpha-transition"
+                ]
+              },
+              {
+                "source_id": "sha256:cccccccccccccccc",
+                "page": 1,
+                "block_ids": [
+                  "beta-transition"
+                ]
+              }
+            ],
+            "context_evidence_refs": []
+          }
+        ]
+      },
+      "kc": {
+        "leaf_kcs": [
+          {
+            "kc_id": "KC-001",
+            "observable_claim": "Given the state of Condition C, choose the valid transition."
+          }
+        ]
+      },
+      "extraction": {
+        "sha256:aaaaaaaaaaaaaaaa": {
+          "pages": [
+            {
+              "page_number": 1,
+              "blocks": [
+                {
+                  "block_id": "alpha-transition",
+                  "content": "Transition X occurs only when Condition C is active."
+                }
+              ]
+            }
+          ]
+        },
+        "sha256:cccccccccccccccc": {
+          "pages": [
+            {
+              "page_number": 1,
+              "blocks": [
+                {
+                  "block_id": "beta-transition",
+                  "content": "Transition Y occurs only when Condition C is inactive."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "context": {
+        "citations": []
+      }
+    }
+  },
+  "output": {
+    "schema_version": "quiz-semantic-audit.v1",
+    "source_ref": {
+      "quiz_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "kc_set_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "source_sha256": null,
+      "source_bundle_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "authoring_context_sha256": null,
+      "review_input_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    "reviewer": {
+      "mode": "independent",
+      "label": "worked-example bundle reviewer",
+      "model": null
+    },
+    "scope": {
+      "source_coverage": "complete",
+      "checked_source_pages": [
+        {
+          "source_id": "sha256:aaaaaaaaaaaaaaaa",
+          "page": 1
+        },
+        {
+          "source_id": "sha256:cccccccccccccccc",
+          "page": 1
+        }
+      ],
+      "checked_context_ids": [],
+      "limitations": []
+    },
+    "questions": [
+      {
+        "question_id": "Q-001",
+        "kc_id": "KC-001",
+        "slot_id": "slot-transition",
+        "independent_answer": "The valid transition cannot be determined because the state of Condition C is not given.",
+        "grounding": {
+          "verdict": "PASS",
+          "rationale": "The two conditional transition rules are present in their respective source snapshots.",
+          "issues": []
+        },
+        "answerability": {
+          "verdict": "REVIEW",
+          "rationale": "The prompt asks for a unique transition without stating whether Condition C is active.",
+          "issues": [
+            {
+              "stage": "quiz",
+              "observation": "The learner-visible task omits the condition state needed to choose a unique option.",
+              "locators": [
+                {
+                  "artifact": "quiz",
+                  "source_id": null,
+                  "pointer": "/questions/0/stimulus/text",
+                  "quote": "Transition X requires Condition C to be active"
+                },
+                {
+                  "artifact": "quiz",
+                  "source_id": null,
+                  "pointer": "/questions/0/prompt",
+                  "quote": "Which transition is valid?"
+                },
+                {
+                  "artifact": "extraction",
+                  "source_id": "sha256:aaaaaaaaaaaaaaaa",
+                  "pointer": "/pages/0/blocks/0/content",
+                  "quote": "Condition C is active"
+                },
+                {
+                  "artifact": "extraction",
+                  "source_id": "sha256:cccccccccccccccc",
+                  "pointer": "/pages/0/blocks/0/content",
+                  "quote": "Condition C is inactive"
+                }
+              ]
+            }
+          ]
+        },
+        "alignment": {
+          "verdict": "PASS",
+          "rationale": "If the condition state were supplied, the task would apply the stated slot intent.",
+          "issues": []
+        },
+        "scoring": {
+          "verdict": "REVIEW",
+          "rationale": "The unique key assumes Condition C is active even though the learner view omits that state.",
+          "issues": [
+            {
+              "stage": "scoring",
+              "observation": "The keyed option is not uniquely supported by the learner-visible facts.",
+              "locators": [
+                {
+                  "artifact": "quiz",
+                  "source_id": null,
+                  "pointer": "/questions/0/correct_answer/selection_ids/0",
+                  "quote": "A"
+                },
+                {
+                  "artifact": "extraction",
+                  "source_id": "sha256:aaaaaaaaaaaaaaaa",
+                  "pointer": "/pages/0/blocks/0/content",
+                  "quote": "only when Condition C is active"
+                }
+              ]
+            }
+          ]
+        },
+        "cues_and_variants": {
+          "verdict": "PASS",
+          "rationale": "No material surface cue or sibling-variant issue is present in this single-item slot.",
+          "issues": []
+        },
+        "hints": {
+          "verdict": "PASS",
+          "rationale": "The explicit absence reason correctly identifies that a hint cannot supply a missing required fact.",
+          "issues": []
+        }
+      }
+    ]
+  }
+}

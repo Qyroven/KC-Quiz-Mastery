@@ -49,23 +49,27 @@ def _import_kcs(run: Path, source: ExtractedSource, *, notes: bool = False) -> d
         candidate["source_ref"] = package["input_boundary"]["expected_source_ref"]
         candidate["page_audit"][0]["kc_ids"] = []
         candidate["leaf_kcs"][0]["source_evidence"] = []
-        candidate["leaf_kcs"][0]["context_evidence"] = [{
-            "context_id": "CTX-001",
-            "excerpt": "Lecturer-only nuance: compare the assumptions.",
-            "description": None,
-            "supports": "A supplementary distinction, not a statement visible on the PDF.",
-            "pages": [],
-            "mapping_method": "document_level",
-            "mapping_confidence": "high",
-        }]
-        candidate["context_audit"] = [{
-            "context_id": "CTX-001",
-            "excerpt": "Lecturer-only nuance: compare the assumptions.",
-            "claim": "Compare the assumptions.",
-            "disposition": "represented",
-            "kc_ids": ["KC-001"],
-            "reason": "The contextual distinction is retained in the proposed KC.",
-        }]
+        candidate["leaf_kcs"][0]["context_evidence"] = [
+            {
+                "context_id": "CTX-001",
+                "excerpt": "Lecturer-only nuance: compare the assumptions.",
+                "description": None,
+                "supports": "A supplementary distinction, not a statement visible on the PDF.",
+                "pages": [],
+                "mapping_method": "document_level",
+                "mapping_confidence": "high",
+            }
+        ]
+        candidate["context_audit"] = [
+            {
+                "context_id": "CTX-001",
+                "excerpt": "Lecturer-only nuance: compare the assumptions.",
+                "claim": "Compare the assumptions.",
+                "disposition": "represented",
+                "kc_ids": ["KC-001"],
+                "reason": "The contextual distinction is retained in the proposed KC.",
+            }
+        ]
     path = run / "candidate-kc.json"
     raw = _write_raw(path, candidate)
     imported = agent_import("kc", run, path, task_package=Path(task["task_package"]))
@@ -81,15 +85,20 @@ def _adaptive_candidate(run: Path, source: ExtractedSource, task: dict, *, notes
     candidate["source_ref"] = frozen["source_ref"]
     candidate["assessment_slots"] = [
         {
-            "slot_id": "S-explain", "kc_id": "KC-001",
+            "slot_id": "S-explain",
+            "kc_id": "KC-001",
             "evidence_intent": "Explain the distinguishing assumption.",
-            "cognitive_operation": "understand", "intended_difficulty": "easy",
-            "variant_count": 1, "justification": "One explanation covers this evidence intent.",
+            "cognitive_operation": "understand",
+            "intended_difficulty": "easy",
+            "variant_count": 1,
+            "justification": "One explanation covers this evidence intent.",
         },
         {
-            "slot_id": "S-apply", "kc_id": "KC-001",
+            "slot_id": "S-apply",
+            "kc_id": "KC-001",
             "evidence_intent": "Apply the assumption to a bounded new case.",
-            "cognitive_operation": "apply", "intended_difficulty": "medium",
+            "cognitive_operation": "apply",
+            "intended_difficulty": "medium",
             "variant_count": 2,
             "justification": "Two independent contexts test the same application requirement.",
         },
@@ -97,18 +106,24 @@ def _adaptive_candidate(run: Path, source: ExtractedSource, task: dict, *, notes
     for index, question in enumerate(candidate["questions"]):
         question["slot_id"] = "S-explain" if index == 0 else "S-apply"
         question["variant_index"] = 1 if index == 0 else index
-        question["hints"] = [{
-            "hint_id": "consider-assumptions", "kind": "strategy",
-            "text": "Identify the assumption the given comparison depends on.",
-        }]
+        question["hints"] = [
+            {
+                "hint_id": "consider-assumptions",
+                "kind": "strategy",
+                "text": "Identify the assumption the given comparison depends on.",
+            }
+        ]
         question["hint_absence_reason"] = None
         if notes:
             question["evidence_refs"] = []
-            question["context_evidence_refs"] = [{
-                "context_id": "CTX-001",
-                "excerpt": "Lecturer-only nuance: compare the assumptions.",
-                "description": None, "pages": [],
-            }]
+            question["context_evidence_refs"] = [
+                {
+                    "context_id": "CTX-001",
+                    "excerpt": "Lecturer-only nuance: compare the assumptions.",
+                    "description": None,
+                    "pages": [],
+                }
+            ]
     return candidate
 
 
@@ -131,14 +146,17 @@ def test_context_is_separate_and_never_enters_extraction_task(tmp_path, monkeypa
 
 
 def test_context_only_kc_and_slot_quiz_complete_offline_without_changing_raw(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     _forbid_provider_use(monkeypatch)
     run, source = _init(tmp_path, notes=True)
     extraction_hash = sha256_file(run / "extracted-source.proposed.json")
     _import_kcs(run, source, notes=True)
     task = prepare_agent_task("quiz", run, include_all_kcs=True)
-    payload = read_json(Path(task["task_package"]))["input_boundary"]["payload"]
+    task_package = read_json(Path(task["task_package"]))
+    payload = task_package["input_boundary"]["payload"]
+    assert task_package["worked_examples"][0]["example_id"] == ("adaptive-slot-with-hint")
     assert payload["runtime"]["variants_per_kc"] is None
     assert payload["runtime"]["expected_question_count"] is None
     assert payload["runtime"]["total_question_budget"] is None
@@ -168,7 +186,10 @@ def test_changed_context_rejects_stale_kc_task_and_existing_kc_for_quiz(tmp_path
     agent_context(run, context_texts=("Different lecturer guidance.",))
     with pytest.raises(ValueError, match="changed after the frozen KC task"):
         agent_import(
-            "kc", run, run / "candidate-kc.json", task_package=Path(old_task["task_package"]),
+            "kc",
+            run,
+            run / "candidate-kc.json",
+            task_package=Path(old_task["task_package"]),
         )
     assert (run / "kc-proposed.json").read_bytes() == old_raw
     with pytest.raises(ValueError, match="authoring context SHA-256"):
@@ -237,17 +258,30 @@ def test_explicit_infeasible_budget_is_not_silently_truncated(tmp_path) -> None:
     _import_kcs(run, source)
     with pytest.raises(ValueError, match="budget"):
         prepare_agent_task(
-            "quiz", run, include_all_kcs=True, min_slots_per_kc=2,
-            variants_per_slot=2, total_question_budget=3,
+            "quiz",
+            run,
+            include_all_kcs=True,
+            min_slots_per_kc=2,
+            variants_per_slot=2,
+            total_question_budget=3,
         )
     assert not list((run / "agent-session/tasks").glob("quiz-*.json"))
 
 
 def test_cli_context_and_adaptive_policy_defaults_are_explicit() -> None:
-    args = _parser().parse_args([
-        "agent-init", "source.pdf", "run", "--context-file", "loose.md",
-        "--context-file", "diagram.png", "--context-text", "A lecturer clarification.",
-    ])
+    args = _parser().parse_args(
+        [
+            "agent-init",
+            "source.pdf",
+            "run",
+            "--context-file",
+            "loose.md",
+            "--context-file",
+            "diagram.png",
+            "--context-text",
+            "A lecturer clarification.",
+        ]
+    )
     assert args.context_file == [Path("loose.md"), Path("diagram.png")]
     assert args.context_text == ["A lecturer clarification."]
     quiz = _parser().parse_args(["agent-task", "quiz", "run", "--include-all-kcs"])
@@ -255,17 +289,29 @@ def test_cli_context_and_adaptive_policy_defaults_are_explicit() -> None:
     assert quiz.variants_per_slot is None and quiz.max_slots_per_kc is None
 
 
-@pytest.mark.parametrize("override", [
-    ["--variants-per-kc", "2"], ["--language", "source"],
-    ["--min-slots-per-kc", "1"], ["--variants-per-slot", "none"],
-    ["--total-question-budget=none"],
-])
+@pytest.mark.parametrize(
+    "override",
+    [
+        ["--variants-per-kc", "2"],
+        ["--language", "source"],
+        ["--min-slots-per-kc", "1"],
+        ["--variants-per-slot", "none"],
+        ["--total-question-budget=none"],
+    ],
+)
 def test_cli_rejects_override_of_frozen_import_before_any_write(override) -> None:
     with pytest.raises(SystemExit):
-        main([
-            "agent-import", "quiz", "absent-run", "absent.json", "--task-package", "task.json",
-            *override,
-        ])
+        main(
+            [
+                "agent-import",
+                "quiz",
+                "absent-run",
+                "absent.json",
+                "--task-package",
+                "task.json",
+                *override,
+            ]
+        )
 
 
 def test_legacy_kc_api_cannot_silently_omit_new_context(tmp_path, monkeypatch) -> None:

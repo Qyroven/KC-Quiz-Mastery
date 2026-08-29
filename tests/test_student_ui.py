@@ -121,16 +121,85 @@ function fixture() {
   };
   return {full,packet,courses,attempts,feedback,calls,before,after,fetch,quality,learnerId};
 }
-async function shared(fx=fixture(),storage=memory()) {
-  const session=UI.createSession({core:Core,config:{mode:'shared',
+function newShared(fx,storage) {
+  return UI.createSession({core:Core,config:{mode:'shared',
     supabaseUrl:'https://fixture.supabase.co',supabasePublishableKey:'fixture-public'},
     storage,fetch:fx.fetch,crypto,locks,now});
+}
+async function shared(fx=fixture(),storage=memory()) {
+  const session=newShared(fx,storage);
   await session.init(); await session.saveName('QA Student');
   return {session,fx,storage};
 }
 const first = original.questions[0].question_id;
 async function run() {
 switch(input.case) {
+case 'catalog_initial_auth_failure': {
+  const fx=fixture(), storage=memory();
+  const prefix='la-student:shared:fixture.supabase.co';
+  const identity={learner_id:fx.learnerId,display_name:'Existing learner'};
+  storage.setItem(prefix+':identity',JSON.stringify(identity));
+  storage.setItem(prefix+':session',JSON.stringify({access_token:'expired',
+    refresh_token:'existing-refresh',expires_at:1,user:{id:fx.learnerId}}));
+  const preserved=JSON.stringify(Array.from(storage.values.entries()));
+  fx.before.add('token?grant_type=refresh_token');
+  const session=newShared(fx,storage);
+  assert.equal(session.state.catalogStatus,'unloaded');
+  assert(!UI.catalogView(session.state).html.includes('Chưa có bài học được phát hành'));
+  await assert.rejects(session.init(),/Chưa làm mới được phiên/);
+  assert.equal(session.state.catalogStatus,'error');
+  assert.deepEqual(session.state.identity,identity);
+  const view=UI.catalogView(session.state);
+  assert(view.html.includes('Chưa xác định có bài học'));
+  assert(!view.html.includes('Chưa có bài học được phát hành'));
+  assert(!fx.calls.some(call=>call.name==='signup'||call.name==='list_learning_courses'));
+  assert.equal(JSON.stringify(Array.from(storage.values.entries())),preserved);
+  break;
+}
+case 'catalog_failed_load_then_valid_empty': {
+  const fx=fixture(), storage=memory(), session=newShared(fx,storage);
+  fx.courses.length=0;
+  await session.init();
+  assert.equal(session.state.catalogStatus,'unloaded');
+  fx.before.add('list_learning_courses');
+  await assert.rejects(session.saveName('Same learner'),/network before/);
+  const identity=structuredClone(session.state.identity);
+  assert.equal(session.state.catalogStatus,'error');
+  assert(!UI.catalogView(session.state).html.includes('Chưa có bài học được phát hành'));
+  const loading=UI.catalogView({...session.state,catalogStatus:'loading'});
+  assert(loading.html.includes('Đang tải danh sách bài học'));
+  assert(!loading.html.includes('Chưa có bài học được phát hành'));
+  await session.reload();
+  assert.equal(session.state.catalogStatus,'ready');
+  assert.deepEqual(session.state.identity,identity);
+  assert(UI.catalogView(session.state).html.includes('Chưa có bài học được phát hành'));
+  assert.equal(fx.calls.filter(call=>call.name==='signup').length,1);
+  break;
+}
+case 'catalog_refresh_keeps_previous_data_stale': {
+  const {session,fx}=await shared();
+  await session.openCourse('course-a');
+  await session.submit(first,original.questions[0].correct_answer);
+  const preserved=JSON.stringify({identity:session.state.identity,courses:session.state.courses,
+    data:session.state.data,attempts:session.state.attempts});
+  fx.before.add('list_learning_courses');
+  await assert.rejects(session.reload(),/network before/);
+  assert.equal(session.state.catalogStatus,'error');
+  const stale=UI.catalogView(session.state);
+  assert(stale.html.includes('danh sách đã tải trước đó'));
+  assert(stale.html.includes('chưa xác nhận trạng thái mới'));
+  assert(stale.html.includes('Published lesson'));
+  assert(!stale.html.includes('Chưa có bài học được phát hành'));
+  assert(/data-course="course-a"[^>]*disabled/.test(stale.html));
+  assert.equal(JSON.stringify({identity:session.state.identity,courses:session.state.courses,
+    data:session.state.data,attempts:session.state.attempts}),preserved);
+  await session.reload();
+  assert.equal(session.state.catalogStatus,'ready');
+  const refreshed=UI.catalogView(session.state);
+  assert(!refreshed.html.includes('chưa xác nhận trạng thái mới'));
+  assert(!/data-course="course-a"[^>]*disabled/.test(refreshed.html));
+  break;
+}
 case 'published_only': {
   const {session,fx}=await shared();
   assert.equal(session.state.data,null); assert.equal(session.state.attempts.length,0);
@@ -366,6 +435,9 @@ run().catch(error=>{console.error(error);process.exitCode=1});
 @pytest.mark.parametrize(
     "scenario",
     [
+        "catalog_initial_auth_failure",
+        "catalog_failed_load_then_valid_empty",
+        "catalog_refresh_keeps_previous_data_stale",
         "published_only",
         "objective_loop",
         "rubric_feedback",

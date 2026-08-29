@@ -89,6 +89,7 @@ class KCContextEvidence(BaseModel):
     excerpt: str | None = Field(default=None, min_length=1)
     description: str | None = Field(default=None, min_length=1)
     supports: str = Field(min_length=1)
+    source_id: str | None = Field(default=None, min_length=1)
     pages: list[Annotated[int, Field(ge=1, strict=True)]] = Field(default_factory=list)
     mapping_method: Literal[
         "explicit_page_reference", "semantic_alignment", "document_level", "unmapped"
@@ -111,6 +112,8 @@ class KCContextEvidence(BaseModel):
         page_mapped = self.mapping_method in {"explicit_page_reference", "semantic_alignment"}
         if bool(self.pages) != page_mapped:
             raise ValueError("context evidence pages must agree with its mapping_method")
+        if self.source_id is not None and not page_mapped:
+            raise ValueError("document-level or unmapped context evidence must not name a source")
         if page_mapped and self.mapping_confidence == "unmapped":
             raise ValueError("page-mapped context evidence requires mapping confidence")
         if self.mapping_method == "unmapped" and self.mapping_confidence != "unmapped":
@@ -124,7 +127,8 @@ class KCContextEvidence(BaseModel):
         )
         if item is None:
             raise ValueError(f"context evidence references unknown context_id {self.context_id}")
-        if any(page > authoring_context.source_ref.page_count for page in self.pages):
+        page_count = getattr(authoring_context.source_ref, "page_count", None)
+        if page_count is not None and any(page > page_count for page in self.pages):
             raise ValueError(f"context evidence {self.context_id} references unknown PDF page")
         if item.text is not None:
             if self.excerpt is None or self.excerpt not in item.text:
@@ -337,9 +341,11 @@ class ProposedKCSet(BaseModel):
                     raise ValueError(
                         f"KC context_audit omits supplied context inputs: {sorted(missing)}"
                     )
-        elif self.source_ref.authoring_context_sha256 is not None or any(
-            kc.context_evidence for kc in self.leaf_kcs
-        ) or self.context_audit:
+        elif (
+            self.source_ref.authoring_context_sha256 is not None
+            or any(kc.context_evidence for kc in self.leaf_kcs)
+            or self.context_audit
+        ):
             raise ValueError("KC context lineage requires the bound authoring context")
 
         expected_pages = list(range(1, source.source.page_count + 1))
@@ -371,6 +377,10 @@ class ProposedKCSet(BaseModel):
             for evidence in kc.context_evidence:
                 # Context-bearing proposals were rejected above if context is absent.
                 assert authoring_context is not None
+                if evidence.source_id not in {None, source.source.source_id}:
+                    raise ValueError(
+                        f"context evidence {evidence.context_id} names a different PDF source"
+                    )
                 evidence.validate_against_context(authoring_context)
         for item in self.uncovered_content:
             validate_page_blocks(item.page, item.block_ids, "uncovered content")

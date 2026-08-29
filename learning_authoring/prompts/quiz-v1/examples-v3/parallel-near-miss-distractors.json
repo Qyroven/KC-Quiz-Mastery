@@ -1,0 +1,180 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "parallel-near-miss-distractors",
+  "teaching_points": [
+    "Build complex near-miss distractors that preserve the case facts but misapply exactly one threshold, condition, or exception.",
+    "Keep every option parallel in grammar, tone, qualification, and approximate length so the key is not visually privileged.",
+    "Label the slot apply rather than analyze because the learner uses a supplied rule; medium is honest because several conditions and an exception must be checked.",
+    "Treat every name, identifier, option position, count, and rule in this example as illustrative; derive fresh values from the current KC and evidence."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "input_version": "quiz-input.v3",
+    "source_ref": {
+      "extraction_source_id": "sha256:cccccccccccccccc",
+      "extraction_source_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "kc_set_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "authoring_context_sha256": null
+    },
+    "runtime": {
+      "selected_kc_ids": [
+        "KC-001"
+      ],
+      "assessment_mode": "adaptive_slots",
+      "expected_schema_version": "quiz-batch.v3",
+      "variants_per_kc": null,
+      "min_slots_per_kc": 1,
+      "max_slots_per_kc": null,
+      "variants_per_slot": null,
+      "max_variants_per_slot": null,
+      "total_question_budget": null,
+      "expected_question_count": null,
+      "minimum_question_count": 1,
+      "allowed_interactions": [
+        "single_select",
+        "multi_select",
+        "matching",
+        "ordering",
+        "short_text"
+      ],
+      "language": "source"
+    },
+    "kc_groups": [
+      {
+        "group_id": "KCG-001",
+        "name": "Record labeling",
+        "description": "A neutral labeling rule with thresholds and a separate exception.",
+        "leaf_kc_ids": [
+          "KC-001"
+        ]
+      }
+    ],
+    "leaf_kcs": [
+      {
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "name": "Apply the record-labeling rule",
+        "semantic_form": "decision_rule",
+        "knowledge_description": "Assign Tier Blue when all three required checks pass, Tier Amber when exactly one required check fails, and Tier Gray when two or more required checks fail. Use Review Hold only when the seal state cannot be determined.",
+        "observable_claim": "Given the states of three required checks and the separate hold trigger, the learner can select the label-and-reason pair required by the rule.",
+        "assessment_boundary": {
+          "included": [
+            "Counting failed required checks",
+            "Distinguishing ordinary threshold branches from the separate hold trigger"
+          ],
+          "excluded": [
+            "Inferring why the labels or checks were named"
+          ]
+        },
+        "source_evidence": [
+          {
+            "evidence_id": "EVD-001",
+            "page": 1,
+            "block_ids": [
+              "label-rule"
+            ],
+            "description": "The source-visible threshold rule and special hold condition.",
+            "supports": "The label depends on the count of failed checks unless the seal state is unavailable."
+          }
+        ],
+        "context_evidence": [],
+        "warning_codes": [],
+        "status": "PROPOSED"
+      }
+    ]
+  },
+  "output": {
+    "schema_version": "quiz-batch.v3",
+    "source_ref": {
+      "extraction_source_id": "sha256:cccccccccccccccc",
+      "extraction_source_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "source_bundle_sha256": null,
+      "kc_set_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "authoring_context_sha256": null
+    },
+    "assessment_slots": [
+      {
+        "slot_id": "slot-record-labeling",
+        "kc_id": "KC-001",
+        "evidence_intent": "Apply the supplied threshold and exception rule to select the rule-consistent label-and-reason pair.",
+        "cognitive_operation": "apply",
+        "intended_difficulty": "medium",
+        "variant_count": 1,
+        "justification": "One case is sufficient for this worked example. It is medium application: the rule is supplied, but the learner must combine three check states and test a separate exception."
+      }
+    ],
+    "questions": [
+      {
+        "question_id": "Q-001",
+        "slot_id": "slot-record-labeling",
+        "variant_index": 1,
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "title": "Classify a one-failure record",
+        "interaction": "single_select",
+        "stimulus": {
+          "kind": "text",
+          "text": "The seal is present and valid. The checksum check fails. The date check passes.",
+          "table_columns": [],
+          "table_rows": [],
+          "formula": ""
+        },
+        "prompt": "Which label-and-reason pair follows the rule?",
+        "choice_options": [
+          {
+            "option_id": "A",
+            "text": "Assign Tier Blue because two passing checks offset one failed check."
+          },
+          {
+            "option_id": "B",
+            "text": "Assign Tier Amber because one of the three required checks fails."
+          },
+          {
+            "option_id": "C",
+            "text": "Assign Tier Gray because any failed check triggers the lowest tier."
+          },
+          {
+            "option_id": "D",
+            "text": "Assign Review Hold because any checksum failure requires review."
+          }
+        ],
+        "matching_left": [],
+        "matching_right": [],
+        "ordering_options": [],
+        "correct_answer": {
+          "selection_ids": [
+            "B"
+          ],
+          "ordering": [],
+          "mappings": [],
+          "text": ""
+        },
+        "rubric": [],
+        "answer_explanation": "Exactly one required check fails, and the seal state is known, so the ordinary one-failure branch assigns Tier Amber rather than Review Hold.",
+        "hints": [
+          {
+            "hint_id": "q1-count",
+            "kind": "cue",
+            "text": "List the state of each required check before choosing a threshold branch."
+          },
+          {
+            "hint_id": "q1-exception",
+            "kind": "step",
+            "text": "After counting failures, test whether the separate hold trigger is actually present."
+          }
+        ],
+        "hint_absence_reason": null,
+        "evidence_refs": [
+          {
+            "source_id": null,
+            "page": 1,
+            "block_ids": [
+              "label-rule"
+            ]
+          }
+        ],
+        "context_evidence_refs": []
+      }
+    ]
+  }
+}

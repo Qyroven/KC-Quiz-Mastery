@@ -7,7 +7,7 @@ import pytest
 
 from learning_authoring.artifacts import read_json, sha256_file, write_json
 from learning_authoring.cli import PORTAL_BUILD_RECORD, _status, main
-from learning_authoring.showcase import MANIFEST_NAME, PublishSafetyError, build_showcase
+from learning_authoring.product.showcase import MANIFEST_NAME, PublishSafetyError, build_showcase
 from tests.test_publish_showcase import _fake_run
 
 

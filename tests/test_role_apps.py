@@ -8,10 +8,14 @@ import shutil
 
 import pytest
 
-from learning_authoring.cli import main
-from learning_authoring.learning import build_learning_package
-from learning_authoring.role_apps import build_role_apps, export_authoring_registration
-from learning_authoring.showcase import PublishSafetyError, ReviewBackendConfig, _json_assignment
+from learning_authoring.product.learning import build_learning_package
+from learning_authoring.product.role_apps import build_role_apps, export_authoring_registration
+from learning_authoring.product.showcase import (
+    PublishSafetyError,
+    ReviewBackendConfig,
+    _json_assignment,
+)
+from learning_authoring.product_cli import main as product_main
 from tests.test_agent_quiz_review import _import_report, _quiz_run, _review_task
 from tests.test_agent_session import _forbid_provider_use
 from tests.test_review_registration import _inventory
@@ -127,9 +131,11 @@ def test_registration_is_insert_only_private_and_does_not_grant_or_publish(tmp_p
 def test_native_cli_cannot_silently_use_api_or_register_database(tmp_path, monkeypatch, capsys):
     _forbid_provider_use(monkeypatch)
     run = _run(tmp_path)
-    assert main(["authoring-register", str(run), str(tmp_path / "operator.sql")]) == 0
+    assert product_main(
+        ["export-authoring-registration", str(run), str(tmp_path / "operator.sql")]
+    ) == 0
     result = json.loads(capsys.readouterr().out)
     assert result["backend_writes"] == result["model_provider_calls"] == 0
-    assert main(["role-apps-build", str(run), str(tmp_path / "no-config")]) == 1
+    assert product_main(["build-role-apps", str(run), str(tmp_path / "no-config")]) == 1
     error = json.loads(capsys.readouterr().err)
     assert error["built"] is False

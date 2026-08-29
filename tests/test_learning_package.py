@@ -12,7 +12,7 @@ import pytest
 
 from learning_authoring.agent_session import agent_import, prepare_agent_task
 from learning_authoring.artifacts import read_json, sha256_file
-from learning_authoring.learning import (
+from learning_authoring.product.learning import (
     POLICY_VERSION,
     build_learning_package,
     export_learning_registration,
@@ -20,18 +20,18 @@ from learning_authoring.learning import (
     render_learning_registration_sql,
     write_learning_data,
 )
-from learning_authoring.quiz_review import build_quiz_review
-from learning_authoring.review_registration import (
+from learning_authoring.product.review_registration import (
     RegistrationSafetyError,
     prepare_review_registration,
     renderer_payload_sha256,
 )
-from learning_authoring.showcase import (
+from learning_authoring.product.showcase import (
     DEFAULT_TEMPLATE_DIR,
     PublishSafetyError,
     ReviewFiles,
     _json_assignment,
 )
+from learning_authoring.quiz_review import build_quiz_review
 from tests.test_agent_context_slots import _import_kcs, _init
 from tests.test_agent_quiz_review import _import_report, _quiz_run, _review_task
 from tests.test_agent_session import _forbid_provider_use, _quiz_candidate, _write_raw
@@ -215,7 +215,9 @@ def test_registration_escapes_literals_and_refuses_existing_run_or_portal_paths(
 
 def test_missing_node_or_changed_renderer_fails_with_actionable_error(tmp_path, monkeypatch, node):
     run = _quiz_run(tmp_path)
-    monkeypatch.setattr("learning_authoring.review_registration.shutil.which", lambda _: None)
+    monkeypatch.setattr(
+        "learning_authoring.product.review_registration.shutil.which", lambda _: None
+    )
     with pytest.raises(RegistrationSafetyError, match="Node.js is required"):
         build_learning_package(run)
     runtime = tmp_path / "changed-runtime.js"

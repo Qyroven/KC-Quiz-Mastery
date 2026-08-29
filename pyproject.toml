@@ -1,7 +1,7 @@
 [project]
 name = "learning-authoring-tool"
-version = "0.6.0"
-description = "Portable native authoring skill with learner evidence and provisional mastery MVP"
+version = "0.7.0"
+description = "Portable multi-source native authoring skill with learner evidence and provisional mastery MVP"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -10,11 +10,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Historical provider adapters are not part of the subscription-native skill.
-legacy-api = [
-  "openai>=2,<3",
-  "python-dotenv",
-]
 dev = [
   "pytest",
   "ruff",
@@ -22,6 +17,7 @@ dev = [
 
 [project.scripts]
 learning-authoring = "learning_authoring.cli:main"
+learning-authoring-product = "learning_authoring.product_cli:main"
 
 [project.urls]
 Repository = "https://github.com/Qyroven/KC-Quiz-Mastery"
@@ -32,6 +28,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["learning_authoring*"]
+exclude = ["learning_authoring.legacy_api*"]
 
 [tool.setuptools.package-data]
 learning_authoring = [

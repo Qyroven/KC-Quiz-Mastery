@@ -1,0 +1,197 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "source-qualified-near-miss-distractors",
+  "teaching_points": [
+    "Bind bundle Quiz lineage to source_bundle_sha256 and qualify every PDF evidence locator with its owning source_id.",
+    "Build complex near-miss distractors that preserve the case facts but misapply one threshold, condition, or exception.",
+    "Keep every option parallel in grammar, tone, qualification, and approximate length so the key is not visually privileged.",
+    "Label the slot apply rather than analyze because the rule is supplied; medium is honest because several conditions and a separately sourced exception must be checked.",
+    "The selected-response form is illustrative for this decision rule; choose another allowed interaction when the current KC requires learner-produced evidence.",
+    "Treat every name, identifier, option position, count, source, and hash as illustrative; derive fresh values from the current bundle KC and evidence."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "input_version": "quiz-input.v3",
+    "source_ref": {
+      "source_bundle_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "kc_set_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "authoring_context_sha256": null
+    },
+    "runtime": {
+      "selected_kc_ids": [
+        "KC-001"
+      ],
+      "assessment_mode": "adaptive_slots",
+      "expected_schema_version": "quiz-batch.v3",
+      "variants_per_kc": null,
+      "min_slots_per_kc": 1,
+      "max_slots_per_kc": null,
+      "variants_per_slot": null,
+      "max_variants_per_slot": null,
+      "total_question_budget": null,
+      "expected_question_count": null,
+      "minimum_question_count": 1,
+      "allowed_interactions": [
+        "single_select",
+        "multi_select",
+        "matching",
+        "ordering",
+        "short_text"
+      ],
+      "language": "source"
+    },
+    "kc_groups": [
+      {
+        "group_id": "KCG-001",
+        "name": "Record labeling",
+        "description": "A neutral labeling rule whose threshold and exception come from separate bundle sources.",
+        "leaf_kc_ids": [
+          "KC-001"
+        ]
+      }
+    ],
+    "leaf_kcs": [
+      {
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "name": "Apply the bundled record-labeling rule",
+        "semantic_form": "decision_rule",
+        "knowledge_description": "Assign Tier Blue when all three required checks pass, Tier Amber when exactly one required check fails, and Tier Gray when two or more required checks fail. Use Review Hold only when the seal state cannot be determined.",
+        "observable_claim": "Given the three check states and the separate hold trigger, the learner can select the label required by the bundled rule and justify the branch used.",
+        "assessment_boundary": {
+          "included": [
+            "Counting failed required checks from the threshold source",
+            "Testing the separate hold trigger from the exception source"
+          ],
+          "excluded": [
+            "Inferring why the labels or checks were named"
+          ]
+        },
+        "source_evidence": [
+          {
+            "source_id": "sha256:1111111111111111",
+            "evidence_id": "EVD-001",
+            "page": 1,
+            "block_ids": [
+              "label-thresholds"
+            ],
+            "description": "The first source states the three ordinary failure-count branches.",
+            "supports": "Blue, Amber, and Gray depend on the number of failed checks."
+          },
+          {
+            "source_id": "sha256:2222222222222222",
+            "evidence_id": "EVD-002",
+            "page": 1,
+            "block_ids": [
+              "hold-exception"
+            ],
+            "description": "The second source states the separate hold trigger.",
+            "supports": "Review Hold applies only when the seal state cannot be determined."
+          }
+        ],
+        "context_evidence": [],
+        "warning_codes": [],
+        "status": "PROPOSED"
+      }
+    ]
+  },
+  "output": {
+    "schema_version": "quiz-batch.v3",
+    "source_ref": {
+      "source_bundle_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "kc_set_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "authoring_context_sha256": null
+    },
+    "assessment_slots": [
+      {
+        "slot_id": "slot-bundled-record-labeling",
+        "kc_id": "KC-001",
+        "evidence_intent": "Apply the bundled threshold and exception rule to select and justify the required label.",
+        "cognitive_operation": "apply",
+        "intended_difficulty": "medium",
+        "variant_count": 1,
+        "justification": "One case is sufficient for this worked example. It is medium application: the rule is supplied, but the learner must combine three check states and check a separately sourced exception."
+      }
+    ],
+    "questions": [
+      {
+        "question_id": "Q-001",
+        "slot_id": "slot-bundled-record-labeling",
+        "variant_index": 1,
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "title": "Classify a one-failure record",
+        "interaction": "single_select",
+        "stimulus": {
+          "kind": "text",
+          "text": "The seal is present and valid. The checksum check fails. The date check passes.",
+          "table_columns": [],
+          "table_rows": [],
+          "formula": ""
+        },
+        "prompt": "Which label-and-reason pair follows the bundled rule?",
+        "choice_options": [
+          {
+            "option_id": "A",
+            "text": "Assign Tier Blue because two passing checks offset one failed check."
+          },
+          {
+            "option_id": "B",
+            "text": "Assign Tier Amber because one of the three required checks fails."
+          },
+          {
+            "option_id": "C",
+            "text": "Assign Tier Gray because any failed check triggers the lowest tier."
+          },
+          {
+            "option_id": "D",
+            "text": "Assign Review Hold because any checksum failure requires review."
+          }
+        ],
+        "matching_left": [],
+        "matching_right": [],
+        "ordering_options": [],
+        "correct_answer": {
+          "selection_ids": [
+            "B"
+          ],
+          "ordering": [],
+          "mappings": [],
+          "text": ""
+        },
+        "rubric": [],
+        "answer_explanation": "The threshold source assigns Tier Amber when exactly one required check fails, and the exception source does not apply because the seal state is known.",
+        "hints": [
+          {
+            "hint_id": "q1-count",
+            "kind": "cue",
+            "text": "List the state of each required check before choosing a threshold branch."
+          },
+          {
+            "hint_id": "q1-exception",
+            "kind": "step",
+            "text": "After counting failures, test whether the separately sourced hold trigger is present."
+          }
+        ],
+        "hint_absence_reason": null,
+        "evidence_refs": [
+          {
+            "source_id": "sha256:1111111111111111",
+            "page": 1,
+            "block_ids": [
+              "label-thresholds"
+            ]
+          },
+          {
+            "source_id": "sha256:2222222222222222",
+            "page": 1,
+            "block_ids": [
+              "hold-exception"
+            ]
+          }
+        ],
+        "context_evidence_refs": []
+      }
+    ]
+  }
+}

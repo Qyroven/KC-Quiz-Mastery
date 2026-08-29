@@ -1,0 +1,11 @@
+{
+  "suite_version": "worked-example-suite.v1",
+  "stage": "quiz-review",
+  "contract_version": "quiz-semantic-audit.v1",
+  "example_order": [
+    "source-bound-review"
+  ],
+  "examples": {
+    "source-bound-review": "source-bound-review.json"
+  }
+}

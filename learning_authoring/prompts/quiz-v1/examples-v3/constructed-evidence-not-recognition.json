@@ -1,0 +1,165 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "constructed-evidence-not-recognition",
+  "teaching_points": [
+    "Choose interaction from the evidence the learner must produce; do not reduce a calculation-and-comparison claim to recognition just because selected response is easy to score.",
+    "Make every point-bearing requirement visible and accept equivalent units, equations, and rounding that satisfy the stated tolerance.",
+    "Use no hint when a useful hint would provide the exact setup being assessed; explain that decision instead of forcing scaffolding.",
+    "Treat every name, identifier, option position, count, and value in this example as illustrative; derive fresh values from the current KC and evidence."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "input_version": "quiz-input.v3",
+    "source_ref": {
+      "extraction_source_id": "sha256:eeeeeeeeeeeeeeee",
+      "extraction_source_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "kc_set_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "authoring_context_sha256": null
+    },
+    "runtime": {
+      "selected_kc_ids": [
+        "KC-001"
+      ],
+      "assessment_mode": "adaptive_slots",
+      "expected_schema_version": "quiz-batch.v3",
+      "variants_per_kc": null,
+      "min_slots_per_kc": 1,
+      "max_slots_per_kc": null,
+      "variants_per_slot": null,
+      "max_variants_per_slot": null,
+      "total_question_budget": null,
+      "expected_question_count": null,
+      "minimum_question_count": 1,
+      "allowed_interactions": [
+        "single_select",
+        "multi_select",
+        "matching",
+        "ordering",
+        "short_text"
+      ],
+      "language": "source"
+    },
+    "kc_groups": [
+      {
+        "group_id": "KCG-001",
+        "name": "Comparable nutrition measures",
+        "description": "Normalize quantities before comparing products with different serving sizes.",
+        "leaf_kc_ids": [
+          "KC-001"
+        ]
+      }
+    ],
+    "leaf_kcs": [
+      {
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "name": "Normalize and compare sodium",
+        "semantic_form": "procedure",
+        "knowledge_description": "To compare sodium when serving sizes differ, convert each label to the same mass basis before choosing the lower value.",
+        "observable_claim": "Given sodium and serving-size values for two foods, the learner can compute both sodium amounts per 100 g and use those results to identify the lower-sodium food.",
+        "assessment_boundary": {
+          "included": [
+            "Normalize both label values to 100 g",
+            "Compare the normalized values",
+            "Show enough work to verify the setup"
+          ],
+          "excluded": [
+            "Medical dietary advice",
+            "Assumptions about ingredients not shown on the labels"
+          ]
+        },
+        "source_evidence": [
+          {
+            "evidence_id": "EVD-001",
+            "page": 1,
+            "block_ids": [
+              "normalization-rule"
+            ],
+            "description": "The source-visible per-100-gram normalization method.",
+            "supports": "Divide the label quantity by serving mass and multiply by 100 before comparing."
+          }
+        ],
+        "context_evidence": [],
+        "warning_codes": [],
+        "status": "PROPOSED"
+      }
+    ]
+  },
+  "output": {
+    "schema_version": "quiz-batch.v3",
+    "source_ref": {
+      "extraction_source_id": "sha256:eeeeeeeeeeeeeeee",
+      "extraction_source_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "source_bundle_sha256": null,
+      "kc_set_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "authoring_context_sha256": null
+    },
+    "assessment_slots": [
+      {
+        "slot_id": "slot-normalize-sodium",
+        "kc_id": "KC-001",
+        "evidence_intent": "Compute two normalized sodium values and use them to make the requested comparison.",
+        "cognitive_operation": "apply",
+        "intended_difficulty": "medium",
+        "variant_count": 1,
+        "justification": "The learner must produce and expose two normalization setups, so selected response would not capture the intended evidence. One bounded comparison is sufficient for this worked example."
+      }
+    ],
+    "questions": [
+      {
+        "question_id": "Q-001",
+        "slot_id": "slot-normalize-sodium",
+        "variant_index": 1,
+        "kc_id": "KC-001",
+        "group_id": "KCG-001",
+        "title": "Compare sodium on a common basis",
+        "interaction": "short_text",
+        "stimulus": {
+          "kind": "text",
+          "text": "Food A lists 180 mg sodium per 30 g serving. Food B lists 250 mg sodium per 50 g serving.",
+          "table_columns": [],
+          "table_rows": [],
+          "formula": ""
+        },
+        "prompt": "Calculate the sodium per 100 g for both foods, show the two normalization setups, and identify which food is lower in sodium on that basis. Values within 1 mg per 100 g are accepted.",
+        "choice_options": [],
+        "matching_left": [],
+        "matching_right": [],
+        "ordering_options": [],
+        "correct_answer": {
+          "selection_ids": [],
+          "ordering": [],
+          "mappings": [],
+          "text": "Food A: 180 / 30 × 100 = 600 mg per 100 g. Food B: 250 / 50 × 100 = 500 mg per 100 g. Food B is lower on the common 100 g basis. Equivalent correct equations and values within the stated tolerance are accepted."
+        },
+        "rubric": [
+          {
+            "criterion": "Shows a valid normalization setup for Food A and obtains 600 mg per 100 g within the stated tolerance.",
+            "points": 1
+          },
+          {
+            "criterion": "Shows a valid normalization setup for Food B and obtains 500 mg per 100 g within the stated tolerance.",
+            "points": 1
+          },
+          {
+            "criterion": "Identifies Food B as lower based on the two normalized values.",
+            "points": 1
+          }
+        ],
+        "answer_explanation": "The original serving sizes differ, so the label values become comparable only after both are converted to the same 100 g basis.",
+        "hints": [],
+        "hint_absence_reason": "The normalization setup is the evidence being assessed, so a procedural hint would supply the central step.",
+        "evidence_refs": [
+          {
+            "source_id": null,
+            "page": 1,
+            "block_ids": [
+              "normalization-rule"
+            ]
+          }
+        ],
+        "context_evidence_refs": []
+      }
+    ]
+  }
+}

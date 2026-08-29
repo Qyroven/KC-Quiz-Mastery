@@ -23,9 +23,18 @@ from learning_authoring.artifacts import (
     write_text,
 )
 from learning_authoring.audit import reported_cost, response_usage
-from learning_authoring.authoring_context import CONTEXT_MANIFEST, load_authoring_context
+from learning_authoring.authoring_context import (
+    CONTEXT_MANIFEST,
+    load_authoring_context,
+    load_bundle_authoring_context,
+)
 from learning_authoring.contracts import SourceDescriptor
 from learning_authoring.kc_contracts import ProposedKCSet
+from learning_authoring.prompt_packages import (
+    WorkedExample,
+    load_worked_example_suite,
+    worked_examples_component,
+)
 from learning_authoring.quiz_contracts import (
     CURRENT_QUIZ_INPUT_VERSION,
     CURRENT_QUIZ_SCHEMA_VERSION,
@@ -37,9 +46,18 @@ from learning_authoring.quiz_contracts import (
     quiz_output_schema,
 )
 from learning_authoring.quiz_quality import build_quiz_form_audit
+from learning_authoring.source_bundle import (
+    SOURCE_BUNDLE_MANIFEST,
+    SourceBundleKCSet,
+    load_bundle_extractions,
+    load_source_bundle,
+    validate_kc_set_against_bundle,
+)
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_PROMPT_DIR = PACKAGE_DIR / "prompts" / "quiz-v1"
+DEFAULT_EXAMPLES_DIR = DEFAULT_PROMPT_DIR / "examples-v3"
+BUNDLE_EXAMPLES_DIR = DEFAULT_PROMPT_DIR / "examples-bundle-v1"
 STAGE_VERSION = "quiz.v3.experimental"
 PROMPT_COMPONENTS = ("foundation", "rulebook", "task")
 ALLOWED_INTERACTIONS = (
@@ -55,7 +73,12 @@ ALLOWED_INTERACTIONS = (
 class QuizPromptPackage:
     instructions: str
     output_schema: dict[str, Any]
+    worked_examples: tuple[WorkedExample, ...]
     manifest: dict[str, Any]
+
+    @property
+    def lineage(self) -> dict[str, Any]:
+        return self.manifest
 
 
 @dataclass(frozen=True)
@@ -160,6 +183,7 @@ def load_quiz_prompt_package(
     prompt_dir: Path = DEFAULT_PROMPT_DIR,
     *,
     schema_version: QuizSchemaVersion = CURRENT_QUIZ_SCHEMA_VERSION,
+    examples_dir: Path = DEFAULT_EXAMPLES_DIR,
 ) -> QuizPromptPackage:
     texts = {
         component: (prompt_dir / f"{component}.md").read_text(encoding="utf-8")
@@ -182,14 +206,28 @@ def load_quiz_prompt_package(
         "sha256": hashlib.sha256(schema_bytes).hexdigest(),
         "content": output_schema,
     }
+    suite = None
+    if schema_version == "quiz-batch.v3":
+        suite = load_worked_example_suite(
+            examples_dir,
+            expected_stage="quiz",
+            expected_contract_version="quiz-batch.v3",
+        )
+        components["worked_examples"] = worked_examples_component(
+            suite,
+            filename=f"{examples_dir.name}/manifest.json",
+        )
     package_bytes = json.dumps(components, ensure_ascii=False, sort_keys=True).encode()
     return QuizPromptPackage(
         instructions=instructions,
         output_schema=output_schema,
+        worked_examples=suite.examples if suite is not None else (),
         manifest={
             "package_version": STAGE_VERSION,
             "instruction_order": list(PROMPT_COMPONENTS),
             "structured_output_component": "output_schema",
+            "worked_examples_component": "worked_examples" if suite is not None else None,
+            "worked_example_order": list(suite.example_order) if suite is not None else [],
             "package_sha256": hashlib.sha256(package_bytes).hexdigest(),
             "components": components,
         },
@@ -197,7 +235,7 @@ def load_quiz_prompt_package(
 
 
 def build_quiz_input(
-    kc_set: ProposedKCSet,
+    kc_set: ProposedKCSet | SourceBundleKCSet,
     *,
     kc_set_sha256: str,
     config: QuizConfig,
@@ -215,7 +253,8 @@ def build_quiz_input(
     if raw_kc_set is None:
         original = kc_set.model_dump(mode="json")
     else:
-        if ProposedKCSet.model_validate(raw_kc_set) != kc_set:
+        contract = SourceBundleKCSet if isinstance(kc_set, SourceBundleKCSet) else ProposedKCSet
+        if contract.model_validate(raw_kc_set) != kc_set:
             raise ValueError("raw KC set does not match the validated KC set")
         original = raw_kc_set
     kc_by_id = {kc.kc_id: kc for kc in kc_set.leaf_kcs}
@@ -254,12 +293,33 @@ def build_quiz_input(
         for group in original["kc_groups"]
         if group["group_id"] in selected_group_ids
     ]
-    source_ref = QuizSourceRef(
-        extraction_source_id=kc_set.source_ref.source_id,
-        extraction_source_sha256=kc_set.source_ref.source_sha256,
-        kc_set_sha256=kc_set_sha256,
-        authoring_context_sha256=getattr(kc_set.source_ref, "authoring_context_sha256", None),
-    )
+    if isinstance(kc_set, SourceBundleKCSet):
+        source_ref = QuizSourceRef(
+            source_bundle_sha256=kc_set.source_ref.source_bundle_sha256,
+            kc_set_sha256=kc_set_sha256,
+            authoring_context_sha256=kc_set.source_ref.authoring_context_sha256,
+        )
+    else:
+        source_ref = QuizSourceRef(
+            extraction_source_id=kc_set.source_ref.source_id,
+            extraction_source_sha256=kc_set.source_ref.source_sha256,
+            kc_set_sha256=kc_set_sha256,
+            authoring_context_sha256=getattr(kc_set.source_ref, "authoring_context_sha256", None),
+        )
+    if isinstance(kc_set, SourceBundleKCSet):
+        known_source_pages = {(audit.source_id, audit.page) for audit in kc_set.page_audit}
+        for kc in selected_kcs:
+            for evidence in kc.context_evidence:
+                if evidence.pages and evidence.source_id is None:
+                    raise ValueError("bundle page-mapped context evidence requires source_id")
+                if evidence.source_id is not None and any(
+                    (evidence.source_id, page) not in known_source_pages for page in evidence.pages
+                ):
+                    raise ValueError("bundle context evidence references an unknown source page")
+    elif any(
+        evidence.source_id is not None for kc in selected_kcs for evidence in kc.context_evidence
+    ):
+        raise ValueError("single-source context evidence must not add source_id")
     if any(getattr(kc, "context_evidence", []) for kc in selected_kcs) and (
         not source_ref.authoring_context_sha256
     ):
@@ -313,8 +373,8 @@ def prepare_quiz_request(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Freeze one exact Quiz request without calling the provider."""
 
-    from learning_authoring.provider import normalized_model
-    from learning_authoring.requests import build_quiz_request
+    from learning_authoring.legacy_api.provider import normalized_model
+    from learning_authoring.legacy_api.requests import build_quiz_request
 
     config.validate()
     root = run_dir.expanduser().resolve()
@@ -324,9 +384,34 @@ def prepare_quiz_request(
         raise RuntimeError(f"KC set is missing: {resolved_kc}")
 
     raw_kc_set = read_json(resolved_kc)
-    kc_set = ProposedKCSet.model_validate(raw_kc_set)
+    raw_source_ref = raw_kc_set.get("source_ref")
+    bundle_mode = isinstance(raw_source_ref, dict) and (
+        raw_source_ref.get("schema_version") == "source-bundle.v1"
+    )
+    kc_set: ProposedKCSet | SourceBundleKCSet
+    if bundle_mode:
+        kc_set = SourceBundleKCSet.model_validate(raw_kc_set)
+        bundle = load_source_bundle(root)
+        extractions = load_bundle_extractions(root, bundle)
+        context = load_bundle_authoring_context(root, bundle)
+        validated = validate_kc_set_against_bundle(
+            kc_set,
+            bundle,
+            extractions,
+            authoring_context=context,
+        )
+        if not isinstance(validated, SourceBundleKCSet):
+            raise ValueError("multi-source Quiz requires source-qualified KC lineage")
+        kc_set = validated
+        context_sha256 = kc_set.source_ref.authoring_context_sha256
+        if context_sha256 != (context.sha256 if context else None):
+            raise ValueError(
+                "KC authoring context SHA-256 does not match the current bundle context"
+            )
+    else:
+        kc_set = ProposedKCSet.model_validate(raw_kc_set)
     context_sha256 = getattr(kc_set.source_ref, "authoring_context_sha256", None)
-    if (
+    if not bundle_mode and (
         context_sha256
         or (root / CONTEXT_MANIFEST).exists()
         or (root / CONTEXT_MANIFEST).is_symlink()
@@ -347,9 +432,14 @@ def prepare_quiz_request(
             for kc in kc_set.leaf_kcs:
                 for evidence in kc.context_evidence:
                     evidence.validate_against_context(context)
+    if bundle_mode and not (root / SOURCE_BUNDLE_MANIFEST).is_file():
+        raise ValueError("source bundle manifest is required for multi-source Quiz lineage")
     kc_sha256 = sha256_file(resolved_kc)
     quiz_input = build_quiz_input(
-        kc_set, kc_set_sha256=kc_sha256, config=config, raw_kc_set=raw_kc_set,
+        kc_set,
+        kc_set_sha256=kc_sha256,
+        config=config,
+        raw_kc_set=raw_kc_set,
     )
     prompt_package = load_quiz_prompt_package(
         config.prompt_dir,
@@ -445,8 +535,8 @@ def run_quiz_generation(
 ) -> QuizGenerationResult:
     """Generate raw Quiz questions once; never repair, rewrite, or approve them."""
 
-    from learning_authoring.gateway import execute_response
-    from learning_authoring.provider import build_client
+    from learning_authoring.legacy_api.gateway import execute_response
+    from learning_authoring.legacy_api.provider import build_client
 
     root = run_dir.expanduser().resolve()
     destination = (output_dir or (root / "quiz")).expanduser().resolve()

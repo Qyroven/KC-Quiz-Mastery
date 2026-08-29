@@ -8,18 +8,38 @@ must bind the reviewer mode and enforce the solve-before-key workflow.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    ValidationError,
+    model_serializer,
+    model_validator,
+)
+
+from learning_authoring.prompt_packages import (
+    WorkedExample,
+    load_worked_example_suite,
+    worked_examples_component,
+)
+from learning_authoring.quiz_contracts import QuizSourceRef
 
 VERDICTS = ("PASS", "REVIEW", "REJECT")
 CRITERIA = ("grounding", "answerability", "alignment", "scoring", "cues_and_variants", "hints")
 AUDIT_STATUSES = (*VERDICTS, "NOT_REVIEWED", "STALE")
 PROMPT_COMPONENTS = ("foundation", "rulebook", "task")
 DEFAULT_PROMPT_DIR = Path(__file__).resolve().parent / "prompts" / "quiz-review-v1"
+DEFAULT_EXAMPLES_DIR = DEFAULT_PROMPT_DIR / "examples-v1"
+BUNDLE_EXAMPLES_DIR = DEFAULT_PROMPT_DIR / "examples-bundle-v1"
 
 Nonblank = Annotated[str, Field(min_length=1, pattern=r"\S")]
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -35,9 +55,25 @@ class SemanticAuditSourceRef(_StrictModel):
 
     quiz_sha256: Sha256
     kc_set_sha256: Sha256
-    source_sha256: Sha256
+    source_sha256: Sha256 | None = None
+    source_bundle_sha256: Sha256 | None = None
     authoring_context_sha256: Sha256 | None
     review_input_sha256: Sha256
+
+    @model_validator(mode="after")
+    def exactly_one_source_mode(self) -> SemanticAuditSourceRef:
+        if (self.source_sha256 is None) == (self.source_bundle_sha256 is None):
+            raise ValueError("semantic review must bind exactly one Extraction or source bundle")
+        return self
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if self.source_bundle_sha256 is None and (
+            "source_bundle_sha256" not in self.model_fields_set
+        ):
+            result.pop("source_bundle_sha256", None)
+        return result
 
 
 class SemanticReviewer(_StrictModel):
@@ -48,17 +84,28 @@ class SemanticReviewer(_StrictModel):
     model: Nonblank | None
 
 
+class SemanticSourcePage(_StrictModel):
+    """An unambiguous page in a source bundle."""
+
+    source_id: Nonblank
+    page: Annotated[int, Field(ge=1, strict=True)]
+
+
 class SemanticAuditScope(_StrictModel):
     """Coverage of source needed for these questions, never the whole course."""
 
     source_coverage: Literal["complete", "partial", "unknown"]
-    checked_source_pages: list[Annotated[int, Field(ge=1, strict=True)]]
+    checked_source_pages: list[Annotated[int, Field(ge=1, strict=True)] | SemanticSourcePage]
     checked_context_ids: list[Annotated[str, Field(pattern=r"^CTX-[0-9]+$")]]
     limitations: list[Nonblank]
 
     @model_validator(mode="after")
     def inspection_lists_are_unique(self) -> SemanticAuditScope:
-        if len(self.checked_source_pages) != len(set(self.checked_source_pages)):
+        page_keys = [
+            (None, page) if isinstance(page, int) else (page.source_id, page.page)
+            for page in self.checked_source_pages
+        ]
+        if len(page_keys) != len(set(page_keys)):
             raise ValueError("checked_source_pages must be unique")
         if len(self.checked_context_ids) != len(set(self.checked_context_ids)):
             raise ValueError("checked_context_ids must be unique")
@@ -71,6 +118,7 @@ class SemanticEvidenceLocator(_StrictModel):
     """An RFC 6901 pointer into a supplied snapshot, never an arbitrary file/URL."""
 
     artifact: Literal["quiz", "kc", "extraction", "context"]
+    source_id: Nonblank | None = None
     pointer: str
     quote: Nonblank | None
 
@@ -80,7 +128,16 @@ class SemanticEvidenceLocator(_StrictModel):
             r"~(?:[^01]|$)", self.pointer
         ):
             raise ValueError("evidence pointer must use RFC 6901 syntax")
+        if self.artifact != "extraction" and self.source_id is not None:
+            raise ValueError("source_id is valid only for an Extraction locator")
         return self
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if self.source_id is None and "source_id" not in self.model_fields_set:
+            result.pop("source_id", None)
+        return result
 
 
 class SemanticIssue(_StrictModel):
@@ -130,21 +187,119 @@ class QuizSemanticAudit(_StrictModel):
         ids = [question.question_id for question in self.questions]
         if len(ids) != len(set(ids)):
             raise ValueError("semantic review must contain each question exactly once")
+        bundle_mode = self.source_ref.source_bundle_sha256 is not None
+        for page in self.scope.checked_source_pages:
+            source_qualified = isinstance(page, SemanticSourcePage)
+            if bundle_mode != source_qualified:
+                raise ValueError(
+                    "bundle review pages require source_id; single-source pages must stay legacy"
+                )
+        for question in self.questions:
+            for criterion in CRITERIA:
+                for issue in getattr(question, criterion).issues:
+                    for locator in issue.locators:
+                        if locator.artifact != "extraction":
+                            continue
+                        if bundle_mode and locator.source_id is None:
+                            raise ValueError("bundle Extraction issue locators require source_id")
+                        if not bundle_mode and locator.source_id is not None:
+                            raise ValueError(
+                                "single-source Extraction issue locators must not add source_id"
+                            )
         return self
+
+
+@dataclass(frozen=True)
+class SemanticReviewPromptPackage:
+    components: dict[str, str]
+    instructions: str
+    output_schema: dict[str, Any]
+    worked_examples: tuple[WorkedExample, ...]
+    manifest: dict[str, Any]
+
+    @property
+    def lineage(self) -> dict[str, Any]:
+        return self.manifest
 
 
 def semantic_review_schema() -> dict[str, Any]:
     """Native agent schema: all judgments and nullable provenance are explicit."""
 
-    return QuizSemanticAudit.model_json_schema()
+    schema = QuizSemanticAudit.model_json_schema()
+
+    def make_required(node: Any) -> None:
+        if isinstance(node, dict):
+            node.pop("default", None)
+            if node.get("type") == "object":
+                node["additionalProperties"] = False
+                node["required"] = list(node.get("properties", {}))
+            for value in node.values():
+                make_required(value)
+        elif isinstance(node, list):
+            for value in node:
+                make_required(value)
+
+    make_required(schema)
+    return schema
+
+
+def load_semantic_review_prompt_package(
+    prompt_dir: Path = DEFAULT_PROMPT_DIR,
+    *,
+    examples_dir: Path = DEFAULT_EXAMPLES_DIR,
+) -> SemanticReviewPromptPackage:
+    """Load ordered review instructions, schema, and neutral worked examples."""
+
+    texts = {
+        name: (prompt_dir / f"{name}.md").read_text(encoding="utf-8") for name in PROMPT_COMPONENTS
+    }
+    output_schema = semantic_review_schema()
+    components: dict[str, Any] = {
+        name: {
+            "filename": f"{name}.md",
+            "sha256": hashlib.sha256(content.encode()).hexdigest(),
+            "content": content,
+        }
+        for name, content in texts.items()
+    }
+    schema_bytes = json.dumps(output_schema, ensure_ascii=False, sort_keys=True).encode()
+    components["output_schema"] = {
+        "source": "learning_authoring.quiz_semantics.semantic_review_schema",
+        "schema_version": "quiz-semantic-audit.v1",
+        "sha256": hashlib.sha256(schema_bytes).hexdigest(),
+        "content": output_schema,
+    }
+    suite = load_worked_example_suite(
+        examples_dir,
+        expected_stage="quiz-review",
+        expected_contract_version="quiz-semantic-audit.v1",
+    )
+    components["worked_examples"] = worked_examples_component(
+        suite,
+        filename=f"{examples_dir.name}/manifest.json",
+    )
+    package_bytes = json.dumps(components, ensure_ascii=False, sort_keys=True).encode()
+    return SemanticReviewPromptPackage(
+        components=texts,
+        instructions="\n\n".join(texts[name] for name in PROMPT_COMPONENTS),
+        output_schema=output_schema,
+        worked_examples=suite.examples,
+        manifest={
+            "package_version": "quiz-semantic-review-prompt.v1",
+            "instruction_order": list(PROMPT_COMPONENTS),
+            "structured_output_component": "output_schema",
+            "worked_examples_component": "worked_examples",
+            "worked_example_order": list(suite.example_order),
+            "package_sha256": hashlib.sha256(package_bytes).hexdigest(),
+            "components": components,
+        },
+    )
 
 
 def load_semantic_review_prompt(prompt_dir: Path = DEFAULT_PROMPT_DIR) -> dict[str, str]:
-    """Load the small, ordered prompt package; no provider or run filesystem work."""
+    """Compatibility wrapper returning only ordered instruction components."""
 
-    return {
-        name: (prompt_dir / f"{name}.md").read_text(encoding="utf-8") for name in PROMPT_COMPONENTS
-    }
+    return dict(load_semantic_review_prompt_package(prompt_dir).components)
 
 
 def _payload(value: BaseModel | Mapping[str, Any]) -> dict[str, Any]:
@@ -178,9 +333,14 @@ def _question_map(quiz: BaseModel | Mapping[str, Any]) -> dict[str, dict[str, An
     return result
 
 
-def _citation_requirements(questions: Mapping[str, dict[str, Any]]) -> tuple[set[int], set[str]]:
+SourcePageKey = tuple[str | None, int]
+
+
+def _citation_requirements(
+    questions: Mapping[str, dict[str, Any]],
+) -> tuple[set[SourcePageKey], set[str]]:
     pages = {
-        reference["page"]
+        (reference.get("source_id"), reference["page"])
         for question in questions.values()
         for reference in question.get("evidence_refs", [])
     }
@@ -221,14 +381,30 @@ def _check_question_coverage(report: QuizSemanticAudit, quiz: dict[str, Any]) ->
 
 
 def _check_source_identity(report: QuizSemanticAudit, quiz: dict[str, Any]) -> None:
-    quiz_source = quiz.get("source_ref", {})
+    quiz_source = QuizSourceRef.model_validate(quiz.get("source_ref", {}))
     for name, quiz_name in (
         ("kc_set_sha256", "kc_set_sha256"),
         ("source_sha256", "extraction_source_sha256"),
+        ("source_bundle_sha256", "source_bundle_sha256"),
         ("authoring_context_sha256", "authoring_context_sha256"),
     ):
-        if getattr(report.source_ref, name) != quiz_source.get(quiz_name):
+        if getattr(report.source_ref, name) != getattr(quiz_source, quiz_name):
             raise ValueError(f"semantic review {name} does not match the frozen Quiz")
+    bundle_mode = quiz_source.source_bundle_sha256 is not None
+    for question in _question_map(quiz).values():
+        for reference in question.get("evidence_refs", []):
+            source_qualified = isinstance(reference.get("source_id"), str) and bool(
+                reference["source_id"].strip()
+            )
+            if bundle_mode != source_qualified:
+                raise ValueError("frozen Quiz contains ambiguous PDF evidence lineage")
+
+
+def _checked_page_keys(scope: SemanticAuditScope) -> set[SourcePageKey]:
+    return {
+        (None, page) if isinstance(page, int) else (page.source_id, page.page)
+        for page in scope.checked_source_pages
+    }
 
 
 def validate_semantic_audit(
@@ -269,7 +445,7 @@ def validate_semantic_audit(
     _check_source_identity(parsed, quiz_payload)
     _check_question_coverage(parsed, quiz_payload)
     required_pages, required_contexts = _citation_requirements(_question_map(quiz_payload))
-    checked_pages = set(parsed.scope.checked_source_pages)
+    checked_pages = _checked_page_keys(parsed.scope)
     checked_contexts = set(parsed.scope.checked_context_ids)
     if parsed.scope.source_coverage == "complete" and (
         required_pages - checked_pages or required_contexts - checked_contexts
@@ -279,8 +455,22 @@ def validate_semantic_audit(
     supplied = dict(artifacts or {})
     supplied["quiz"] = quiz_payload
     extraction = supplied.get("extraction")
-    if isinstance(extraction, Mapping) and "pages" in extraction:
-        available_pages = {page["page_number"] for page in extraction["pages"]}
+    bundle_mode = parsed.source_ref.source_bundle_sha256 is not None
+    if bundle_mode and isinstance(extraction, Mapping):
+        available_pages = {
+            (source_id, page["page_number"])
+            for source_id, snapshot in extraction.items()
+            if isinstance(source_id, str)
+            and isinstance(snapshot, Mapping)
+            and isinstance(snapshot.get("pages"), list)
+            for page in snapshot["pages"]
+        }
+        if checked_pages - available_pages:
+            raise ValueError(
+                "semantic review claims a source page outside the supplied bundle snapshots"
+            )
+    elif not bundle_mode and isinstance(extraction, Mapping) and "pages" in extraction:
+        available_pages = {(None, page["page_number"]) for page in extraction["pages"]}
         if checked_pages - available_pages:
             raise ValueError("semantic review claims a page outside the supplied source snapshot")
     # The context snapshot can be a full manifest or a list of cited snippets.
@@ -302,7 +492,14 @@ def validate_semantic_audit(
                         raise ValueError(
                             f"missing evidence artifact for locator: {locator.artifact}"
                         )
-                    located = _resolve_pointer(supplied[locator.artifact], locator.pointer)
+                    snapshot = supplied[locator.artifact]
+                    if locator.artifact == "extraction" and bundle_mode:
+                        if not isinstance(snapshot, Mapping) or locator.source_id not in snapshot:
+                            raise ValueError(
+                                "semantic Extraction locator references an unknown bundle source"
+                            )
+                        snapshot = snapshot[locator.source_id]
+                    located = _resolve_pointer(snapshot, locator.pointer)
                     if locator.quote is not None and (
                         not isinstance(located, str) or locator.quote not in located
                     ):
@@ -318,7 +515,7 @@ def _scope_limitations(report: QuizSemanticAudit, quiz: dict[str, Any] | None) -
         reasons.append("Required source coverage is incomplete or unknown.")
     if quiz is not None:
         pages, contexts = _citation_requirements(_question_map(quiz))
-        if pages - set(report.scope.checked_source_pages):
+        if pages - _checked_page_keys(report.scope):
             reasons.append("Some cited PDF pages were not declared inspected.")
         if contexts - set(report.scope.checked_context_ids):
             reasons.append("Some cited lecturer context was not declared inspected.")

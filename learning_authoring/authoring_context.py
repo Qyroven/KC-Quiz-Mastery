@@ -12,12 +12,15 @@ import mimetypes
 import re
 from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from learning_authoring.artifacts import read_json, sha256_bytes, write_bytes, write_json
 from learning_authoring.contracts import SourceDescriptor
+
+if TYPE_CHECKING:
+    from learning_authoring.source_bundle import SourceBundle
 
 CONTEXT_SCHEMA_VERSION = "authoring-context.v1"
 CONTEXT_MANIFEST = "authoring-context.json"
@@ -30,6 +33,24 @@ class AuthoringContextSourceRef(BaseModel):
     source_id: str = Field(min_length=1)
     source_sha256: str = Field(pattern=SHA256_PATTERN)
     page_count: int = Field(ge=1)
+
+
+class AuthoringContextBundleRef(BaseModel):
+    """Bind context to an ordered source collection, never to inferred slide ordinals."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["source-bundle.v1"] = "source-bundle.v1"
+    source_bundle_sha256: str = Field(pattern=SHA256_PATTERN)
+    sources: list[AuthoringContextSourceRef] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def sources_are_unique(self) -> AuthoringContextBundleRef:
+        ids = [source.source_id for source in self.sources]
+        hashes = [source.source_sha256 for source in self.sources]
+        if len(ids) != len(set(ids)) or len(hashes) != len(set(hashes)):
+            raise ValueError("bundle context contains duplicate source identities")
+        return self
 
 
 class AuthoringContextItem(BaseModel):
@@ -82,9 +103,7 @@ def _context_digest(payload: dict[str, Any]) -> str:
 
     bound = {key: value for key, value in payload.items() if key != "sha256"}
     return sha256_bytes(
-        json.dumps(bound, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
+        json.dumps(bound, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     )
 
 
@@ -94,7 +113,7 @@ class AuthoringContext(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     schema_version: Literal["authoring-context.v1"] = CONTEXT_SCHEMA_VERSION
-    source_ref: AuthoringContextSourceRef
+    source_ref: AuthoringContextSourceRef | AuthoringContextBundleRef
     items: list[AuthoringContextItem] = Field(min_length=1)
     sha256: str = Field(pattern=SHA256_PATTERN)
 
@@ -110,6 +129,8 @@ class AuthoringContext(BaseModel):
     def validate_against_source(self, source: SourceDescriptor) -> None:
         # Check again even for an already parsed model: nested lists are mutable.
         self.validate_integrity()
+        if not isinstance(self.source_ref, AuthoringContextSourceRef):
+            raise ValueError("bundle-bound authoring context cannot be used as one-PDF context")
         if self.source_ref.source_sha256 != source.sha256:
             raise ValueError("authoring context source SHA-256 does not match the PDF")
         if self.source_ref.source_id != source.source_id:
@@ -117,13 +138,42 @@ class AuthoringContext(BaseModel):
         if self.source_ref.page_count != source.page_count:
             raise ValueError("authoring context page count does not match the PDF")
 
+    def validate_against_bundle(self, bundle: SourceBundle) -> None:
+        """Verify exact ordered bundle identity without inferring cross-PDF page mappings."""
+
+        self.validate_integrity()
+        if not isinstance(self.source_ref, AuthoringContextBundleRef):
+            raise ValueError("one-PDF authoring context cannot be used as bundle context")
+        if self.source_ref.source_bundle_sha256 != bundle.bundle_sha256:
+            raise ValueError("authoring context source-bundle SHA-256 does not match")
+        expected = [
+            AuthoringContextSourceRef(
+                source_id=entry.source.source_id,
+                source_sha256=entry.source.sha256,
+                page_count=entry.source.page_count,
+            )
+            for entry in bundle.sources
+        ]
+        if self.source_ref.sources != expected:
+            raise ValueError("authoring context ordered source identities do not match bundle")
+
 
 def _decode_text(data: bytes) -> tuple[str | None, str | None]:
     # Some PDFs consist entirely of ASCII. Do not mistake their container bytes
     # (or other common binary containers) for a lecturer's plain-text notes.
     binary_signatures = (
-        b"%PDF-", b"PK\x03\x04", b"PK\x05\x06", b"\x89PNG", b"\xff\xd8\xff",
-        b"GIF87a", b"GIF89a", b"RIFF", b"ID3", b"\x1f\x8b", b"II*\x00", b"MM\x00*",
+        b"%PDF-",
+        b"PK\x03\x04",
+        b"PK\x05\x06",
+        b"\x89PNG",
+        b"\xff\xd8\xff",
+        b"GIF87a",
+        b"GIF89a",
+        b"RIFF",
+        b"ID3",
+        b"\x1f\x8b",
+        b"II*\x00",
+        b"MM\x00*",
     )
     if data.startswith(binary_signatures):
         return None, None
@@ -154,9 +204,12 @@ def _media_type(filename: str | None, data: bytes, text: str | None) -> str:
         return "image/jpeg"
     if text is not None:
         # A readable text file can have any extension (including none).
-        return guessed if guessed and (
-            guessed.startswith("text/") or guessed in {"application/json", "application/xml"}
-        ) else "text/plain"
+        return (
+            guessed
+            if guessed
+            and (guessed.startswith("text/") or guessed in {"application/json", "application/xml"})
+            else "text/plain"
+        )
     return guessed or "application/octet-stream"
 
 
@@ -213,24 +266,46 @@ def load_authoring_context(run_dir: Path, source: SourceDescriptor) -> Authoring
     return context
 
 
-def prepare_authoring_context(
+def load_bundle_authoring_context(
     run_dir: Path,
-    source: SourceDescriptor,
-    context_files: Sequence[Path | str] = (),
-    context_texts: Sequence[str] = (),
+    bundle: SourceBundle,
 ) -> AuthoringContext | None:
-    """Freeze optional free-form inputs; explicit replacements keep all history.
-
-    An omitted input list reuses existing context. A changed explicit input list
-    changes KC/Quiz lineage, not Extraction. No note syntax, anchors, page count,
-    extension, or semantic interpretation is required from the lecturer.
-    """
+    """Load context bound to a complete source bundle and verify copied raw bytes."""
 
     output = Path(run_dir).expanduser().resolve()
-    if not context_files and not context_texts:
-        return load_authoring_context(output, source)
     manifest = output / CONTEXT_MANIFEST
-    existing = load_authoring_context(output, source) if manifest.exists() else None
+    if not manifest.exists():
+        if manifest.is_symlink() or (output / "authoring-context").exists():
+            raise ValueError("incomplete authoring context; prepare again with original inputs")
+        return None
+    if manifest.is_symlink() or not manifest.is_file():
+        raise ValueError("authoring context manifest must be a regular file")
+    context = AuthoringContext.model_validate(read_json(manifest))
+    context.validate_against_bundle(bundle)
+    snapshot = output / "authoring-context" / "manifests" / f"{context.sha256}.json"
+    if (
+        snapshot.is_symlink()
+        or not snapshot.resolve().is_relative_to(output)
+        or not snapshot.is_file()
+        or snapshot.read_bytes() != manifest.read_bytes()
+    ):
+        raise ValueError("authoring context manifest differs from its immutable snapshot")
+    for item in context.items:
+        _verify_raw(output, item)
+    return context
+
+
+def _freeze_context_inputs(
+    output: Path,
+    *,
+    source_ref: AuthoringContextSourceRef | AuthoringContextBundleRef,
+    context_files: Sequence[Path | str],
+    context_texts: Sequence[str],
+    existing: AuthoringContext | None,
+) -> AuthoringContext:
+    """Shared lossless storage; source/bundle binding is supplied by code, not inferred."""
+
+    manifest = output / CONTEXT_MANIFEST
     if manifest.is_symlink():
         raise ValueError("authoring context manifest must be a regular file")
 
@@ -253,33 +328,29 @@ def prepare_authoring_context(
         suffix = path.suffix if path else ".txt"
         if not re.fullmatch(r"\.[A-Za-z0-9]{1,16}", suffix):
             suffix = ".txt" if text is not None else ".bin"
-        items.append(AuthoringContextItem(
-            context_id=f"CTX-{index:03d}",
-            origin="file" if path else "inline_text",
-            original_path=str(path) if path else None,
-            filename=path.name if path else None,
-            raw_path=f"authoring-context/raw/{digest}{suffix}",
-            media_type=_media_type(path.name if path else None, data, text),
-            sha256=digest,
-            size_bytes=len(data),
-            text=text,
-            encoding=encoding,
-        ))
+        items.append(
+            AuthoringContextItem(
+                context_id=f"CTX-{index:03d}",
+                origin="file" if path else "inline_text",
+                original_path=str(path) if path else None,
+                filename=path.name if path else None,
+                raw_path=f"authoring-context/raw/{digest}{suffix}",
+                media_type=_media_type(path.name if path else None, data, text),
+                sha256=digest,
+                size_bytes=len(data),
+                text=text,
+                encoding=encoding,
+            )
+        )
     payload = {
         "schema_version": CONTEXT_SCHEMA_VERSION,
-        "source_ref": {
-            "source_id": source.source_id,
-            "source_sha256": source.sha256,
-            "page_count": source.page_count,
-        },
+        "source_ref": source_ref.model_dump(mode="json"),
         "items": [item.model_dump(mode="json") for item in items],
     }
     context = AuthoringContext.model_validate({**payload, "sha256": _context_digest(payload)})
     if existing is not None and existing.sha256 == context.sha256:
         return existing
 
-    # Check every prospective destination before writing; never repair or replace
-    # a raw artifact that has been altered, even during an interrupted prepare.
     for item in items:
         target = _raw_target(output, item)
         if target.exists():
@@ -295,6 +366,71 @@ def prepare_authoring_context(
             write_bytes(target, data)
     if not snapshot.exists():
         write_json(snapshot, context.model_dump(mode="json"))
-    # The only mutable pointer is the current manifest, never a historical input.
     write_bytes(manifest, snapshot.read_bytes())
+    return context
+
+
+def prepare_authoring_context(
+    run_dir: Path,
+    source: SourceDescriptor,
+    context_files: Sequence[Path | str] = (),
+    context_texts: Sequence[str] = (),
+) -> AuthoringContext | None:
+    """Freeze optional free-form inputs; explicit replacements keep all history.
+
+    An omitted input list reuses existing context. A changed explicit input list
+    changes KC/Quiz lineage, not Extraction. No note syntax, anchors, page count,
+    extension, or semantic interpretation is required from the lecturer.
+    """
+
+    output = Path(run_dir).expanduser().resolve()
+    if not context_files and not context_texts:
+        return load_authoring_context(output, source)
+    manifest = output / CONTEXT_MANIFEST
+    existing = load_authoring_context(output, source) if manifest.exists() else None
+    _freeze_context_inputs(
+        output,
+        source_ref=AuthoringContextSourceRef(
+            source_id=source.source_id,
+            source_sha256=source.sha256,
+            page_count=source.page_count,
+        ),
+        context_files=context_files,
+        context_texts=context_texts,
+        existing=existing,
+    )
     return load_authoring_context(output, source)
+
+
+def prepare_bundle_authoring_context(
+    run_dir: Path,
+    bundle: SourceBundle,
+    context_files: Sequence[Path | str] = (),
+    context_texts: Sequence[str] = (),
+) -> AuthoringContext | None:
+    """Freeze arbitrary lecturer context against an ordered 1..N PDF bundle."""
+
+    output = Path(run_dir).expanduser().resolve()
+    if not context_files and not context_texts:
+        return load_bundle_authoring_context(output, bundle)
+    manifest = output / CONTEXT_MANIFEST
+    existing = load_bundle_authoring_context(output, bundle) if manifest.exists() else None
+    source_ref = AuthoringContextBundleRef(
+        source_bundle_sha256=bundle.bundle_sha256,
+        sources=[
+            AuthoringContextSourceRef(
+                source_id=entry.source.source_id,
+                source_sha256=entry.source.sha256,
+                page_count=entry.source.page_count,
+            )
+            for entry in bundle.sources
+        ],
+    )
+    _freeze_context_inputs(
+        output,
+        source_ref=source_ref,
+        context_files=context_files,
+        context_texts=context_texts,
+        existing=existing,
+    )
+    return load_bundle_authoring_context(output, bundle)

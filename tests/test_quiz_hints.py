@@ -6,6 +6,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
+from learning_authoring.legacy_api.requests import build_quiz_request
 from learning_authoring.quiz import QuizConfig, build_quiz_input, load_quiz_prompt_package
 from learning_authoring.quiz_contracts import (
     CURRENT_QUIZ_INPUT_VERSION,
@@ -16,7 +17,6 @@ from learning_authoring.quiz_contracts import (
     QuizHint,
     quiz_output_schema,
 )
-from learning_authoring.requests import build_quiz_request
 from tests.test_quiz import KC_SHA256, kc_set, quiz_output
 from tests.test_quiz_adaptive import adaptive_output
 

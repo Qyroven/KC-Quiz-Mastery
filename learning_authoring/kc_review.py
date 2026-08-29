@@ -12,6 +12,7 @@ from learning_authoring.authoring_context import load_authoring_context
 from learning_authoring.contracts import ExtractedSource, SourceDescriptor
 from learning_authoring.kc import load_approved_extraction
 from learning_authoring.kc_contracts import ProposedKCSet
+from learning_authoring.kc_diagnostics import kc_review_diagnostics
 from learning_authoring.review import build_review
 
 
@@ -35,6 +36,7 @@ def _candidate_metrics(
         else 0.0
     )
     usage = run_metrics.get("usage") or {}
+    diagnostics = kc_review_diagnostics(proposed)
     return {
         "model": metadata.get("model", "unknown"),
         "contract_valid": bool(run_metrics.get("contract_valid")),
@@ -52,6 +54,15 @@ def _candidate_metrics(
         "conditional_claim_rate": observable_rate,
         "warnings": len(proposed.generation_warnings),
         "uncovered_items": len(proposed.uncovered_content),
+        "learning_pages_without_kcs": diagnostics[
+            "learning_content_pages_without_kc_count"
+        ],
+        "repeated_uncovered_reasons": len(
+            diagnostics["repeated_uncovered_reason_groups"]
+        ),
+        "repeated_evidence_supports": len(
+            diagnostics["repeated_evidence_support_groups"]
+        ),
         "input_tokens": usage.get("input_tokens"),
         "cached_input_tokens": usage.get("cached_input_tokens"),
         "output_tokens": usage.get("output_tokens"),
@@ -243,7 +254,7 @@ h1,h2,h3,p{{margin:0}}h1{{font-size:21px}}button,a{{font:inherit}}a{{color:var(-
 const metricsNode=document.getElementById('metrics'),qualityNode=document.getElementById('quality'),searchInput=document.getElementById('search'),expandButton=document.getElementById('expand'),collapseButton=document.getElementById('collapse');
 const esc=s=>String(s??'').replace(/[&<>\"]/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}}[c]));
 const fmt=v=>v==null?'—':typeof v==='number'?Number.isInteger(v)?v.toLocaleString():v.toFixed(3):v;
-const metricRows=[['Contract valid','contract_valid'],['Leaf KCs','leaf_kcs'],['Groups','groups'],['Pages with KCs','pages_with_kcs'],['PDF evidence records','evidence_records'],['Lecturer context evidence','context_evidence_records'],['Context-only KCs','context_only_kcs'],['Referenced source blocks','referenced_source_blocks'],['Block reference rate','block_reference_rate','pct'],['Multi-page KCs','multi_page_kcs'],['Conditional claim rate','conditional_claim_rate','pct'],['Warnings','warnings'],['Uncovered items','uncovered_items'],['Input tokens','input_tokens'],['Cached input tokens','cached_input_tokens'],['Output tokens','output_tokens'],['Reasoning tokens','reasoning_tokens'],['Total tokens','total_tokens'],['Model time (s)','model_seconds'],['Reported cost (USD)','cost_usd']];
+const metricRows=[['Contract valid','contract_valid'],['Leaf KCs','leaf_kcs'],['Groups','groups'],['Pages with KCs','pages_with_kcs'],['Learning pages without KC','learning_pages_without_kcs'],['PDF evidence records','evidence_records'],['Lecturer context evidence','context_evidence_records'],['Context-only KCs','context_only_kcs'],['Referenced source blocks','referenced_source_blocks'],['Block reference rate','block_reference_rate','pct'],['Multi-page KCs','multi_page_kcs'],['Conditional claim rate','conditional_claim_rate','pct'],['Warnings','warnings'],['Uncovered items','uncovered_items'],['Repeated uncovered reasons','repeated_uncovered_reasons'],['Repeated evidence supports','repeated_evidence_supports'],['Input tokens','input_tokens'],['Cached input tokens','cached_input_tokens'],['Output tokens','output_tokens'],['Reasoning tokens','reasoning_tokens'],['Total tokens','total_tokens'],['Model time (s)','model_seconds'],['Reported cost (USD)','cost_usd']];
 metricsNode.innerHTML='<table class="metric-table"><thead><tr><th>Metric</th>'+DATA.candidates.map(c=>`<th>${{esc(c.model)}}</th>`).join('')+'</tr></thead><tbody>'+metricRows.map(([label,key,kind])=>'<tr><td>'+label+'</td>'+DATA.candidates.map(c=>`<td>${{kind==='pct'?(100*(c.metrics[key]||0)).toFixed(1)+'%':fmt(c.metrics[key])}}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
 if(DATA.evaluation){{const e=DATA.evaluation;const ids=['source_grounding','kc_eligibility','granularity','observable_claim','assessment_boundary','coverage_accountability','grouping_coherence','total'];qualityNode.innerHTML=`<h2 style="margin-top:22px">Locked-rubric quality assessment</h2><p class="muted">Quality excludes model identity, speed, tokens, cost, and raw KC count by itself. Raw outputs were not edited.</p><table class="metric-table"><thead><tr><th>Criterion</th>${{DATA.candidates.map(c=>`<th>${{esc(c.model)}}</th>`).join('')}}</tr></thead><tbody>${{ids.map(id=>`<tr><td>${{esc(id.replaceAll('_',' '))}}</td>${{DATA.candidates.map(c=>`<td>${{fmt(e.scores[c.model]?.[id])}}</td>`).join('')}}</tr>`).join('')}}</tbody></table><div class="box" style="margin-top:12px"><b>Recommendation: ${{esc(e.verdict.recommended_candidate)}}</b><br>${{esc(e.verdict.reason)}}<br><span class="warning">Human review is still required.</span></div>`}}
 function evidence(e){{return `<div class="evidence"><b>${{esc(e.evidence_id)}}</b> · <a href="extraction-review.html#${{e.page}}">Page ${{e.page}}</a> · ${{e.block_ids.map(x=>`<span class="badge">${{esc(x)}}</span>`).join('')}}<div>${{esc(e.supports)}}</div><div class="muted">${{esc(e.description)}}</div></div>`}}

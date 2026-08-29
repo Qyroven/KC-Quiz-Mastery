@@ -172,13 +172,19 @@ def _forbid_provider_use(monkeypatch) -> None:
     def forbidden(*args, **kwargs):
         raise AssertionError("agent-session path must not construct a client or call a provider")
 
-    monkeypatch.setattr("learning_authoring.provider.build_client", forbidden)
-    monkeypatch.setattr("learning_authoring.gateway.execute_response", forbidden)
-    for module in ("extractor", "kc", "quiz"):
+    monkeypatch.setattr("learning_authoring.legacy_api.provider.build_client", forbidden)
+    monkeypatch.setattr("learning_authoring.legacy_api.gateway.execute_response", forbidden)
+    for module in ("kc", "quiz"):
         monkeypatch.setattr(f"learning_authoring.{module}.build_client", forbidden, raising=False)
         monkeypatch.setattr(
             f"learning_authoring.{module}.execute_response", forbidden, raising=False,
         )
+    monkeypatch.setattr(
+        "learning_authoring.legacy_api.extractor.build_client", forbidden, raising=False
+    )
+    monkeypatch.setattr(
+        "learning_authoring.legacy_api.extractor.execute_response", forbidden, raising=False
+    )
 
 
 def test_agent_schema_defaults_to_slots_but_still_emits_legacy_contract() -> None:
@@ -231,12 +237,31 @@ def test_agent_extraction_uses_no_provider_and_preserves_exact_candidate_bytes(
     initialized = agent_init(pdf, run_dir)
     task = prepare_agent_task("extraction", run_dir)
     raw = _write_raw(candidate, _extraction_candidate())
-    imported = agent_import("extraction", run_dir, candidate)
+    imported = agent_import(
+        "extraction",
+        run_dir,
+        candidate,
+        task_package=Path(task["task_package"]),
+    )
 
     artifacts = RunArtifacts(run_dir)
     assert initialized["provider_api_calls"] == 0
     task_package = read_json(Path(task["task_package"]))
     assert task_package["instructions"]
+    assert task["read_before_authoring"] is True
+    rendered = Path(task["agent_readable_task"]).read_text(encoding="utf-8")
+    assert task_package["prompt_delivery_sha256"] in rendered
+    assert task_package["worked_examples"][0]["example_id"] in rendered
+    assert task_package["output_policy"] == {
+        "format": "JSON only",
+        "human_review_required": True,
+        "approval_created_by_import": False,
+        "preserve_candidate_bytes": True,
+        "semantic_candidate_authorship": "direct_host_agent_reasoning",
+        "course_specific_executable_generator_forbidden": True,
+        "fixed_semantic_counts_forbidden_unless_runtime_supplies_them": True,
+        "all_run_specific_values_must_be_derived_from_the_frozen_input": True,
+    }
     assert task_package["input_boundary"]["delivery"] == "native_pdf_primary"
     assert task_package["input_boundary"]["page_image_policy"]["bulk_load_forbidden"] is True
     assert Path(imported["raw_candidate"]).read_bytes() == raw
@@ -270,7 +295,13 @@ def test_agent_kc_and_quiz_demo_stay_unapproved_and_preserve_raw_bytes(
     write_blank_pdf(pdf)
     agent_init(pdf, run_dir)
     _write_raw(extraction_path, _extraction_candidate())
-    agent_import("extraction", run_dir, extraction_path)
+    extraction_task = prepare_agent_task("extraction", run_dir)
+    agent_import(
+        "extraction",
+        run_dir,
+        extraction_path,
+        task_package=Path(extraction_task["task_package"]),
+    )
     source = ExtractedSource.model_validate(read_json(run_dir / "extracted-source.proposed.json"))
 
     with pytest.raises(RuntimeError, match="approved extraction"):
@@ -285,7 +316,7 @@ def test_agent_kc_and_quiz_demo_stay_unapproved_and_preserve_raw_bytes(
         "kc",
         run_dir,
         kc_path,
-        allow_proposed_extraction_demo=True,
+        task_package=Path(kc_task["task_package"]),
     )
 
     assert Path(kc_import["raw_candidate"]).read_bytes() == kc_raw
@@ -312,8 +343,7 @@ def test_agent_kc_and_quiz_demo_stay_unapproved_and_preserve_raw_bytes(
         "quiz",
         run_dir,
         quiz_path,
-        selected_kc_ids=("KC-001",),
-        variants_per_kc=2,
+        task_package=Path(quiz_task["task_package"]),
     )
 
     quiz_artifacts = RunArtifacts(run_dir / "quiz")
@@ -322,6 +352,17 @@ def test_agent_kc_and_quiz_demo_stay_unapproved_and_preserve_raw_bytes(
     ]["variants_per_kc"] == 2
     assert Path(quiz_import["raw_candidate"]).read_bytes() == quiz_raw
     assert quiz_artifacts.quiz_raw_output.read_bytes() == quiz_raw
+    form_audit = read_json(quiz_artifacts.quiz_form_audit)
+    assert quiz_import["form_audit"] == str(quiz_artifacts.quiz_form_audit)
+    assert quiz_import["quality_revision_recommended"] == form_audit[
+        "fresh_candidate_guidance"
+    ]["recommended"]
+    assert quiz_import["quality_revision_trigger_codes"] == form_audit[
+        "fresh_candidate_guidance"
+    ]["trigger_codes"]
+    assert quiz_import["next_quality_action"] == form_audit[
+        "fresh_candidate_guidance"
+    ]["next_action"]
     assert read_json(quiz_artifacts.quiz_metrics)["provider_api_calls"] == 0
     assert read_json(quiz_artifacts.quiz_metrics)["usage"] is None
     assert (run_dir / "quiz-review.html").is_file()
@@ -338,11 +379,17 @@ def test_invalid_agent_candidate_is_archived_before_contract_rejection(
     candidate = tmp_path / "invalid.json"
     write_blank_pdf(pdf)
     agent_init(pdf, run_dir)
+    task = prepare_agent_task("extraction", run_dir)
     raw = b'{"schema_version":"extracted-source.v2","pages":[]}\n'
     candidate.write_bytes(raw)
 
     with pytest.raises(ValidationError):
-        agent_import("extraction", run_dir, candidate)
+        agent_import(
+            "extraction",
+            run_dir,
+            candidate,
+            task_package=Path(task["task_package"]),
+        )
 
     archived = list((run_dir / "agent-session" / "candidates").glob("extraction-*.json"))
     assert len(archived) == 1

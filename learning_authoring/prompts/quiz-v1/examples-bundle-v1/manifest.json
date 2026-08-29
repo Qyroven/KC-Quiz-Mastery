@@ -1,0 +1,13 @@
+{
+  "suite_version": "worked-example-suite.v1",
+  "stage": "quiz",
+  "contract_version": "quiz-batch.v3",
+  "example_order": [
+    "source-qualified-bundle-slot",
+    "source-qualified-near-miss-distractors"
+  ],
+  "examples": {
+    "source-qualified-bundle-slot": "source-qualified-bundle-slot.json",
+    "source-qualified-near-miss-distractors": "source-qualified-near-miss-distractors.json"
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "example_version": "worked-example.v1",
+  "example_id": "qualified-independent-capabilities",
+  "teaching_points": [
+    "Inventory capabilities per source before cross-source reconciliation.",
+    "Do not merge independent capabilities merely because both sources discuss one record family.",
+    "Keep every evidence locator source-qualified and derive fresh values from the current bundle."
+  ],
+  "illustrative_values_only": true,
+  "input": {
+    "source_bundle": {
+      "schema_version": "source-bundle.v1",
+      "sources": [
+        {
+          "run_ref": "sources/source-001",
+          "source_manifest_ref": "sources/source-001/source-manifest.json",
+          "source_manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "extraction_ref": "sources/source-001/extracted-source.proposed.json",
+          "extraction_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "extraction_status": "PROPOSED",
+          "source": {
+            "source_id": "sha256:1111111111111111",
+            "filename": "neutral-alpha.pdf",
+            "media_type": "application/pdf",
+            "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "page_count": 1
+          }
+        },
+        {
+          "run_ref": "sources/source-002",
+          "source_manifest_ref": "sources/source-002/source-manifest.json",
+          "source_manifest_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "extraction_ref": "sources/source-002/extracted-source.proposed.json",
+          "extraction_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "extraction_status": "PROPOSED",
+          "source": {
+            "source_id": "sha256:4444444444444444",
+            "filename": "neutral-beta.pdf",
+            "media_type": "application/pdf",
+            "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "page_count": 1
+          }
+        }
+      ],
+      "bundle_sha256": "f34b4637071e460f55768c35782ca8609007cd9de02b90ee4036274be53c0d39"
+    },
+    "payload": [
+      {
+        "schema_version": "extracted-source.v2",
+        "source": {
+          "source_id": "sha256:1111111111111111",
+          "filename": "neutral-alpha.pdf",
+          "media_type": "application/pdf",
+          "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "page_count": 1
+        },
+        "pages": [
+          {
+            "page_number": 1,
+            "role": "lesson",
+            "blocks": [
+              {
+                "block_id": "alpha-acceptance",
+                "kind": "text",
+                "content": "A Lumen record is accepted only when Marker North matches Marker South.",
+                "region": {"page": 1, "coordinate_system": "normalized_top_left", "localization_status": "located", "geometry": {"x": 0.1, "y": 0.2, "w": 0.8, "h": 0.2}},
+                "asset_refs": [], "relations": [], "attributes": {}, "uncertainties": []
+              }
+            ],
+            "reading_order": ["alpha-acceptance"],
+            "page_note": {"summary": "The source states an acceptance condition.", "explanation": null, "key_takeaways": ["Matching markers are required for acceptance."], "evidence_block_ids": ["alpha-acceptance"], "uncertainties": []},
+            "warnings": []
+          }
+        ],
+        "cross_page_relations": [], "warnings": []
+      },
+      {
+        "schema_version": "extracted-source.v2",
+        "source": {
+          "source_id": "sha256:4444444444444444",
+          "filename": "neutral-beta.pdf",
+          "media_type": "application/pdf",
+          "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "page_count": 1
+        },
+        "pages": [
+          {
+            "page_number": 1,
+            "role": "lesson",
+            "blocks": [
+              {
+                "block_id": "beta-recovery",
+                "kind": "text",
+                "content": "Before retrying a rejected Lumen record, archive the rejected version.",
+                "region": {"page": 1, "coordinate_system": "normalized_top_left", "localization_status": "located", "geometry": {"x": 0.1, "y": 0.2, "w": 0.8, "h": 0.2}},
+                "asset_refs": [], "relations": [], "attributes": {}, "uncertainties": []
+              }
+            ],
+            "reading_order": ["beta-recovery"],
+            "page_note": {"summary": "The source states a recovery step.", "explanation": null, "key_takeaways": ["Archive before retry."], "evidence_block_ids": ["beta-recovery"], "uncertainties": []},
+            "warnings": []
+          }
+        ],
+        "cross_page_relations": [], "warnings": []
+      }
+    ],
+    "authoring_context": null
+  },
+  "output": {
+    "source_ref": {
+      "schema_version": "source-bundle.v1",
+      "source_bundle_sha256": "f34b4637071e460f55768c35782ca8609007cd9de02b90ee4036274be53c0d39",
+      "authoring_context_sha256": null
+    },
+    "source_summary": "One source teaches an acceptance decision and the other teaches an independently demonstrable recovery procedure.",
+    "page_audit": [
+      {"source_id": "sha256:1111111111111111", "page": 1, "classification": "learning_content", "summary": "States the acceptance condition.", "kc_ids": ["KC-001"], "source_block_ids": ["alpha-acceptance"], "warning_codes": []},
+      {"source_id": "sha256:4444444444444444", "page": 1, "classification": "learning_content", "summary": "States the recovery procedure.", "kc_ids": ["KC-002"], "source_block_ids": ["beta-recovery"], "warning_codes": []}
+    ],
+    "kc_groups": [
+      {"group_id": "KCG-001", "name": "Lumen record handling", "description": "Decision and recovery capabilities for Lumen records.", "leaf_kc_ids": ["KC-001", "KC-002"]}
+    ],
+    "leaf_kcs": [
+      {
+        "kc_id": "KC-001", "group_id": "KCG-001", "name": "Decide whether a Lumen record is accepted", "semantic_form": "decision_rule",
+        "knowledge_description": "A Lumen record is accepted only when Marker North matches Marker South.",
+        "observable_claim": "Given the two marker values, the learner can decide whether the record is accepted.",
+        "assessment_boundary": {"included": ["Compare the two marker values", "Apply the acceptance condition"], "excluded": ["Prepare a rejected record for retry"]},
+        "source_evidence": [{"source_id": "sha256:1111111111111111", "evidence_id": "EVD-001", "page": 1, "block_ids": ["alpha-acceptance"], "description": "The first source states the acceptance condition.", "supports": "Acceptance requires matching markers."}],
+        "context_evidence": [], "warning_codes": [], "status": "PROPOSED"
+      },
+      {
+        "kc_id": "KC-002", "group_id": "KCG-001", "name": "Prepare a rejected Lumen record for retry", "semantic_form": "procedure",
+        "knowledge_description": "Archive the rejected version before retrying a Lumen record.",
+        "observable_claim": "Given a rejected record that will be retried, the learner can identify the required preparation step.",
+        "assessment_boundary": {"included": ["Archive the rejected version before retry"], "excluded": ["Decide whether marker values satisfy acceptance"]},
+        "source_evidence": [{"source_id": "sha256:4444444444444444", "evidence_id": "EVD-002", "page": 1, "block_ids": ["beta-recovery"], "description": "The second source states the preparation step required before retry.", "supports": "Archive a rejected version before retrying."}],
+        "context_evidence": [], "warning_codes": [], "status": "PROPOSED"
+      }
+    ],
+    "uncovered_content": [], "generation_warnings": [], "context_audit": []
+  }
+}

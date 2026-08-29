@@ -1,0 +1,13 @@
+{
+  "suite_version": "worked-example-suite.v1",
+  "stage": "kc",
+  "contract_version": "proposed-kc-set.v1",
+  "example_order": [
+    "independent-capabilities",
+    "primary-plus-context"
+  ],
+  "examples": {
+    "independent-capabilities": "independent-capabilities.json",
+    "primary-plus-context": "primary-plus-context.json"
+  }
+}

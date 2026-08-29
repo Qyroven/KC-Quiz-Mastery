@@ -13,6 +13,31 @@ AUDIT_VERSION = "extraction-audit.v5"
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 
 
+def validate_extraction_geometry(extracted: ExtractedSource) -> None:
+    """Reject malformed coordinates without treating unresolved geometry as an error.
+
+    A block may honestly remain ``unresolved``.  A non-empty geometry object that
+    lies outside the declared normalized coordinate system is different: it is a
+    contradictory machine-readable claim and must not enter the canonical
+    Extraction artifact.
+    """
+
+    invalid = [
+        {"page": page.page_number, "block_id": block.block_id}
+        for page in extracted.pages
+        for block in page.blocks
+        if source_region_geometry_state(block.region) == "invalid"
+    ]
+    if invalid:
+        preview = ", ".join(
+            f"page {row['page']} block {row['block_id']}" for row in invalid[:5]
+        )
+        suffix = f" (+{len(invalid) - 5} more)" if len(invalid) > 5 else ""
+        raise ValueError(
+            "Extraction contains invalid normalized geometry: " + preview + suffix
+        )
+
+
 def response_usage(raw: dict[str, Any]) -> dict[str, int]:
     usage = raw.get("usage") or {}
     input_details = usage.get("input_tokens_details") or {}

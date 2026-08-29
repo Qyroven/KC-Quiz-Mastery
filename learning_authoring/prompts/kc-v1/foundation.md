@@ -58,7 +58,9 @@ interchangeable evidence.
 
 A **Leaf KC** is a current-model unit for which the author can state a distinct
 knowledge description, observable claim, boundary, and source evidence. It is
-not claimed to be the universally smallest possible unit.
+not claimed to be the universally smallest possible unit. It represents one
+coherent observable capability, not a chapter outline or a convenient bundle of
+everything taught under one heading.
 
 A **KC Group** is an organizational container created after Leaf KCs are
 proposed. It supports navigation and review; it is not itself a Leaf KC.
@@ -70,6 +72,11 @@ can be learned or demonstrated separately, or their errors imply different
 knowledge gaps. Consider merging when they are paraphrases, one is only an
 instance of the other, or no meaningful task condition distinguishes them.
 When the source cannot settle the choice, preserve the uncertainty for humans.
+
+Shared vocabulary, adjacency, a common diagram, or membership in one workflow
+does not by itself justify a merge. If candidates require meaningfully different
+learner responses or would lead to different remediation after an error, retain
+them as separate Leaf KCs unless the source makes them inseparable.
 
 KC count is an outcome of this split/merge analysis, never a configured target.
 Compression is not coverage: retaining a topic name while dropping its taught

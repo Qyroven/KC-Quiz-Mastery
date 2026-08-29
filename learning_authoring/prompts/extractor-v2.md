@@ -53,6 +53,14 @@ representation available to the host, inspect that one page image; otherwise
 record the unresolved region and what could not be recovered. Do not quietly
 classify an uninspected information-bearing visual as decoration.
 
+Resolve instructional visual relationships independently for this PDF. A
+semantically similar explanation or visual in another PDF cannot resolve a
+missing edge, endpoint, label/value association, or internal layout here. For
+each unresolved instructional relationship, either inspect this page in
+isolation and encode what the source shows, or retain a page/block-scoped warning
+that names the relationship still missing. Do not mark it handled merely because
+another page or source teaches the same idea.
+
 For a directed diagram, preserve identifiable nodes and edges, including the
 actual start/end nodes, direction, and the label attached to each edge. Trace the
 line to its endpoint; proximity of a label or word is not proof of connection.
