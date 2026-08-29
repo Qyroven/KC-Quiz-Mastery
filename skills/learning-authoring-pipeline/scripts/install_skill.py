@@ -48,6 +48,8 @@ def _skill_source() -> Path:
     source = Path(__file__).resolve().parent.parent
     if not (source / "SKILL.md").is_file():
         raise RuntimeError(f"canonical skill is incomplete: {source}")
+    if not (source / "scripts" / "runtime" / "pyproject.toml").is_file():
+        raise RuntimeError(f"canonical skill runtime is incomplete: {source}")
     return source
 
 
@@ -76,6 +78,36 @@ def _timestamped_backup(destination: Path, label: str) -> Path:
     return candidate
 
 
+def _copy_ignore(source: Path):
+    """Exclude development-only and historical files from personal installations."""
+
+    runtime = (source / "scripts" / "runtime").resolve()
+
+    def ignore(directory: str, names: list[str]) -> set[str]:
+        current = Path(directory).resolve()
+        ignored = {
+            name
+            for name in names
+            if name in {
+                "__pycache__",
+                ".DS_Store",
+                ".venv",
+                ".pytest_cache",
+                ".ruff_cache",
+                "build",
+                "dist",
+            }
+            or name.endswith((".pyc", ".egg-info"))
+        }
+        if current == runtime:
+            ignored.update({"tests", "scripts", "showcase"} & set(names))
+        if current == runtime / "learning_authoring":
+            ignored.update({"legacy_api"} & set(names))
+        return ignored
+
+    return ignore
+
+
 def _install(source: Path, destination: Path, *, replace: bool, dry_run: bool) -> str:
     # Replace the discovery entry, never the target of an existing symlink.
     destination = destination.expanduser().absolute()
@@ -101,7 +133,7 @@ def _install(source: Path, destination: Path, *, replace: bool, dry_run: bool) -
             source,
             destination,
             symlinks=False,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"),
+            ignore=_copy_ignore(source),
         )
     except Exception as exc:
         incomplete = None

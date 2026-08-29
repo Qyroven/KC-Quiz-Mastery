@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Turn one or more PDFs plus optional lecturer context into reviewable Extraction, shared Knowledge Components, Quiz with hints, and a connected local portal using the active coding-agent subscription. Use for end-to-end authoring or review; never call a model-provider API.
 metadata:
   author: Qyroven
-  version: "2.2.0"
+  version: "2.3.0"
 ---
 
 # Learning Authoring Pipeline
@@ -69,12 +69,12 @@ are not automatic pause gates. Do not invent approval.
 
 ## Runtime
 
-Resolve one launcher and reuse it:
+The deterministic runtime is bundled with this skill at `scripts/runtime/`. Resolve one launcher
+and reuse it:
 
-1. repository `.venv/bin/learning-authoring`, or
-2. `uv run --project <repo> learning-authoring`, or
-3. installed `learning-authoring`, or
-4. `uvx --from git+https://github.com/Qyroven/KC-Quiz-Mastery.git learning-authoring`.
+1. `<skill>/scripts/runtime/.venv/bin/learning-authoring`, or
+2. `uv run --project <skill>/scripts/runtime learning-authoring`, or
+3. an already installed `learning-authoring` command from that same bundled runtime version.
 
 Check `learning-authoring --help`. The main CLI must expose `agent-init`, `agent-bundle`,
 `agent-context`, `agent-task`, `agent-import`, review builders, and portal builders. It must not

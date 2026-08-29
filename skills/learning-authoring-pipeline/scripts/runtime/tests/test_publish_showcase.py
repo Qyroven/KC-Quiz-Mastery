@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from scripts.publish_showcase import (
+from learning_authoring.product.showcase import (
     DEFAULT_REVIEW_FILES,
+    DEFAULT_TEMPLATE_DIR,
     MANIFEST_NAME,
     PublishSafetyError,
     ReviewBackendConfig,
@@ -288,7 +289,7 @@ def test_build_showcase_derives_non_45_metadata_and_uses_explicit_reviews(
     manifest = build_showcase(
         run_dir,
         output_dir,
-        template_dir=REPOSITORY_ROOT / "showcase",
+        template_dir=DEFAULT_TEMPLATE_DIR,
         review_files=review_files,
     )
 
@@ -438,7 +439,7 @@ def test_build_showcase_verifies_human_approval_without_publishing_reviewer(
     manifest = build_showcase(
         run_dir,
         output_dir,
-        template_dir=REPOSITORY_ROOT / "showcase",
+        template_dir=DEFAULT_TEMPLATE_DIR,
     )
 
     assert manifest["stage_status"]["extractor"] == "HUMAN_APPROVED"
@@ -508,7 +509,7 @@ def test_build_showcase_rejects_secret_in_review_html(tmp_path: Path) -> None:
         build_showcase(
             run_dir,
             output_dir,
-            template_dir=REPOSITORY_ROOT / "showcase",
+            template_dir=DEFAULT_TEMPLATE_DIR,
         )
 
     assert not output_dir.exists()
@@ -517,7 +518,7 @@ def test_build_showcase_rejects_secret_in_review_html(tmp_path: Path) -> None:
 def test_build_showcase_refuses_to_replace_modified_output(tmp_path: Path) -> None:
     run_dir = _fake_run(tmp_path, 1)
     output_dir = tmp_path / "showcase-dist"
-    kwargs = {"template_dir": REPOSITORY_ROOT / "showcase"}
+    kwargs = {"template_dir": DEFAULT_TEMPLATE_DIR}
     build_showcase(run_dir, output_dir, **kwargs)
     (output_dir / "manual-note.txt").write_text("keep me", encoding="utf-8")
 
@@ -530,7 +531,7 @@ def test_build_showcase_refuses_to_replace_modified_output(tmp_path: Path) -> No
 def test_build_showcase_refuses_changed_managed_file(tmp_path: Path) -> None:
     run_dir = _fake_run(tmp_path, 1)
     output_dir = tmp_path / "showcase-dist"
-    kwargs = {"template_dir": REPOSITORY_ROOT / "showcase"}
+    kwargs = {"template_dir": DEFAULT_TEMPLATE_DIR}
     build_showcase(run_dir, output_dir, **kwargs)
     (output_dir / "index.html").write_text("modified", encoding="utf-8")
 
@@ -547,7 +548,7 @@ def test_build_showcase_rejects_path_like_review_selection(tmp_path: Path) -> No
         build_showcase(
             run_dir,
             tmp_path / "showcase-dist",
-            template_dir=REPOSITORY_ROOT / "showcase",
+            template_dir=DEFAULT_TEMPLATE_DIR,
             review_files=ReviewFiles(quiz="../unrelated-review.html"),
         )
 

@@ -4,14 +4,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-INSTALLER = (
-    REPOSITORY_ROOT
-    / "skills"
-    / "learning-authoring-pipeline"
-    / "scripts"
-    / "install_skill.py"
-)
+RUNTIME_ROOT = Path(__file__).resolve().parents[1]
+SKILL_ROOT = RUNTIME_ROOT.parents[1]
+INSTALLER = SKILL_ROOT / "scripts" / "install_skill.py"
 
 
 def _install(home: Path, *extra: str) -> subprocess.CompletedProcess[str]:
@@ -32,6 +27,11 @@ def test_replacing_personal_skill_keeps_backup_outside_discovery(tmp_path: Path)
     result = _install(tmp_path, "--replace")
 
     assert destination.joinpath("SKILL.md").is_file()
+    assert destination.joinpath("scripts/runtime/pyproject.toml").is_file()
+    assert not destination.joinpath("scripts/runtime/tests").exists()
+    assert not destination.joinpath("scripts/runtime/scripts").exists()
+    assert not destination.joinpath("scripts/runtime/showcase").exists()
+    assert not destination.joinpath("scripts/runtime/learning_authoring/legacy_api").exists()
     assert not marker.exists()
     discovered = list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))
     assert discovered == [destination / "SKILL.md"]
