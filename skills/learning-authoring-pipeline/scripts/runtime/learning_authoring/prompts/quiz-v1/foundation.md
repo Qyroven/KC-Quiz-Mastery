@@ -8,6 +8,8 @@ Write a question a teacher could actually ask a learner. Give necessary facts an
 
 Choose an interaction that captures the evidence named by the KC, not merely an answer that can be keyed. If the observable claim requires the learner to explain, justify, diagnose, design, trace, calculate, or produce a bounded artifact, a bare selected response usually proves only recognition. Use a constructed or structured response when that production is the evidence; use selected response when choosing among alternatives is itself sufficient. This is a semantic decision, not a keyword mapping or an interaction-diversity quota.
 
+Structured response is not the same as selected-response recognition. Matching can directly capture a relationship set or classification; ordering can capture a sequence or dependency; single- or multi-select can capture a bounded decision when the alternatives themselves are the evidence. Use `short_text` only when the quality of learner-authored language, reasoning, derivation, diagnosis, or design is itself necessary evidence and cannot be scored faithfully through an allowed structured interaction. Never choose prose merely because it is the safest generic container. Across a batch, repeated use of one interaction is a reason to re-check evidence-to-interaction fit, not a reason to force cosmetic diversity.
+
 The visible task and its scoring must agree. Assess the requested evidence, not an unstated ideal answer: accept valid alternative explanations, criteria, methods, and equivalent numerical answers when they satisfy the task. Recall and ordinary calculation can be useful evidence without pretending to be analysis or transfer.
 
 A decisive answer requires decisive facts. When a scenario leaves a material

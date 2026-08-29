@@ -956,6 +956,37 @@ def _portfolio_choice_issues(batch: QuizBatch) -> list[dict[str, Any]]:
     return issues
 
 
+def _portfolio_interaction_issues(batch: QuizBatch) -> list[dict[str, Any]]:
+    """Surface representation concentration without treating diversity as quality."""
+
+    question_count = len(batch.questions)
+    distinct_kcs = {question.kc_id for question in batch.questions}
+    if question_count < 3 or len(distinct_kcs) < 2:
+        return []
+
+    counts = Counter(question.interaction for question in batch.questions)
+    dominant_interaction, dominant_count = counts.most_common(1)[0]
+    if dominant_count <= question_count - dominant_count:
+        return []
+
+    return [
+        _issue(
+            "INTERACTION_CONCENTRATION_REVIEW",
+            "minor",
+            (
+                "One interaction represents a majority of the batch. Review whether each "
+                "slot independently requires it; concentration alone is not a defect or a "
+                "reason to enforce diversity."
+            ),
+            question_count=question_count,
+            distinct_kc_count=len(distinct_kcs),
+            interaction_counts=dict(sorted(counts.items())),
+            dominant_interaction=dominant_interaction,
+            dominant_share=round(dominant_count / question_count, 3),
+        )
+    ]
+
+
 def build_quiz_form_audit(batch: QuizBatch) -> dict[str, Any]:
     """Flag deterministic form/consistency risks; absence never means an item is good."""
 
@@ -979,7 +1010,9 @@ def build_quiz_form_audit(batch: QuizBatch) -> dict[str, Any]:
             }
         )
 
-    portfolio_issues = _portfolio_choice_issues(batch)
+    portfolio_issues = _portfolio_choice_issues(batch) + _portfolio_interaction_issues(
+        batch
+    )
     for left, right in combinations(batch.questions, 2):
         if left.kc_id != right.kc_id:
             continue
@@ -1025,7 +1058,7 @@ def build_quiz_form_audit(batch: QuizBatch) -> dict[str, Any]:
     )
     revision_recommended = bool(trigger_codes)
     return {
-        "audit_version": "quiz-form-audit.v1",
+        "audit_version": "quiz-form-audit.v2",
         "scope": (
             "surface-form heuristics plus deterministic internal-consistency checks; "
             "not semantic correctness or approval"

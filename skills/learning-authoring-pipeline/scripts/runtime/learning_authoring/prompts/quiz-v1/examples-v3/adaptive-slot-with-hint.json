@@ -3,7 +3,8 @@
   "example_id": "adaptive-slot-with-hint",
   "teaching_points": [
     "Bind each question to a justified assessment slot rather than a fixed per-KC count.",
-    "Choose a structured interaction when the evidence is a set of relationships, and create genuine variants by changing the cases rather than paraphrasing them.",
+    "Choose a direct structured interaction when it captures the complete evidence: matching represents this relationship set without unnecessary prose, while the learner must still perform every classification.",
+    "Choose slot and variant counts from independently scorable evidence and meaningful alternate instances; do not copy this example's counts into another KC or force batch-wide uniformity.",
     "Hints are item-specific: include one only when it supports a next step without resolving the mappings, and otherwise give an honest absence reason.",
     "Treat every name, identifier, option position, count, and value in this example as illustrative; derive fresh values from the current KC and evidence."
   ],

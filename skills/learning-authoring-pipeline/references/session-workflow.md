@@ -34,8 +34,11 @@ For each source run:
 <la> review <source-run>
 ```
 
-Inspect isolated source pages when the task has unresolved visuals. Keep candidate bytes unchanged.
-If import fails its contract, author one fresh replacement. Do not patch the first candidate.
+Before writing the candidate, visually anchor every returned block to its own PDF page. Normalized
+bounds may be approximate, but must identify the actual content region; do not reuse a generic page
+box. Inspect an isolated rendered page only when the native PDF view cannot resolve an informative
+visual or relationship. Keep candidate bytes unchanged. If import fails its contract, author one
+fresh replacement. Do not patch the first candidate.
 
 ## 3. Create the KC source boundary
 
@@ -84,10 +87,15 @@ determine item type and variant count. After import, inspect the deterministic f
 failure permits one fresh replacement. A quality warning stays visible for the initial check; do
 not loop until all warnings disappear.
 
-Before importing the first candidate, solve every learner-visible item without its key. If material
+Before importing the first candidate, solve every learner-visible item without its key. First map
+each slot to the simplest interaction that preserves the complete evidence: classifications and
+relationship sets can use matching, sequences can use ordering, and bounded decisions can use
+selected response; reserve short text for evidence that truly requires learner-authored reasoning
+or construction. If one interaction dominates the batch, re-check every use without forcing a
+quota. If material
 facts leave more than one defensible conclusion, supply the missing bounded facts or ask for a
 conditional conclusion and score it accordingly. Make a criterion-to-prompt check for every rubric
-point, remove answer-bearing labels or checklists from the learner view, and prevent one-to-one
+point by locating the exact learner-visible phrase that requests it, remove answer-bearing labels or checklists from the learner view, and prevent one-to-one
 matching from claiming independent evidence for a final pair obtained only by elimination. Re-check
 uniform variant counts against item-specific evidence needs; do not add variants merely to break a
 uniform pattern.

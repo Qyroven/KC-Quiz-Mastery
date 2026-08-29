@@ -12,15 +12,17 @@ def sha256(path: Path) -> str:
 
 def test_main_prompt_source_fidelity_revision() -> None:
     # Intentional extension: retain the PM contract, explicitly check image-only
-    # content, endpoint tracing and non-placeholder geometry, and keep unresolved
-    # instructional relationships local to the PDF that contains them.
+    # content, endpoint tracing and visually anchored review geometry, and keep
+    # unresolved instructional relationships local to the PDF that contains them.
     assert sha256(PROMPTS / "extractor-v2.md") == (
-        "ffe2af5e2e712192cc86efb2e1c9101fbd5d9852b60a1d3773a89288c3b7f8eb"
+        "7d2b2ef55b97cbeac7ceae24e4b51f2483258a6b0a223f2616856704c6f21713"
     )
     prompt = (PROMPTS / "extractor-v2.md").read_text()
     assert "Trace the\nline to its endpoint" in prompt
     assert "not evidence that all content" in prompt
     assert "full-page box is valid only" in prompt
+    assert "A visually\n  checked approximate box is valid" in prompt
+    assert "Do not substitute a repeated generic page box" in prompt
     assert "Do not normalize source" in prompt
     assert "Never request repair merely because the page is visually complex" in prompt
 

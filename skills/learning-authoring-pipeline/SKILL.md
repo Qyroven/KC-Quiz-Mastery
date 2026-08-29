@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Turn one or more PDFs plus optional lecturer context into reviewable Extraction, shared Knowledge Components, Quiz with hints, and a connected local portal using the active coding-agent subscription. Use for end-to-end authoring or review; never call a model-provider API.
 metadata:
   author: Qyroven
-  version: "2.3.0"
+  version: "2.4.0"
 ---
 
 # Learning Authoring Pipeline
@@ -45,7 +45,9 @@ are not automatic pause gates. Do not invent approval.
 - For multiple PDFs, Extract each independently, then build one ordered bundle. Never merge pages
   by number or assume note section N belongs to PDF N.
 - Verify informative visuals and directed relationships during Extraction. Inspect unresolved
-  pages individually; do not send every rendered page as bulk image input.
+  pages individually; do not send every rendered page as bulk image input. Geometry is approximate
+  normalized review localization, not pixel-perfect annotation: visually anchor each block to its
+  real region, preserve honest unresolved cases, and never reuse a generic page-sized box.
 - KC must cite the actual source evidence and account for meaningful lecturer context. Inventory
   source-supported capabilities before grouping. One Leaf KC represents one coherent observable
   capability; split when knowledge, learner response, or remediation is independently meaningful,
@@ -60,7 +62,11 @@ are not automatic pause gates. Do not invent approval.
   material factors are unknown, announce the deciding categories and then ask the learner to copy
   them, or score a deliverable that the learner-visible task did not request. When every slot lands
   on the same variant count, re-check the item-specific justifications; uniformity is allowed only
-  when it genuinely follows from the evidence needs.
+  when it genuinely follows from the evidence needs. Prefer direct structured evidence for
+  relationships, classifications, sequences, and bounded decisions; use short text only when
+  learner-authored reasoning or construction is indispensable. Interaction concentration is a
+  review signal, never a diversity quota. Every rubric criterion must correspond to an exact
+  learner-visible request.
 - The initial quality check catches source mismatch, ambiguity, cueing, answer/rubric defects, and
   hint leakage. It is not human approval or proof of learner validity. Do not add a multi-agent lab,
   A/B benchmark, or repeated reviewer loop unless the user explicitly asks for an evaluation.

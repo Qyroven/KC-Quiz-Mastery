@@ -236,6 +236,62 @@ def _portfolio_codes(audit: dict) -> set[str]:
     return {issue["code"] for issue in audit["portfolio"]["issues"]}
 
 
+def test_interaction_concentration_is_review_only_not_a_diversity_quota() -> None:
+    questions = []
+    for index in range(1, 6):
+        question = _short_text_question(
+            f"Q-{index:03d}",
+            stimulus="A bounded case.",
+            prompt="Explain the supported distinction.",
+            answer="A bounded explanation.",
+            rubric=["Explains the supported distinction"],
+        )
+        question["kc_id"] = f"KC-{index:03d}"
+        questions.append(question)
+    questions.append(
+        _choice_question(
+            "Q-006",
+            options=["Alpha", "Beta", "Gamma", "Delta"],
+            keys=["B"],
+            explanation="Beta follows the supplied case.",
+            kc_id="KC-006",
+        )
+    )
+
+    audit = build_quiz_form_audit(_batch(*questions))
+
+    assert "INTERACTION_CONCENTRATION_REVIEW" in _portfolio_codes(audit)
+    assert audit["fresh_candidate_guidance"]["recommended"] is False
+
+
+def test_balanced_interactions_do_not_raise_concentration_review() -> None:
+    questions = []
+    for index in range(1, 4):
+        question = _short_text_question(
+            f"Q-{index:03d}",
+            stimulus="A bounded case.",
+            prompt="Explain the supported distinction.",
+            answer="A bounded explanation.",
+            rubric=["Explains the supported distinction"],
+        )
+        question["kc_id"] = f"KC-{index:03d}"
+        questions.append(question)
+    for index in range(4, 7):
+        questions.append(
+            _choice_question(
+                f"Q-{index:03d}",
+                options=["Alpha", "Beta", "Gamma", "Delta"],
+                keys=["B"],
+                explanation="Beta follows the supplied case.",
+                kc_id=f"KC-{index:03d}",
+            )
+        )
+
+    audit = build_quiz_form_audit(_batch(*questions))
+
+    assert "INTERACTION_CONCENTRATION_REVIEW" not in _portfolio_codes(audit)
+
+
 def test_keyed_option_and_explanation_opposite_polarity_is_flagged() -> None:
     batch = _batch(
         _choice_question(

@@ -2,7 +2,8 @@
   "example_version": "worked-example.v1",
   "example_id": "constructed-evidence-not-recognition",
   "teaching_points": [
-    "Choose interaction from the evidence the learner must produce; do not reduce a calculation-and-comparison claim to recognition just because selected response is easy to score.",
+    "Choose interaction from the evidence the learner must produce; short text is justified here only because the two visible normalization setups are themselves scored evidence, not because prose is a generic safe default.",
+    "Before using short text elsewhere, test matching, ordering, and bounded selection; prefer them when they capture the complete evidence without requiring learner-authored reasoning or construction.",
     "Make every point-bearing requirement visible and accept equivalent units, equations, and rounding that satisfy the stated tolerance.",
     "Use no hint when a useful hint would provide the exact setup being assessed; explain that decision instead of forcing scaffolding.",
     "Treat every name, identifier, option position, count, and value in this example as illustrative; derive fresh values from the current KC and evidence."

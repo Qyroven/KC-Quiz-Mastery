@@ -73,6 +73,14 @@ def normalized(text: str) -> str:
             "include at least one plausible unused right-side option",
             "the final pair derivable by elimination",
         ),
+        (
+            "Use `short_text` only when learner-authored explanation",
+            "Compare every scored requirement with the visible task",
+        ),
+        (
+            "identify the exact learner-visible phrase that requests the scored work",
+            "Compare every scored requirement with the visible task",
+        ),
     ],
 )
 def test_generator_and_independent_review_share_quality_guards(

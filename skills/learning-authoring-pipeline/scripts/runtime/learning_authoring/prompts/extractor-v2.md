@@ -107,11 +107,19 @@ needed to reconstruct the diagram or table, not merely its conclusion.
   contains valid normalized top-left bounds for that source-visible block.
   Set it to `unresolved`, keep geometry empty, and add an uncertainty when the
   block is visible but cannot yet be located reliably. Never guess coordinates.
+- Geometry is review localization, not pixel-perfect annotation. A visually
+  checked approximate box is valid when it clearly anchors the represented
+  content region on that page. Do not mark an ordinary readable block
+  `unresolved` merely because exact crop edges or the positions of every
+  internal sub-element were not measured.
 - Bounds must localize the represented content, not act as a validation shortcut.
   A full-page box is valid only for genuinely page-spanning content; it does not
   locate each text box, diagram node, or plotted element inside that page. For a
-  compound visual retain source-grounded internal layout when recoverable. If
-  those positions cannot be established, explicitly disclose that limit.
+  compound visual, one box may cover the actual body region represented by that
+  block while its source-grounded internal layout is retained in content or
+  attributes when recoverable. Do not substitute a repeated generic page box.
+  If meaningful internal positions cannot be established, disclose that limit
+  without erasing an otherwise reliable outer location.
 - An ambiguous claim may still be spatially `located`. Source ambiguity is a
   review issue, not a reason to erase otherwise valid geometry.
 - For a visually meaningful block, reference that page's code-owned image using
