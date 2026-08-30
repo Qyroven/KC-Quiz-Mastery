@@ -16,17 +16,18 @@ The status vocabulary is:
 - Proposed-Extraction input used for the continuous KC demo: `PROPOSED_DEMO_ONLY`.
 - KC: `PROPOSED` and human-review-needed.
 - Quiz: `EXPERIMENTAL_UNAPPROVED` and human-review-needed.
-- Quiz initial check (separate axis): `PASS`, `REVIEW`, `REJECT`, `NOT_REVIEWED`, or `STALE`.
+- Quiz semantic review (optional separate axis): `PASS`, `REVIEW`, `REJECT`, `NOT_REVIEWED`, or
+  `STALE`. The default v3 authoring flow leaves this `NOT_REVIEWED`.
 - Learning/Mastery: `PROVISIONAL_EVIDENCE_MVP` when built with `--with-learning`, otherwise
   `NOT_ENABLED`. This does not certify the course or a learner's competency.
 
 Schema validation means the JSON matches the machine contract. Geometry/form audits are diagnostic.
 Neither is proof of semantic correctness or learning value. Never use `validated`, `approved`, or
 `production-ready` for a model-authored artifact unless the matching human approval boundary exists.
-An initial semantic PASS means no material problem was found in the inspected scope. It is not
-human approval or certification of every upstream page/KC. Incomplete source, self-review, or an
-explicit limitation cannot be presented as PASS. Check that the report binds the current input
-hashes; modified questions, KCs, source, or context invalidate earlier review.
+An independently produced semantic PASS means only that no material problem was found in its
+inspected scope. It is not human approval or certification of every upstream page/KC. Self-review,
+incomplete source, or an explicit limitation cannot be presented as PASS. Check that the report
+binds current input hashes; modified questions, KCs, source, or context invalidate earlier review.
 
 Hints are authored support separate from the answer explanation. The Authoring reviewer preview
 records only current hint/answer display state. Durable attempts belong to the separate Learning
@@ -80,7 +81,7 @@ its generated manifest:
 
 ```text
 one PDF/source identity or PDF 1..N/source-bundle identity
-  -> independent Extraction review(s): PROPOSED (or verified HUMAN_APPROVED on a later rebuild)
+  -> deterministic Extraction review(s): PROPOSED (or verified HUMAN_APPROVED on a later rebuild)
   -> shared KC review: PROPOSED; upstream PROPOSED_DEMO_ONLY in the default journey
   -> Quiz review: EXPERIMENTAL_UNAPPROVED
   -> when enabled by the selected builder:

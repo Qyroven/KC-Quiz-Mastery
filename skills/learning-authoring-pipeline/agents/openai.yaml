@@ -2,7 +2,7 @@ interface:
   display_name: "Learning Authoring Pipeline"
   short_description: "Author PDFs into shared KC and Quiz"
   brand_color: "#1261A0"
-  default_prompt: "Use $learning-authoring-pipeline to turn the attached PDF(s) and optional lecturer context into Extraction, shared KC, Quiz with hints, one initial check, and a connected local review portal."
+  default_prompt: "Use $learning-authoring-pipeline to turn the attached PDF(s) and optional lecturer context into deterministic Extraction, shared KC, Quiz with hints and scoring, honest deterministic findings, and a connected local review portal."
 
 policy:
   allow_implicit_invocation: true

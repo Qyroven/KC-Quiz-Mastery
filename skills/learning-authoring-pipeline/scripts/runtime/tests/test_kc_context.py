@@ -265,10 +265,8 @@ def test_kc_prompts_keep_optional_freeform_context_out_of_extraction() -> None:
     prompts = Path(__file__).parents[1] / "learning_authoring" / "prompts" / "kc-v1"
     rulebook = (prompts / "rulebook.md").read_text()
     task = (prompts / "task.md").read_text()
-    assert "No lecturer context is also valid" in task
-    assert "required Markdown syntax" in rulebook
-    assert "same KC authoring stage" in rulebook
-    assert "source_evidence: []" in rulebook
-    assert "authoring_context_sha256" in task
-    assert "untrusted source data" in task
-    assert "never be merged into PDF blocks or `page_note`" in rulebook
+    assert "optional lecturer context" in task
+    assert "supplementary context" in rulebook
+    assert "never becomes PDF evidence" in rulebook
+    assert "Never invent a page map" in rulebook
+    assert "Copy `input_boundary.expected_source_ref` exactly" in task

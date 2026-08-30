@@ -1,8 +1,8 @@
 # Learning Authoring Pipeline Agent Skill
 
 One portable Agent Skill that turns one or more course PDFs plus optional lecturer context into
-reviewable Extraction, shared Knowledge Components, Quiz variants with hints and scoring, one
-initial quality check, and a connected local portal.
+deterministic Extraction, shared Knowledge Components, Quiz variants with hints and scoring,
+deterministic findings, and a connected local portal.
 
 The active coding agent authors semantic output. The bundled deterministic runtime prepares
 sources, freezes task packages, validates contracts, preserves raw candidates, and renders review
@@ -56,11 +56,11 @@ PDFs plus any optional notes or context.
 
 ```text
 PDF 1..N
-  -> one independent Extraction per PDF
+  -> deterministic native-text/geometry Extraction per PDF
   -> one shared Knowledge Component set
   -> evidence-based Quiz slots and variants
   -> hints + answer/rubric
-  -> one initial quality check
+  -> deterministic checks (semantic state remains NOT_REVIEWED)
   -> connected local review portal
 ```
 

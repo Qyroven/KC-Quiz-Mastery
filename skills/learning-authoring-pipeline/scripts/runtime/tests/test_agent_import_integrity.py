@@ -29,6 +29,7 @@ def _prepared_extraction_task(tmp_path: Path) -> tuple[Path, dict]:
 
 def test_missing_frozen_task_is_rejected_after_exact_candidate_archive(tmp_path: Path) -> None:
     run, _ = _prepared_extraction_task(tmp_path)
+    canonical_sha256 = sha256_file(run / "extracted-source.proposed.json")
     candidate = tmp_path / "candidate.json"
     raw = _write_raw(candidate, _extraction_candidate())
 
@@ -43,7 +44,7 @@ def test_missing_frozen_task_is_rejected_after_exact_candidate_archive(tmp_path:
     assert record["status"] == "TASK_PACKAGE_REQUIRED"
     assert record["candidate_bytes_preserved_exactly"] is True
     assert record["canonical_write_performed"] is False
-    assert not (run / "extracted-source.proposed.json").exists()
+    assert sha256_file(run / "extracted-source.proposed.json") == canonical_sha256
 
 
 def test_second_distinct_candidate_needs_a_real_retry_reason(tmp_path: Path) -> None:
@@ -116,6 +117,7 @@ def test_only_one_fresh_retry_can_replace_canonical_candidate(tmp_path: Path) ->
 
 def test_self_rehashed_source_specific_prompt_task_is_not_official(tmp_path: Path) -> None:
     run, task_result = _prepared_extraction_task(tmp_path)
+    canonical_sha256 = sha256_file(run / "extracted-source.proposed.json")
     original = read_json(Path(task_result["task_package"]))
     tampered = deepcopy(original)
     tampered["worked_examples"][0]["teaching_points"].append(
@@ -134,11 +136,12 @@ def test_self_rehashed_source_specific_prompt_task_is_not_official(tmp_path: Pat
 
     archived = run / "agent-session/candidates" / f"extraction-{sha256_file(candidate)}.json"
     assert archived.read_bytes() == raw
-    assert not (run / "extracted-source.proposed.json").exists()
+    assert sha256_file(run / "extracted-source.proposed.json") == canonical_sha256
 
 
 def test_historical_v2_task_can_be_read_but_cannot_enter_current_import(tmp_path: Path) -> None:
     run, task_result = _prepared_extraction_task(tmp_path)
+    canonical_sha256 = sha256_file(run / "extracted-source.proposed.json")
     current = read_json(Path(task_result["task_package"]))
     legacy = {
         key: value
@@ -158,4 +161,4 @@ def test_historical_v2_task_can_be_read_but_cannot_enter_current_import(tmp_path
 
     archived = run / "agent-session/candidates" / f"extraction-{sha256_file(candidate)}.json"
     assert archived.read_bytes() == raw
-    assert not (run / "extracted-source.proposed.json").exists()
+    assert sha256_file(run / "extracted-source.proposed.json") == canonical_sha256

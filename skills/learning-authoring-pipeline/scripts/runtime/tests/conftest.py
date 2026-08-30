@@ -181,5 +181,40 @@ def write_blank_pdf(path: Path) -> None:
     path.write_bytes(payload)
 
 
+def write_text_pdf(path: Path) -> None:
+    """Write a tiny dependency-free PDF with two native text lines."""
+
+    content = b"BT /F1 18 Tf 20 160 Td (Native title) Tj 0 -32 Td (Second source line) Tj ET"
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] "
+            b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"
+        ),
+        b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    payload = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(payload))
+        payload.extend(f"{number} 0 obj\n".encode())
+        payload.extend(body)
+        payload.extend(b"\nendobj\n")
+    xref = len(payload)
+    payload.extend(f"xref\n0 {len(objects) + 1}\n".encode())
+    payload.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        payload.extend(f"{offset:010d} 00000 n \n".encode())
+    payload.extend(
+        (
+            f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+            f"startxref\n{xref}\n%%EOF\n"
+        ).encode()
+    )
+    path.write_bytes(payload)
+
+
 def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()

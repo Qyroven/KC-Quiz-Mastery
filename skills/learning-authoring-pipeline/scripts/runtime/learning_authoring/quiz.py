@@ -272,4 +272,14 @@ def build_quiz_input(
         },
         "kc_groups": selected_groups,
         "leaf_kcs": [deepcopy(original_kc_by_id[kc_id]) for kc_id in selected_kc_ids],
+        "authoring_batches": [
+            {
+                "batch_id": f"quiz-group-{index:03d}",
+                "group_id": group["group_id"],
+                "kc_ids": [
+                    kc_id for kc_id in group["leaf_kc_ids"] if kc_id in selected_kc_ids
+                ],
+            }
+            for index, group in enumerate(selected_groups, start=1)
+        ],
     }

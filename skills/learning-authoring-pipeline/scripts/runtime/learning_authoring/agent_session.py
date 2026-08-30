@@ -40,6 +40,7 @@ from learning_authoring.kc import load_approved_extraction, load_prompt_package
 from learning_authoring.kc_contracts import ProposedKCSet
 from learning_authoring.kc_diagnostics import kc_review_diagnostics
 from learning_authoring.kc_review import build_kc_demo
+from learning_authoring.native_extraction import build_native_extraction
 from learning_authoring.prompt_packages import (
     load_worked_example_suite,
     worked_examples_component,
@@ -237,6 +238,14 @@ def _extraction_instructions(prompt_instructions: str) -> str:
         "- Page-image paths are locators only. Inspect at most the specific page image "
         "needed for targeted visual or geometry clarification.\n"
         "- Never use local text-audit files as semantic model input.\n\n" + prompt_instructions
+    )
+
+
+def _legacy_extraction_instructions(prompt_instructions: str) -> str:
+    return (
+        "LEGACY ARTIFACT COMPATIBILITY ONLY. The v3 workflow uses the deterministic "
+        "Extraction already written by agent-init. Do not invoke this task for a new run.\n\n"
+        + _extraction_instructions(prompt_instructions)
     )
 
 
@@ -626,7 +635,7 @@ def agent_init(
     context_files: tuple[Path, ...] = (),
     context_texts: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    """Prepare source identity, local text audit, and rendered pages without generation."""
+    """Prepare source assets and a deterministic native-text Extraction."""
 
     output = run_dir.expanduser().resolve()
     source, manifest, reused = prepare_or_reuse_source(
@@ -637,6 +646,7 @@ def agent_init(
     )
     context = prepare_authoring_context(output, source, context_files, context_texts)
     context_ref = _context_ref(output, context)
+    extraction = build_native_extraction(output)
     session_manifest = _session_dir(output) / "session.json"
     write_json(
         session_manifest,
@@ -645,12 +655,13 @@ def agent_init(
             "execution_mode": EXECUTION_MODE,
             "provider_api_calls": 0,
             "generation_performed": False,
+            "extraction_method": extraction["method"],
             "source": source.model_dump(mode="json"),
             "source_manifest": str(RunArtifacts(output).source_manifest),
             "source_reused": reused,
             "render_dpi": render_dpi,
             "authoring_context": context_ref,
-            "status": "SOURCE_READY",
+            "status": "EXTRACTION_PROPOSED",
             "human_review_required": True,
             "created_at": _now(),
         },
@@ -664,6 +675,7 @@ def agent_init(
         "execution_mode": EXECUTION_MODE,
         "provider_api_calls": 0,
         "generation_performed": False,
+        "extraction": extraction,
         "session_manifest": str(session_manifest),
         "authoring_context": context_ref,
     }
@@ -864,7 +876,7 @@ def _validate_official_task_prompt_material(
 
     if stage == "extraction":
         instructions, fields = _native_extraction_prompt_fields()
-        expected_instructions = _extraction_instructions(instructions)
+        expected_instructions = _legacy_extraction_instructions(instructions)
         schema = agent_schema("extraction")
     elif stage == "kc":
         bundle_mode = (root / SOURCE_BUNDLE_MANIFEST).is_file()
@@ -944,6 +956,13 @@ def _kc_input_boundary(
         ),
         "upstream_extraction": upstream,
         "payload": extracted.model_dump(mode="json"),
+        "inspection_batches": _inspection_batches(root, extracted),
+        "inspection_policy": {
+            "purpose": "bounded_source_inventory_before_global_kc_reconciliation",
+            "process_in_order": True,
+            "batch_boundaries_are_operational_not_semantic_sections": True,
+            "inspect_page_image_only_when_text_is_insufficient": True,
+        },
         "authoring_context": context.model_dump(mode="json") if context else None,
         "context_base_dir": str(root) if context else None,
         "context_accountability": "claim_to_kc_audit_required" if context else None,
@@ -954,6 +973,58 @@ def _kc_input_boundary(
             "authoring_context_sha256": context.sha256 if context else None,
         },
     }
+
+
+def _inspection_batches(
+    source_root: Path,
+    extracted: ExtractedSource,
+    *,
+    source_id: str | None = None,
+    max_pages: int = 12,
+    max_blocks: int = 160,
+) -> list[dict[str, Any]]:
+    """Create bounded adjacent inspection windows without inferring lesson semantics."""
+
+    batches: list[dict[str, Any]] = []
+    pages: list[dict[str, Any]] = []
+    block_count = 0
+    for page in extracted.pages:
+        page_blocks = len(page.blocks)
+        if pages and (len(pages) >= max_pages or block_count + page_blocks > max_blocks):
+            batches.append(
+                {
+                    "batch_id": f"source-window-{len(batches) + 1:03d}",
+                    "source_id": source_id,
+                    "pages": pages,
+                    "block_count": block_count,
+                }
+            )
+            pages = []
+            block_count = 0
+        pages.append(
+            {
+                "page": page.page_number,
+                "block_ids": list(page.reading_order),
+                "image_locator": str(
+                    source_root / "pages" / f"page-{page.page_number:04d}.png"
+                ),
+                "visual_review_recommended": any(
+                    warning.code in {"NO_NATIVE_TEXT", "TEXT_GEOMETRY_UNRESOLVED"}
+                    for warning in page.warnings
+                ),
+            }
+        )
+        block_count += page_blocks
+    if pages:
+        batches.append(
+            {
+                "batch_id": f"source-window-{len(batches) + 1:03d}",
+                "source_id": source_id,
+                "pages": pages,
+                "block_count": block_count,
+            }
+        )
+    return batches
 
 
 def _bundle_kc_state(
@@ -996,6 +1067,15 @@ def _bundle_kc_input_boundary(
     context: AuthoringContext | None,
     upstream: dict[str, Any],
 ) -> dict[str, Any]:
+    inspection_batches = [
+        batch
+        for entry in bundle.sources
+        for batch in _inspection_batches(
+            root / entry.run_ref,
+            extractions[entry.source.source_id],
+            source_id=entry.source.source_id,
+        )
+    ]
     return {
         "delivery": (
             "ordered_complete_extracted_sources_and_supplementary_context"
@@ -1007,6 +1087,14 @@ def _bundle_kc_input_boundary(
         "payload": [
             extractions[entry.source.source_id].model_dump(mode="json") for entry in bundle.sources
         ],
+        "inspection_batches": inspection_batches,
+        "inspection_policy": {
+            "purpose": "per_source_bounded_inventory_before_cross_source_reconciliation",
+            "process_in_order": True,
+            "batch_boundaries_are_operational_not_semantic_sections": True,
+            "never_project_page_ordinals_across_sources": True,
+            "inspect_page_image_only_when_text_is_insufficient": True,
+        },
         "authoring_context": context.model_dump(mode="json") if context else None,
         "context_base_dir": str(root) if context else None,
         "context_accountability": "claim_to_kc_audit_required" if context else None,
@@ -1171,6 +1259,8 @@ def prepare_agent_task(
             },
         )
     if stage == "extraction":
+        # Historical compatibility only. The v3 skill never calls this branch:
+        # agent-init already creates the canonical deterministic Extraction.
         prompt_instructions, prompt_fields = _native_extraction_prompt_fields()
         source = _manifest_source(root)
         artifacts = RunArtifacts(root)
@@ -1186,7 +1276,7 @@ def prepare_agent_task(
         ]
         task = {
             **common,
-            "instructions": _extraction_instructions(prompt_instructions),
+            "instructions": _legacy_extraction_instructions(prompt_instructions),
             **prompt_fields,
             "input_boundary": {
                 "delivery": "native_pdf_primary",
