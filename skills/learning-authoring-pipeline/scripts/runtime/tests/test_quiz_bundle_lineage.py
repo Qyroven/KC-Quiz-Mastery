@@ -7,9 +7,8 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from learning_authoring.artifacts import read_json, sha256_file, write_json
 from learning_authoring.authoring_context import prepare_bundle_authoring_context
-from learning_authoring.quiz import QuizConfig, build_quiz_input, prepare_quiz_request
+from learning_authoring.quiz import QuizConfig, build_quiz_input
 from learning_authoring.quiz_contracts import QuizBatchV3, QuizSourceRef
 from learning_authoring.quiz_semantics import (
     CRITERIA,
@@ -325,7 +324,7 @@ def test_bundle_context_mapping_fails_closed(source, mutation) -> None:
         SourceBundleKCSet.model_validate(raw)
 
 
-def test_bundle_quiz_preview_verifies_current_context_and_source_bundle(tmp_path) -> None:
+def test_bundle_quiz_input_preserves_current_context_and_source_bundle(tmp_path) -> None:
     prepared = [_source_run(tmp_path, name) for name in ("concepts", "exceptions")]
     bundle = prepare_source_bundle(tmp_path, [run for run, _ in prepared])
     context = prepare_bundle_authoring_context(
@@ -360,14 +359,15 @@ def test_bundle_quiz_preview_verifies_current_context_and_source_bundle(tmp_path
             "reason": "It bounds the shared concept.",
         }
     ]
-    kc_path = tmp_path / "kc-proposed.json"
-    write_json(kc_path, raw)
-
-    prepare_quiz_request(tmp_path, config=QuizConfig(include_all_kcs=True))
-    quiz_input = read_json(tmp_path / "quiz" / "quiz-input.json")
+    quiz_input = build_quiz_input(
+        SourceBundleKCSet.model_validate(raw),
+        raw_kc_set=raw,
+        kc_set_sha256=KC_SET_SHA256,
+        config=QuizConfig(include_all_kcs=True),
+    )
     assert quiz_input["source_ref"] == {
         "source_bundle_sha256": bundle.bundle_sha256,
-        "kc_set_sha256": sha256_file(kc_path),
+        "kc_set_sha256": KC_SET_SHA256,
         "authoring_context_sha256": context.sha256,
     }
     context_evidence = quiz_input["leaf_kcs"][0]["context_evidence"][0]

@@ -236,8 +236,7 @@ def _extraction_instructions(prompt_instructions: str) -> str:
         "- Do not load or attach all rendered page PNGs.\n"
         "- Page-image paths are locators only. Inspect at most the specific page image "
         "needed for targeted visual or geometry clarification.\n"
-        "- Never use local text-audit files as semantic model input.\n\n"
-        + prompt_instructions
+        "- Never use local text-audit files as semantic model input.\n\n" + prompt_instructions
     )
 
 
@@ -580,9 +579,7 @@ def _write_import_record(
     canonical_write_performed: bool = False,
 ) -> Path:
     task_key = task_fingerprint or "unbound"
-    record_path = (
-        _session_dir(run_dir) / "imports" / f"{stage}-{task_key}-{raw_sha256}.json"
-    )
+    record_path = _session_dir(run_dir) / "imports" / f"{stage}-{task_key}-{raw_sha256}.json"
     errors = None
     if isinstance(error, ValidationError):
         errors = error.errors(include_url=False, include_context=False)
@@ -1377,6 +1374,10 @@ def import_extraction(
             "execution_mode": EXECUTION_MODE,
         }
     )
+    guidance = audit["fresh_candidate_guidance"]
+    promoted = not guidance["recommended"]
+    attempt_number = int(attempt["candidate_attempt_number"]) if attempt else 1
+    status = "PROPOSED" if promoted else ("RETRY_REQUIRED" if attempt_number == 1 else "REVIEW")
     metadata = {
         "stage": "extract",
         "stage_version": IMPORT_VERSION,
@@ -1392,7 +1393,9 @@ def import_extraction(
         "source": source.model_dump(mode="json"),
         "output_schema_version": extracted.schema_version,
         "human_review_required": True,
-        "approval_status": "PROPOSED",
+        "approval_status": status,
+        "promotion_gate_passed": promoted,
+        "promotion_trigger_codes": guidance["trigger_codes"],
         "created_at": _now(),
     }
     metrics = {
@@ -1410,35 +1413,54 @@ def import_extraction(
         "total_elapsed_seconds": round(time.perf_counter() - started, 6),
         "reconstruction_ready": audit["reconstruction_ready"],
         "missing_geometry_block_count": audit["missing_geometry_block_count"],
+        "promotion_gate_passed": promoted,
+        "promotion_trigger_codes": guidance["trigger_codes"],
         "completed_at": _now(),
         **_unavailable_metrics(),
     }
     write_json(artifacts.metadata, metadata)
-    write_json(artifacts.proposed, extracted.model_dump(mode="json"))
+    if promoted:
+        write_json(artifacts.proposed, extracted.model_dump(mode="json"))
+    elif attempt_number >= 2:
+        write_bytes(root / "extracted-source.review.json", raw)
     write_json(artifacts.audit, audit)
     write_json(artifacts.metrics, metrics)
     artifacts.contract_errors.unlink(missing_ok=True)
-    review_path = build_review(root)
+    review_path = build_review(root) if promoted else None
     import_record = _write_import_record(
         stage="extraction",
         run_dir=root,
         raw_path=raw_path,
         raw_sha256=raw_sha256,
-        status="PROPOSED",
-        canonical_path=artifacts.proposed,
+        status=status,
+        canonical_path=artifacts.proposed if promoted else None,
         task_fingerprint=task["task_fingerprint"],
         task=task,
         attempt=attempt,
-        canonical_write_performed=True,
+        fresh_retry_authorized=bool(not promoted and attempt_number == 1),
+        fresh_retry_reason=(
+            "deterministic_extraction_promotion_gate"
+            if not promoted and attempt_number == 1
+            else None
+        ),
+        canonical_write_performed=promoted,
     )
     return {
         "stage": "extraction",
-        "status": "PROPOSED",
-        "proposed": str(artifacts.proposed),
-        "review": str(review_path),
+        "status": status,
+        "proposed": str(artifacts.proposed) if promoted else None,
+        "review_candidate": (
+            str(root / "extracted-source.review.json")
+            if not promoted and attempt_number >= 2
+            else None
+        ),
+        "review": str(review_path) if review_path else None,
         "raw_candidate": str(raw_path),
         "raw_candidate_sha256": raw_sha256,
         "import_record": str(import_record),
+        "promotion_gate_passed": promoted,
+        "promotion_trigger_codes": guidance["trigger_codes"],
+        "next_quality_action": guidance["next_action"],
         **_unavailable_metrics(),
     }
 
@@ -1469,6 +1491,10 @@ def _load_kc_source(
         )
     if not artifacts.proposed.is_file():
         raise RuntimeError(f"proposed extraction is missing: {artifacts.proposed}")
+    if artifacts.metadata.is_file():
+        metadata = read_json(artifacts.metadata)
+        if metadata.get("promotion_gate_passed") is False:
+            raise RuntimeError("proposed extraction is blocked by its deterministic promotion gate")
     proposed = ExtractedSource.model_validate(read_json(artifacts.proposed))
     _validate_source_binding(proposed, _manifest_source(run_dir))
     return proposed, {
@@ -1498,9 +1524,7 @@ def import_kc(
     try:
         task = _load_required_import_task("kc", root, task_package)
         attempt = _start_candidate_attempt("kc", root, raw_sha256, task)
-        allow_proposed_extraction_demo = task["input_boundary"]["upstream_extraction"][
-            "demo_only"
-        ]
+        allow_proposed_extraction_demo = task["input_boundary"]["upstream_extraction"]["demo_only"]
         if bundle_mode:
             bundle, extractions, context, upstream = _bundle_kc_state(
                 root,
@@ -1801,21 +1825,34 @@ def import_quiz(
     metadata["quality_revision_trigger_codes"] = fresh_candidate_guidance["trigger_codes"]
     metrics["quality_revision_recommended"] = fresh_candidate_guidance["recommended"]
     metrics["quality_revision_trigger_codes"] = fresh_candidate_guidance["trigger_codes"]
+    promoted = not fresh_candidate_guidance["recommended"]
+    attempt_number = int(attempt["candidate_attempt_number"]) if attempt else 1
+    status = (
+        "EXPERIMENTAL_UNAPPROVED"
+        if promoted
+        else ("RETRY_REQUIRED" if attempt_number == 1 else "REVIEW")
+    )
+    metadata["approval_status"] = status
+    metadata["promotion_gate_passed"] = promoted
+    metrics["promotion_gate_passed"] = promoted
     write_json(artifacts.quiz_input, quiz_input)
     write_json(artifacts.quiz_metadata, metadata)
     write_bytes(artifacts.quiz_raw_output, raw)
-    write_bytes(artifacts.quiz_proposed, raw)
+    if promoted:
+        write_bytes(artifacts.quiz_proposed, raw)
+    elif attempt_number >= 2:
+        write_bytes(destination / "quiz-review-required.json", raw)
     write_json(artifacts.quiz_form_audit, form_audit)
     write_json(artifacts.quiz_metrics, metrics)
     artifacts.quiz_contract_errors.unlink(missing_ok=True)
-    review_path = build_quiz_review(root, candidate_dir=destination)
+    review_path = build_quiz_review(root, candidate_dir=destination) if promoted else None
     import_record = _write_import_record(
         stage="quiz",
         run_dir=root,
         raw_path=raw_path,
         raw_sha256=raw_sha256,
-        status="EXPERIMENTAL_UNAPPROVED",
-        canonical_path=artifacts.quiz_proposed,
+        status=status,
+        canonical_path=artifacts.quiz_proposed if promoted else None,
         task_fingerprint=task["task_fingerprint"],
         task=task,
         attempt=attempt,
@@ -1831,13 +1868,18 @@ def import_quiz(
             and attempt["candidate_attempt_number"] == 1
             else None
         ),
-        canonical_write_performed=True,
+        canonical_write_performed=promoted,
     )
     return {
         "stage": "quiz",
-        "status": "EXPERIMENTAL_UNAPPROVED",
-        "proposed": str(artifacts.quiz_proposed),
-        "review": str(review_path),
+        "status": status,
+        "proposed": str(artifacts.quiz_proposed) if promoted else None,
+        "review_candidate": (
+            str(destination / "quiz-review-required.json")
+            if not promoted and attempt_number >= 2
+            else None
+        ),
+        "review": str(review_path) if review_path else None,
         "raw_candidate": str(raw_path),
         "raw_candidate_sha256": raw_sha256,
         "import_record": str(import_record),
@@ -1845,6 +1887,7 @@ def import_quiz(
         "quality_revision_recommended": fresh_candidate_guidance["recommended"],
         "quality_revision_trigger_codes": fresh_candidate_guidance["trigger_codes"],
         "next_quality_action": fresh_candidate_guidance["next_action"],
+        "promotion_gate_passed": promoted,
         **_unavailable_metrics(),
     }
 

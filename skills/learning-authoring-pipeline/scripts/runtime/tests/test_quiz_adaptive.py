@@ -6,15 +6,11 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from learning_authoring.artifacts import RunArtifacts, read_json, sha256_file, write_json
-from learning_authoring.authoring_context import prepare_authoring_context
 from learning_authoring.kc_contracts import ProposedKCSet
 from learning_authoring.quiz import (
     QuizConfig,
     build_quiz_input,
     load_quiz_prompt_package,
-    prepare_quiz_request,
-    run_quiz_generation,
 )
 from learning_authoring.quiz_contracts import (
     AssessmentSlot,
@@ -22,7 +18,6 @@ from learning_authoring.quiz_contracts import (
     QuizBatchV2,
     quiz_output_schema,
 )
-from tests.conftest import FakeResponse, fake_client
 from tests.test_quiz import KC_SHA256, kc_set, quiz_output
 
 CONTEXT_SHA256 = "c" * 64
@@ -270,11 +265,13 @@ def test_invalid_count_policy_fails_before_generation(overrides) -> None:
         {"variants_per_kc": 3, "total_question_budget": 5},
     ],
 )
-def test_infeasible_caps_fail_without_writing_a_request(tmp_path, source, overrides) -> None:
-    write_json(tmp_path / "kc-proposed.json", kc_set(source).model_dump(mode="json"))
+def test_infeasible_caps_fail_before_candidate_authoring(source, overrides) -> None:
     with pytest.raises(ValueError, match="infeasible.*no KCs will be truncated"):
-        prepare_quiz_request(tmp_path, config=QuizConfig(include_all_kcs=True, **overrides))
-    assert not (tmp_path / "quiz").exists()
+        build_quiz_input(
+            kc_set(source),
+            kc_set_sha256=KC_SHA256,
+            config=QuizConfig(include_all_kcs=True, **overrides),
+        )
 
 
 def test_all_selected_kcs_can_exceed_one_hundred_questions_without_a_cap(source) -> None:
@@ -470,80 +467,6 @@ def test_multi_select_keys_are_distinct_and_leave_a_distractor(source, keys) -> 
     raw["questions"][0]["correct_answer"]["selection_ids"] = keys
     with pytest.raises(ValidationError):
         QuizBatch.model_validate(raw)
-
-
-@pytest.mark.parametrize("legacy", [False, True])
-def test_request_uses_the_selected_schema_version_and_single_stage(
-    tmp_path, source, legacy
-) -> None:
-    kc_path = tmp_path / "kc-proposed.json"
-    write_json(kc_path, kc_set(source).model_dump(mode="json"))
-    raw = quiz_output(source) if legacy else adaptive_output(source)
-    raw["source_ref"]["kc_set_sha256"] = sha256_file(kc_path)
-    client = fake_client(created=[FakeResponse(raw)])
-    result = run_quiz_generation(
-        tmp_path,
-        config=QuizConfig(
-            include_all_kcs=not legacy,
-            selected_kc_ids=("KC-001",) if legacy else (),
-            variants_per_kc=1 if legacy else None,
-            response_mode="sync",
-        ),
-        client=client,
-        progress=None,
-    )
-    assert len(client.responses.create_calls) == 1
-    request = client.responses.create_calls[0]
-    assert request["text"]["format"]["name"] == f"quiz_batch_v{1 if legacy else 3}"
-    assert result.metrics["generation_calls"] == 1
-    assert result.metrics["assessment_slot_count"] == (0 if legacy else 3)
-    assert result.metrics["question_count"] == len(raw["questions"])
-    assert read_json(RunArtifacts(tmp_path / "quiz").quiz_proposed) == raw
-
-
-@pytest.mark.parametrize("failure", ["slot_count", "budget"])
-def test_invalid_adaptive_output_preserves_raw_and_serializes_contract_error(
-    tmp_path, source, failure
-) -> None:
-    kc_path = tmp_path / "kc-proposed.json"
-    write_json(kc_path, kc_set(source).model_dump(mode="json"))
-    raw = adaptive_output(source)
-    raw["source_ref"]["kc_set_sha256"] = sha256_file(kc_path)
-    if failure == "slot_count":
-        raw["assessment_slots"][0]["variant_count"] = 3
-    response = FakeResponse(raw)
-    client = fake_client(created=[response])
-    with pytest.raises(ValueError, match="assessment slots require|total_question_budget"):
-        run_quiz_generation(
-            tmp_path,
-            config=QuizConfig(
-                include_all_kcs=True,
-                response_mode="sync",
-                total_question_budget=3 if failure == "budget" else None,
-            ),
-            client=client,
-            progress=None,
-        )
-    artifacts = RunArtifacts(tmp_path / "quiz")
-    assert artifacts.quiz_raw_output.read_text() == response.output_text
-    assert not artifacts.quiz_proposed.exists()
-    errors = read_json(artifacts.quiz_contract_errors)
-    assert errors["contract_valid"] is False
-    assert errors["error_type"] == ("ValidationError" if failure == "slot_count" else "ValueError")
-    assert len(client.responses.create_calls) == 1
-
-
-def test_preview_refuses_stale_context_before_writing(tmp_path, source) -> None:
-    write_json(tmp_path / "source-manifest.json", {"source": source.model_dump(mode="json")})
-    original = prepare_authoring_context(tmp_path, source, context_texts=("Original note",))
-    assert original is not None
-    payload = kc_set(source).model_dump(mode="json")
-    payload["source_ref"]["authoring_context_sha256"] = original.sha256
-    write_json(tmp_path / "kc-proposed.json", payload)
-    prepare_authoring_context(tmp_path, source, context_texts=("Updated note",))
-    with pytest.raises(ValueError, match="does not match the current run context"):
-        prepare_quiz_request(tmp_path, config=QuizConfig(include_all_kcs=True))
-    assert not (tmp_path / "quiz").exists()
 
 
 def test_prompt_distinguishes_slot_intent_from_variants_and_quality_proof() -> None:

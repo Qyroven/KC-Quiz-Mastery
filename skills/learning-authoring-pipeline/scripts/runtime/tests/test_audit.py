@@ -66,3 +66,15 @@ def test_invalid_geometry_is_a_contract_error_but_unresolved_is_allowed(source) 
     )
     with pytest.raises(ValueError, match="invalid normalized geometry"):
         validate_extraction_geometry(invalid)
+
+
+def test_invalid_text_codepoint_requests_a_fresh_candidate(tmp_path, source) -> None:
+    make_run_dir(tmp_path, source)
+    extracted = payload().with_source(source)
+    extracted.pages[0].blocks[0].content = "Visible text\ufffe"
+
+    audit = build_audit(extracted, tmp_path)
+
+    assert audit["invalid_text_artifact_count"] == 1
+    assert audit["fresh_candidate_guidance"]["recommended"] is True
+    assert "INVALID_TEXT_CODEPOINT" in audit["fresh_candidate_guidance"]["trigger_codes"]

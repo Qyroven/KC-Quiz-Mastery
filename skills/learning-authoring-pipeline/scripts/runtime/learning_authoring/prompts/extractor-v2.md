@@ -20,6 +20,21 @@ stage; never invent them.
 - Never silently skip unreadable content. Preserve what is legible and add a
   page/block warning or uncertainty for the rest.
 
+## Operational pass
+
+Work through the deck in contiguous source sections. Use visible section breaks when they exist;
+otherwise choose manageable adjacent page windows. For every window, keep a page ledger containing
+the page number, visible content regions, informative visuals, unresolved relationships, and block
+IDs. After all windows, reconcile the ledgers into one document output and make a final page-by-page
+pass. This is one extraction task and one final JSON artifact, not an excuse to summarize sections.
+
+Do not manufacture a uniform template such as “title + body” for every page. Block count and
+geometry must follow the actual page. Before returning, compare pages with the same block count or
+the same bounding boxes; repeated shapes are valid only when the source layout really repeats. Scan
+all returned strings for replacement characters, noncharacters, control-code artifacts, and broken
+OCR joins. Preserve intentional symbols; disclose or correct transcription artifacts from the
+source representations before submitting the candidate.
+
 ## Fidelity rules
 
 - Preserve the source language, canonical technical terms, acronyms, numeric

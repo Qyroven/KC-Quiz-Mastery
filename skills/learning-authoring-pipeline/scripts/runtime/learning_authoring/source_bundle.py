@@ -359,6 +359,19 @@ def _resolve_inside(root: Path, reference: str, *, label: str) -> Path:
     return path
 
 
+def _assert_proposed_extraction_is_promoted(run_dir: Path) -> None:
+    """Reject an explicitly blocked proposal, including stale canonical bytes."""
+
+    metadata_path = run_dir / "extraction-metadata.json"
+    if not metadata_path.is_file():
+        return
+    metadata = read_json(metadata_path)
+    if metadata.get("promotion_gate_passed") is False:
+        raise ValueError(
+            f"source run Extraction failed its promotion gate: {run_dir}"
+        )
+
+
 def _extraction_for_run(run_dir: Path) -> tuple[Path, ExtractedSource, str]:
     # Approval loading belongs to the file-backed boundary. Keep the contract
     # module importable by native task/schema tooling without importing a
@@ -375,6 +388,7 @@ def _extraction_for_run(run_dir: Path) -> tuple[Path, ExtractedSource, str]:
     proposed = run_dir / "extracted-source.proposed.json"
     if not proposed.is_file():
         raise ValueError(f"source run has no canonical Extraction: {run_dir}")
+    _assert_proposed_extraction_is_promoted(run_dir)
     return proposed, ExtractedSource.model_validate(read_json(proposed)), "PROPOSED"
 
 
@@ -454,6 +468,8 @@ def load_source_bundle(
             raise ValueError(f"source PDF changed for {entry.source.source_id}")
         if not extraction.is_file() or sha256_file(extraction) != entry.extraction_sha256:
             raise ValueError(f"Extraction changed for {entry.source.source_id}")
+        if entry.extraction_status == "PROPOSED":
+            _assert_proposed_extraction_is_promoted(run)
         extracted = ExtractedSource.model_validate(read_json(extraction))
         if extracted.source != entry.source:
             raise ValueError(f"Extraction identity changed for {entry.source.source_id}")

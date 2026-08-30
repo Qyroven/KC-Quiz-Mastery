@@ -15,7 +15,7 @@ def test_main_prompt_source_fidelity_revision() -> None:
     # content, endpoint tracing and visually anchored review geometry, and keep
     # unresolved instructional relationships local to the PDF that contains them.
     assert sha256(PROMPTS / "extractor-v2.md") == (
-        "7d2b2ef55b97cbeac7ceae24e4b51f2483258a6b0a223f2616856704c6f21713"
+        "b701286fc1971a4e76a73695f7c558677d1baab81ca106572b66cdab47082e1f"
     )
     prompt = (PROMPTS / "extractor-v2.md").read_text()
     assert "Trace the\nline to its endpoint" in prompt

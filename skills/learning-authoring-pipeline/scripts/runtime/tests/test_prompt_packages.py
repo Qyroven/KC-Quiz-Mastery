@@ -13,9 +13,9 @@ import pytest
 from learning_authoring.agent_session import _bundle_kc_prompt_fields
 from learning_authoring.authoring_context import AuthoringContext
 from learning_authoring.contracts import ExtractedSource, ExtractedSourcePayload, SourceDescriptor
+from learning_authoring.extraction_prompt import load_extraction_prompt_package
 from learning_authoring.kc import load_prompt_package
 from learning_authoring.kc_contracts import ProposedKCSet
-from learning_authoring.legacy_api.extractor import load_extraction_prompt_package
 from learning_authoring.prompt_packages import (
     canonical_json_sha256,
     load_worked_example_suite,

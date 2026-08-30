@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from learning_authoring.agent_session import _bundle_kc_prompt_fields
+from learning_authoring.extraction_prompt import load_extraction_prompt_package
 from learning_authoring.kc import load_prompt_package
-from learning_authoring.legacy_api.extractor import load_extraction_prompt_package
 from learning_authoring.source_bundle import SourceBundleKCSet
 
 

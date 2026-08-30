@@ -44,6 +44,14 @@ def _source_run(root: Path, name: str) -> tuple[Path, ExtractedSource]:
     return run, extracted
 
 
+def test_bundle_refuses_explicitly_blocked_extraction(tmp_path: Path) -> None:
+    run, _ = _source_run(tmp_path, "blocked")
+    write_json(run / "extraction-metadata.json", {"promotion_gate_passed": False})
+
+    with pytest.raises(ValueError, match="failed its promotion gate"):
+        prepare_source_bundle(tmp_path, [run])
+
+
 def _legacy_kc(extracted: ExtractedSource) -> dict:
     source = extracted.source
     return {

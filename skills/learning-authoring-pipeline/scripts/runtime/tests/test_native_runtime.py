@@ -33,7 +33,7 @@ REMOVED_PROVIDER_COMMANDS = {
 
 def test_base_install_has_no_provider_or_dotenv_dependency() -> None:
     project = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text())
-    assert project["project"]["version"] == "0.9.0"
+    assert project["project"]["version"] == "1.0.0"
     assert project["project"]["dependencies"] == ["pydantic>=2.10,<3", "pypdfium2"]
     assert "legacy-api" not in project["project"]["optional-dependencies"]
 

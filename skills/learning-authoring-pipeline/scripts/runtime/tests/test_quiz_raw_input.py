@@ -6,9 +6,8 @@ from copy import deepcopy
 
 import pytest
 
-from learning_authoring.artifacts import read_json, sha256_file, write_json
 from learning_authoring.kc_contracts import ProposedKCSet
-from learning_authoring.quiz import QuizConfig, build_quiz_input, prepare_quiz_request
+from learning_authoring.quiz import QuizConfig, build_quiz_input
 from tests.test_quiz import KC_SHA256, kc_set
 
 
@@ -24,7 +23,9 @@ def test_selected_kcs_preserve_original_shape_order_and_group_membership(source)
     before = deepcopy(raw)
     validated = ProposedKCSet.model_validate(raw)
     selected = build_quiz_input(
-        validated, raw_kc_set=raw, kc_set_sha256=KC_SHA256,
+        validated,
+        raw_kc_set=raw,
+        kc_set_sha256=KC_SHA256,
         config=QuizConfig(selected_kc_ids=("KC-002", "KC-001")),
     )
 
@@ -51,22 +52,8 @@ def test_raw_snapshot_must_match_the_validated_kc_source(source, field) -> None:
         raw[field] = "Unrelated summary"
     with pytest.raises(ValueError, match="raw KC set does not match"):
         build_quiz_input(
-            validated, raw_kc_set=raw, kc_set_sha256=KC_SHA256,
+            validated,
+            raw_kc_set=raw,
+            kc_set_sha256=KC_SHA256,
             config=QuizConfig(include_all_kcs=True),
         )
-
-
-def test_legacy_preview_also_preserves_original_kc_records(tmp_path, source) -> None:
-    raw = _raw_kcs(source)
-    path = tmp_path / "kc-proposed.json"
-    write_json(path, raw)
-    before = sha256_file(path)
-
-    prepare_quiz_request(
-        tmp_path, config=QuizConfig(selected_kc_ids=("KC-001",), variants_per_kc=1),
-    )
-
-    preview = read_json(tmp_path / "quiz/quiz-input.json")
-    assert preview["leaf_kcs"] == raw["leaf_kcs"][:1]
-    assert preview["kc_groups"] == raw["kc_groups"]
-    assert sha256_file(path) == before

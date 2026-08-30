@@ -17,7 +17,6 @@ from learning_authoring.agent_session import (
 from learning_authoring.artifacts import read_json, sha256_file, write_json
 from learning_authoring.cli import _parser, main
 from learning_authoring.contracts import ExtractedSource
-from learning_authoring.kc import prepare_kc_request
 from tests.conftest import write_blank_pdf
 from tests.test_agent_session import (
     _extraction_candidate,
@@ -312,11 +311,3 @@ def test_cli_rejects_override_of_frozen_import_before_any_write(override) -> Non
                 *override,
             ]
         )
-
-
-def test_legacy_kc_api_cannot_silently_omit_new_context(tmp_path, monkeypatch) -> None:
-    _forbid_provider_use(monkeypatch)
-    run, _ = _init(tmp_path, notes=True)
-    with pytest.raises(RuntimeError, match="must not silently drop"):
-        prepare_kc_request(run)
-    assert not (run / "kc-request-preview.json").exists()

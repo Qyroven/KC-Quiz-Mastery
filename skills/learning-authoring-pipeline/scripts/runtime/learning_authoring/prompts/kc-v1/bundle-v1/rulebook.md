@@ -49,7 +49,8 @@ rewrite, or conceal its upstream status in this stage.
    confidence. Never infer that a page ordinal applies across PDFs.
 8. **Capability inventory and atomicity:** before cross-source compression or
    grouping, make an internal inventory of source-supported capabilities for
-   each source and then reconcile them across sources. This is reasoning within
+   each source section, reconcile sections within a source, and only then
+   reconcile across sources. This is reasoning within
    the same stage, not an extra model call, count quota, or one-KC-per-page rule.
    Split when a learner could know one claim without another, observable
    responses differ, or errors would require different remediation. Merge only

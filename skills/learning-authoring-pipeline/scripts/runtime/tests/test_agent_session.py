@@ -169,22 +169,13 @@ def _quiz_candidate(source: ExtractedSource, kc_sha256: str, *, variants: int) -
 
 
 def _forbid_provider_use(monkeypatch) -> None:
-    def forbidden(*args, **kwargs):
-        raise AssertionError("agent-session path must not construct a client or call a provider")
-
-    monkeypatch.setattr("learning_authoring.legacy_api.provider.build_client", forbidden)
-    monkeypatch.setattr("learning_authoring.legacy_api.gateway.execute_response", forbidden)
-    for module in ("kc", "quiz"):
-        monkeypatch.setattr(f"learning_authoring.{module}.build_client", forbidden, raising=False)
-        monkeypatch.setattr(
-            f"learning_authoring.{module}.execute_response", forbidden, raising=False,
-        )
-    monkeypatch.setattr(
-        "learning_authoring.legacy_api.extractor.build_client", forbidden, raising=False
-    )
-    monkeypatch.setattr(
-        "learning_authoring.legacy_api.extractor.execute_response", forbidden, raising=False
-    )
+    del monkeypatch
+    legacy = Path(__file__).parents[1] / "learning_authoring" / "legacy_api"
+    assert not list(legacy.glob("*.py"))
+    for module in ("learning_authoring.kc", "learning_authoring.quiz"):
+        namespace = __import__(module, fromlist=["*"])
+        assert not hasattr(namespace, "build_client")
+        assert not hasattr(namespace, "execute_response")
 
 
 def test_agent_schema_defaults_to_slots_but_still_emits_legacy_contract() -> None:
@@ -265,9 +256,7 @@ def test_agent_extraction_uses_no_provider_and_preserves_exact_candidate_bytes(
     assert task_package["input_boundary"]["delivery"] == "native_pdf_primary"
     assert task_package["input_boundary"]["page_image_policy"]["bulk_load_forbidden"] is True
     assert Path(imported["raw_candidate"]).read_bytes() == raw
-    assert read_json(artifacts.proposed)["source"] == read_json(artifacts.source_manifest)[
-        "source"
-    ]
+    assert read_json(artifacts.proposed)["source"] == read_json(artifacts.source_manifest)["source"]
     metrics = read_json(artifacts.metrics)
     assert metrics["execution_mode"] == EXECUTION_MODE
     assert metrics["provider_api_calls"] == 0
@@ -321,9 +310,10 @@ def test_agent_kc_and_quiz_demo_stay_unapproved_and_preserve_raw_bytes(
 
     assert Path(kc_import["raw_candidate"]).read_bytes() == kc_raw
     assert kc_import["upstream_extraction_status"] == "PROPOSED_DEMO_ONLY"
-    assert read_json(Path(kc_task["task_package"]))["input_boundary"][
-        "upstream_extraction"
-    ]["status"] == "PROPOSED_DEMO_ONLY"
+    assert (
+        read_json(Path(kc_task["task_package"]))["input_boundary"]["upstream_extraction"]["status"]
+        == "PROPOSED_DEMO_ONLY"
+    )
     assert "PROPOSED DEMO ONLY" in (run_dir / "index.html").read_text(encoding="utf-8")
     assert not (run_dir / "extracted-source.approved.json").exists()
     assert not (run_dir / "extraction-approval.json").exists()
@@ -347,22 +337,27 @@ def test_agent_kc_and_quiz_demo_stay_unapproved_and_preserve_raw_bytes(
     )
 
     quiz_artifacts = RunArtifacts(run_dir / "quiz")
-    assert read_json(Path(quiz_task["task_package"]))["input_boundary"]["payload"][
-        "runtime"
-    ]["variants_per_kc"] == 2
+    assert (
+        read_json(Path(quiz_task["task_package"]))["input_boundary"]["payload"]["runtime"][
+            "variants_per_kc"
+        ]
+        == 2
+    )
     assert Path(quiz_import["raw_candidate"]).read_bytes() == quiz_raw
     assert quiz_artifacts.quiz_raw_output.read_bytes() == quiz_raw
     form_audit = read_json(quiz_artifacts.quiz_form_audit)
     assert quiz_import["form_audit"] == str(quiz_artifacts.quiz_form_audit)
-    assert quiz_import["quality_revision_recommended"] == form_audit[
-        "fresh_candidate_guidance"
-    ]["recommended"]
-    assert quiz_import["quality_revision_trigger_codes"] == form_audit[
-        "fresh_candidate_guidance"
-    ]["trigger_codes"]
-    assert quiz_import["next_quality_action"] == form_audit[
-        "fresh_candidate_guidance"
-    ]["next_action"]
+    assert (
+        quiz_import["quality_revision_recommended"]
+        == form_audit["fresh_candidate_guidance"]["recommended"]
+    )
+    assert (
+        quiz_import["quality_revision_trigger_codes"]
+        == form_audit["fresh_candidate_guidance"]["trigger_codes"]
+    )
+    assert (
+        quiz_import["next_quality_action"] == form_audit["fresh_candidate_guidance"]["next_action"]
+    )
     assert read_json(quiz_artifacts.quiz_metrics)["provider_api_calls"] == 0
     assert read_json(quiz_artifacts.quiz_metrics)["usage"] is None
     assert (run_dir / "quiz-review.html").is_file()
@@ -395,3 +390,49 @@ def test_invalid_agent_candidate_is_archived_before_contract_rejection(
     assert len(archived) == 1
     assert archived[0].read_bytes() == raw
     assert read_json(run_dir / "contract-errors.json")["provider_api_calls"] == 0
+
+
+def test_quiz_form_failure_is_archived_but_not_promoted(tmp_path) -> None:
+    pdf = tmp_path / "lesson.pdf"
+    run_dir = tmp_path / "run"
+    write_blank_pdf(pdf)
+    agent_init(pdf, run_dir)
+
+    extraction_path = tmp_path / "extraction.json"
+    _write_raw(extraction_path, _extraction_candidate())
+    extraction_task = prepare_agent_task("extraction", run_dir)
+    agent_import(
+        "extraction",
+        run_dir,
+        extraction_path,
+        task_package=Path(extraction_task["task_package"]),
+    )
+    source = ExtractedSource.model_validate(read_json(run_dir / "extracted-source.proposed.json"))
+
+    kc_path = tmp_path / "kc.json"
+    _write_raw(kc_path, _kc_candidate(source))
+    kc_task = prepare_agent_task("kc", run_dir, allow_proposed_extraction_demo=True)
+    agent_import("kc", run_dir, kc_path, task_package=Path(kc_task["task_package"]))
+
+    canonical_kc = run_dir / "kc-proposed.json"
+    candidate = _quiz_candidate(source, sha256_file(canonical_kc), variants=1)
+    candidate["questions"][0]["choice_options"][1]["text"] = (
+        "The uniquely detailed correct option contains far more words than every alternative"
+    )
+    quiz_path = tmp_path / "quiz.json"
+    raw = _write_raw(quiz_path, candidate)
+    quiz_task = prepare_agent_task("quiz", run_dir, selected_kc_ids=("KC-001",), variants_per_kc=1)
+
+    result = agent_import(
+        "quiz",
+        run_dir,
+        quiz_path,
+        task_package=Path(quiz_task["task_package"]),
+    )
+
+    assert result["status"] == "RETRY_REQUIRED"
+    assert result["promotion_gate_passed"] is False
+    assert "CORRECT_OPTION_LENGTH_CUE" in result["quality_revision_trigger_codes"]
+    assert result["proposed"] is None
+    assert not (run_dir / "quiz" / "quiz-proposed.json").exists()
+    assert (run_dir / "quiz" / "quiz-output.raw.json").read_bytes() == raw

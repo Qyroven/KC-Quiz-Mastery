@@ -34,11 +34,15 @@ For each source run:
 <la> review <source-run>
 ```
 
-Before writing the candidate, visually anchor every returned block to its own PDF page. Normalized
+Before writing the candidate, work through contiguous source sections (or manageable adjacent page
+windows when no section break exists) and keep a per-page coverage ledger. Reconcile those ledgers
+into one final candidate, then visually anchor every returned block to its own PDF page. Normalized
 bounds may be approximate, but must identify the actual content region; do not reuse a generic page
 box. Inspect an isolated rendered page only when the native PDF view cannot resolve an informative
-visual or relationship. Keep candidate bytes unchanged. If import fails its contract, author one
-fresh replacement. Do not patch the first candidate.
+visual or relationship. Compare repeated block counts and geometry against the real layouts, and
+scan text for invalid codepoints before import. Keep candidate bytes unchanged. If contract or
+promotion-gate import fails, author one fresh replacement from the same frozen task. Do not patch
+the first candidate. A second failure stays `REVIEW` and does not become canonical proposed output.
 
 ## 3. Create the KC source boundary
 
@@ -63,7 +67,8 @@ Source order defines bundle identity only. It does not align page numbers or not
 
 KC must preserve source-qualified evidence, meaningful exclusions, and context provenance. The demo
 flag allows an uninterrupted draft flow; it is not approval. Before grouping, inventory the
-source-supported capabilities internally. Split candidates when knowledge, observable response, or
+source-supported capabilities internally per source section, then reconcile the section inventories
+globally. Split candidates when knowledge, observable response, or
 remediation can stand independently; merge only paraphrases, supporting examples, or inseparable
 parts. Re-run those tests after every merge. Before import, trace every positive statement in each
 KC description, observable claim, and included boundary to evidence cited on that KC; add the real
@@ -83,9 +88,11 @@ support wording. These signals never auto-create KCs and never replace human sem
 ```
 
 Use explicit `--include-kc`, language, or budget flags only when the user asks. Let assessment needs
-determine item type and variant count. After import, inspect the deterministic form audit. A contract
-failure permits one fresh replacement. A quality warning stays visible for the initial check; do
-not loop until all warnings disappear.
+determine item type and variant count. Author in natural KC-group/source-order batches while carrying
+one portfolio ledger for evidence intents, interactions, key positions, misconception families, and
+hints. Assemble one final candidate. After import, inspect the deterministic form audit. Contract or
+promotion-gate failure permits exactly one fresh replacement; a second failure stays `REVIEW` and is
+not written as `quiz-proposed.json`.
 
 Before importing the first candidate, solve every learner-visible item without its key. First map
 each slot to the simplest interaction that preserves the complete evidence: classifications and

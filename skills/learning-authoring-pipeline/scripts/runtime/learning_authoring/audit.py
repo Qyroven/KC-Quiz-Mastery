@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 from learning_authoring.contracts import ExtractedSource, source_region_geometry_state
 
-AUDIT_VERSION = "extraction-audit.v5"
+AUDIT_VERSION = "extraction-audit.v6"
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
+_INVALID_TEXT_CODEPOINTS = {0xFFFE, 0xFFFF}
 
 
 def validate_extraction_geometry(extracted: ExtractedSource) -> None:
@@ -29,13 +31,9 @@ def validate_extraction_geometry(extracted: ExtractedSource) -> None:
         if source_region_geometry_state(block.region) == "invalid"
     ]
     if invalid:
-        preview = ", ".join(
-            f"page {row['page']} block {row['block_id']}" for row in invalid[:5]
-        )
+        preview = ", ".join(f"page {row['page']} block {row['block_id']}" for row in invalid[:5])
         suffix = f" (+{len(invalid) - 5} more)" if len(invalid) > 5 else ""
-        raise ValueError(
-            "Extraction contains invalid normalized geometry: " + preview + suffix
-        )
+        raise ValueError("Extraction contains invalid normalized geometry: " + preview + suffix)
 
 
 def response_usage(raw: dict[str, Any]) -> dict[str, int]:
@@ -80,6 +78,151 @@ def _strings(value: Any) -> Iterable[str]:
 
 def _tokens(text: str) -> set[str]:
     return {token.casefold() for token in _TOKEN_RE.findall(text)}
+
+
+def _text_artifacts(extracted: ExtractedSource) -> list[dict[str, Any]]:
+    artifacts: list[dict[str, Any]] = []
+    for page in extracted.pages:
+        for block in page.blocks:
+            for value in _strings(block.content):
+                bad = sorted(
+                    {
+                        f"U+{ord(char):04X}"
+                        for char in value
+                        if ord(char) in _INVALID_TEXT_CODEPOINTS
+                        or (ord(char) < 32 and char not in "\n\r\t")
+                    }
+                )
+                if bad:
+                    artifacts.append(
+                        {
+                            "page": page.page_number,
+                            "block_id": block.block_id,
+                            "codepoints": bad,
+                        }
+                    )
+    return artifacts
+
+
+def _geometry_signature(block: Any) -> str | None:
+    if source_region_geometry_state(block.region) != "located":
+        return None
+    geometry = block.region.geometry or {}
+    bbox = geometry.get("bbox")
+    if isinstance(bbox, list) and len(bbox) == 4:
+        values = bbox
+    elif all(name in geometry for name in ("x", "y", "w", "h")):
+        values = [geometry[name] for name in ("x", "y", "w", "h")]
+    else:
+        return None
+    try:
+        return ",".join(f"{float(value):.3f}" for value in values)
+    except (TypeError, ValueError):
+        return None
+
+
+def _fresh_candidate_guidance(
+    extracted: ExtractedSource,
+    rows: list[dict[str, Any]],
+    *,
+    text_artifacts: list[dict[str, Any]],
+    unresolved_geometry_count: int,
+) -> dict[str, Any]:
+    """Detect mechanical extraction failures, never semantic correctness."""
+
+    trigger_codes: list[str] = []
+    details: list[dict[str, Any]] = []
+    if text_artifacts:
+        trigger_codes.append("INVALID_TEXT_CODEPOINT")
+        details.append(
+            {
+                "code": "INVALID_TEXT_CODEPOINT",
+                "count": len(text_artifacts),
+                "examples": text_artifacts[:12],
+            }
+        )
+
+    page_count = len(rows)
+    nonempty_rows = [row for row in rows if row["model_block_count"]]
+    count_frequency = Counter(row["model_block_count"] for row in nonempty_rows)
+    modal_count, modal_pages = count_frequency.most_common(1)[0] if count_frequency else (0, 0)
+    modal_share = modal_pages / len(nonempty_rows) if nonempty_rows else 0.0
+
+    signatures: Counter[str] = Counter()
+    signature_pages: dict[str, set[int]] = {}
+    for page in extracted.pages:
+        for block in page.blocks:
+            signature = _geometry_signature(block)
+            if signature is None:
+                continue
+            signatures[signature] += 1
+            signature_pages.setdefault(signature, set()).add(page.page_number)
+    repeated_signature, repeated_count = signatures.most_common(1)[0] if signatures else (None, 0)
+    repeated_pages = (
+        len(signature_pages.get(repeated_signature, set())) if repeated_signature else 0
+    )
+    template_shortcut = (
+        page_count >= 12
+        and modal_count <= 2
+        and modal_share >= 0.85
+        and repeated_pages >= max(8, round(page_count * 0.6))
+    )
+    if template_shortcut:
+        trigger_codes.append("REPEATED_PAGE_TEMPLATE")
+        details.append(
+            {
+                "code": "REPEATED_PAGE_TEMPLATE",
+                "modal_block_count": modal_count,
+                "modal_page_share": round(modal_share, 4),
+                "repeated_geometry_signature": repeated_signature,
+                "repeated_geometry_occurrences": repeated_count,
+                "pages_with_signature": repeated_pages,
+            }
+        )
+
+    eligible = [row for row in rows if row["local_text_layer_chars"] >= 40]
+    low_coverage = [
+        row
+        for row in eligible
+        if row["diagnostic_text_token_overlap"] is not None
+        and row["diagnostic_text_token_overlap"] < 0.65
+    ]
+    if len(eligible) >= 8 and len(low_coverage) / len(eligible) >= 0.3:
+        trigger_codes.append("SYSTEMIC_TEXT_OMISSION")
+        details.append(
+            {
+                "code": "SYSTEMIC_TEXT_OMISSION",
+                "eligible_page_count": len(eligible),
+                "low_coverage_page_count": len(low_coverage),
+                "pages": [row["page"] for row in low_coverage[:20]],
+            }
+        )
+
+    block_count = sum(row["model_block_count"] for row in rows)
+    if block_count >= 20 and unresolved_geometry_count / block_count >= 0.2:
+        trigger_codes.append("SYSTEMIC_UNRESOLVED_GEOMETRY")
+        details.append(
+            {
+                "code": "SYSTEMIC_UNRESOLVED_GEOMETRY",
+                "block_count": block_count,
+                "unresolved_geometry_count": unresolved_geometry_count,
+            }
+        )
+
+    return {
+        "recommended": bool(trigger_codes),
+        "trigger_codes": trigger_codes,
+        "details": details,
+        "next_action": (
+            "author_one_fresh_candidate_from_the_same_frozen_task"
+            if trigger_codes
+            else "continue_to_human_semantic_review"
+        ),
+        "interpretation": (
+            "Mechanical promotion gate only. No trigger is proof of semantic completeness, "
+            "and a trigger is not permission to patch the archived candidate."
+        ),
+    }
 
 
 def build_audit(extracted: ExtractedSource, run_dir: Path) -> dict[str, Any]:
@@ -147,6 +290,13 @@ def build_audit(extracted: ExtractedSource, run_dir: Path) -> dict[str, Any]:
                 "note": "Review aid only; not accuracy, confidence, or completeness.",
             }
         )
+    text_artifacts = _text_artifacts(extracted)
+    guidance = _fresh_candidate_guidance(
+        extracted,
+        rows,
+        text_artifacts=text_artifacts,
+        unresolved_geometry_count=len(unresolved_geometry_blocks),
+    )
     return {
         "audit_version": AUDIT_VERSION,
         "source_page_count": extracted.source.page_count,
@@ -160,6 +310,9 @@ def build_audit(extracted: ExtractedSource, run_dir: Path) -> dict[str, Any]:
         "unresolved_geometry_blocks": unresolved_geometry_blocks,
         "invalid_geometry_block_count": len(invalid_geometry_blocks),
         "invalid_geometry_blocks": invalid_geometry_blocks,
+        "invalid_text_artifact_count": len(text_artifacts),
+        "invalid_text_artifacts": text_artifacts,
+        "fresh_candidate_guidance": guidance,
         "pages": rows,
         "human_review_required": True,
     }

@@ -115,8 +115,7 @@ def _selected_candidate(
         match = next((item for item in candidates if item["model"] == recommended), None)
         if match:
             return match
-    sol = next((item for item in candidates if item["model"] == "gpt-5.6-sol"), None)
-    return sol or candidates[0]
+    return candidates[0]
 
 
 def _recall_html(

@@ -467,18 +467,18 @@ def test_bank_level_answer_position_and_correct_length_patterns_are_flagged() ->
         "ANSWER_POSITION_IMBALANCE",
         "CORRECT_OPTION_LENGTH_PATTERN",
     } <= _portfolio_codes(audit)
-    assert audit["fresh_candidate_guidance"] == {
-        "recommended": True,
-        "trigger_codes": [
-            "ANSWER_POSITION_IMBALANCE",
-            "CORRECT_OPTION_LENGTH_PATTERN",
-        ],
-        "question_ids": [],
-        "max_fresh_candidate_revisions": 1,
-        "automatic_repair_performed": False,
-        "semantic_quality_proven": False,
-        "next_action": "AUTHOR_ONE_FRESH_CANDIDATE_FROM_THE_SAME_FROZEN_TASK",
-    }
+    guidance = audit["fresh_candidate_guidance"]
+    assert guidance["recommended"] is True
+    assert {
+        "ANSWER_POSITION_IMBALANCE",
+        "CORRECT_OPTION_LENGTH_CUE",
+        "CORRECT_OPTION_LENGTH_PATTERN",
+    } <= set(guidance["trigger_codes"])
+    assert guidance["question_ids"] == [f"Q-{index:03d}" for index in range(1, 13)]
+    assert guidance["max_fresh_candidate_revisions"] == 1
+    assert guidance["automatic_repair_performed"] is False
+    assert guidance["semantic_quality_proven"] is False
+    assert guidance["next_action"] == "AUTHOR_ONE_FRESH_CANDIDATE_FROM_THE_SAME_FROZEN_TASK"
 
 
 def test_repeated_multi_select_key_shape_across_kcs_requests_fresh_candidate() -> None:

@@ -81,11 +81,13 @@ def quiz_review_material(
     candidate = (candidate_dir or root / "quiz").expanduser().resolve()
     artifacts = RunArtifacts(root)
     quiz_files = RunArtifacts(candidate)
+    metadata = read_json(quiz_files.quiz_metadata)
+    if metadata.get("promotion_gate_passed") is False:
+        raise ValueError("Quiz candidate is blocked by its deterministic promotion gate")
     batch_raw = read_json(quiz_files.quiz_proposed)
     batch = QuizBatch.model_validate(batch_raw)
     quiz_input = read_json(quiz_files.quiz_input)
     batch.validate_against_input(quiz_input)
-    metadata = read_json(quiz_files.quiz_metadata)
     if metadata.get("candidate_raw_sha256") and (
         sha256_file(quiz_files.quiz_proposed) != metadata["candidate_raw_sha256"]
     ):

@@ -6,7 +6,6 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from learning_authoring.legacy_api.requests import build_quiz_request
 from learning_authoring.quiz import QuizConfig, build_quiz_input, load_quiz_prompt_package
 from learning_authoring.quiz_contracts import (
     CURRENT_QUIZ_INPUT_VERSION,
@@ -45,9 +44,7 @@ def hinted_output(source, *, interaction: str = "single_select", hint_count: int
             question["matching_right"] = [
                 {"option_id": f"R-{i}", "text": f"Category {i}"} for i in (3, 1, 2)
             ]
-            answer["mappings"] = [
-                {"left": f"L-{i}", "right": f"R-{i}"} for i in range(1, 4)
-            ]
+            answer["mappings"] = [{"left": f"L-{i}", "right": f"R-{i}"} for i in range(1, 4)]
         elif interaction == "ordering":
             question["ordering_options"] = [
                 {"option_id": f"step-{i}", "text": f"Step {i}"} for i in (2, 3, 1)
@@ -159,9 +156,7 @@ def test_hint_ids_are_stable_local_ids_not_globally_counted(source) -> None:
 @pytest.mark.parametrize("version", ["quiz-batch.v1", "quiz-batch.v2"])
 def test_old_quiz_artifacts_do_not_acquire_synthetic_hint_fields(source, version) -> None:
     raw = (
-        quiz_output(source)
-        if version.endswith("v1")
-        else adaptive_output(source, version=version)
+        quiz_output(source) if version.endswith("v1") else adaptive_output(source, version=version)
     )
     batch = QuizBatch.model_validate(raw)
     assert batch.model_dump(mode="json") == raw
@@ -219,22 +214,6 @@ def test_v3_frozen_policy_rejects_downgrade_but_old_v2_task_remains_readable(sou
     batch.validate_against_input(old_payload)
     with pytest.raises(ValueError, match="requires quiz-batch.v2"):
         QuizBatchV3.model_validate(hinted_output(source)).validate_against_input(old_payload)
-
-
-def test_request_cannot_label_v3_frozen_input_as_a_v2_schema(source) -> None:
-    payload = build_quiz_input(
-        kc_set(source), kc_set_sha256=KC_SHA256, config=QuizConfig(include_all_kcs=True)
-    )
-    with pytest.raises(ValueError, match="schema does not match"):
-        build_quiz_request(
-            quiz_input_payload=payload,
-            instructions="Test only; no provider is called.",
-            output_schema=quiz_output_schema("quiz-batch.v2"),
-            model="test-model",
-            reasoning_effort="low",
-            response_mode="sync",
-            max_output_tokens=None,
-        )
 
 
 def test_form_contract_does_not_masquerade_as_semantic_hint_validation(source) -> None:
