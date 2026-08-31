@@ -802,8 +802,12 @@ def _hint_issues(question: QuizQuestion) -> list[dict[str, Any]]:
             leak = _short_text_hint_leak(question, cumulative_hint)
         elif question.interaction == "matching":
             leak = _matching_hint_leak(question, cumulative_hint)
-        else:
+        elif question.interaction == "ordering":
             leak = _ordering_hint_leak(question, cumulative_hint)
+        else:
+            # No numeric semantic inference from a coincidentally repeated number.
+            # Absence of a form flag never validates a hint.
+            leak = None
         if leak is not None:
             return [
                 _issue(

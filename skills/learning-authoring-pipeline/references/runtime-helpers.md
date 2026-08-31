@@ -64,6 +64,19 @@ Use agent-schema kc (or --source-bundle) and agent-schema quiz for the optional 
 contracts. `intended_difficulty` is explicit per slot: easy, medium, hard, or unknown when an estimate
 cannot be supported. Unknown is not a medium-difficulty default; no label is empirical calibration.
 
+The adapter supports `numeric_input` with an explicit `correct_answer.numeric` object: `value`,
+nonnegative `absolute_tolerance`, and `unit` (empty for dimensionless answers). Its other answer
+fields and rubric stay empty. State any required precision in the question; do not invent a tolerance
+or demand a derivation when the target is the numerical result. The preview shows the unit without
+the key until the reviewer opens the answer.
+
+An integrated item can bind separately scored parts to multiple assessment slots: `short_text`
+uses `rubric[].slot_id`; `matching` uses `correct_answer.mappings[].slot_id`. Every linked slot needs
+its own part and source evidence. A single scalar or selected answer cannot be credited to several
+independent capabilities. Numeric and integrated items are supported for authoring/review; the
+existing Learning export refuses them until its scorer supports their evidence semantics. Do not
+rewrite such items merely to bypass that export boundary.
+
 Import the agent-authored candidates with:
 
     <la> agent-import kc <run> <kc.json> --allow-proposed-extraction-demo

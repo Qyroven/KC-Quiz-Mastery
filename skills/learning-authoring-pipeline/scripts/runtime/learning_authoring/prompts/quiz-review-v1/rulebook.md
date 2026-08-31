@@ -75,9 +75,13 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   with independent evaluation merely because the labels are domain-specific.
 - **scoring:** Is the supplied key uniquely defensible where uniqueness is
   required? For multi-select, matching, and ordering, check all required
-  relationships and allowable alternatives. Objective interactions use their
-  ID-based key and `answer_explanation`, with `rubric: []` and
+  relationships and allowable alternatives. Do not assume a source table's illustrative actions
+  are mutually exclusive or test only obviously wrong swaps. Objective interactions use their
+  structured key and `answer_explanation`, with `rubric: []` and
   `correct_answer.text: ""`; these empty fields are required, not missing scoring.
+  `numeric_input` instead keys its scalar value, unit and absolute tolerance in `correct_answer.numeric`.
+  Check the tolerance and units against the stated task. Integrated matching binds each answer pair
+  to its own slot; do not treat the whole matching result as evidence for every linked capability.
   Only `short_text` uses a nonempty rubric and exemplar text. For short text,
   assess the rubric, not literal similarity to the exemplar: relevant alternatives
   must receive credit, criteria must be observable and non-duplicated, and no criterion may

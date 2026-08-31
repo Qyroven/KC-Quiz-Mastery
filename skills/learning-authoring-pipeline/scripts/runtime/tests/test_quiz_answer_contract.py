@@ -89,5 +89,14 @@ def test_native_and_strict_schema_describe_answer_field_ownership(version, stric
     assert "for matching only" in answer["mappings"]["description"]
     assert "for ordering only" in answer["ordering"]["description"]
     assert "required for every interaction" in question["answer_explanation"]["description"]
-    for field in (*answer.values(), question["rubric"], question["answer_explanation"]):
+    for field in (
+        *(value for key, value in answer.items() if key != "numeric"),
+        question["rubric"],
+        question["answer_explanation"],
+    ):
         assert "default" not in field
+    assert "Required only for numeric_input" in answer["numeric"]["description"]
+    if strict_output:
+        assert "default" not in answer["numeric"]
+    else:
+        assert answer["numeric"]["default"] is None

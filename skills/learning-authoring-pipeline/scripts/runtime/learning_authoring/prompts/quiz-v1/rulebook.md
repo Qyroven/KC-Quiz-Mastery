@@ -33,15 +33,21 @@ not. Where partial credit is useful, name the actual incomplete work; generic "p
 or "right direction" alone does not guide scoring. Binary criteria are valid when partial evidence
 is not meaningful. Do not demand an unrequested deliverable. Test both a different valid solution
 and a near-correct response that violates an essential condition. The exemplar, rubric and
-explanation must agree on credit. Objective items use their ID-based key, not a text rubric.
-The supplied schema specifies serialization.
+explanation must agree on credit. Objective items use their structured key, not a text rubric.
+`numeric_input` uses `correct_answer.numeric` with a finite `value`, explicit nonnegative
+`absolute_tolerance`, and `unit` (empty for dimensionless); other answer fields stay empty.
+The scalar widget measures the requested result, not an unrequested derivation. Type and variant
+count are explicit authoring choices, not constructor defaults. The schema specifies serialization.
 
 A task may integrate several slots when their work forms a coherent case. Keep `slot_id` as its
-primary slot and list the others in `additional_slot_ids`. This optional renderer currently supports integrated tasks through
-`short_text`: bind every rubric criterion to a `slot_id`, and give each linked slot its own scored
-evidence. If another response type is necessary, preserve that authored task outside this adapter
-and provide an appropriate view; do not weaken it to satisfy this serialization. Do not copy a whole-question result to every KC. Use ordinary single-slot questions when
-these evidence components cannot be separated. Counts refer to item occurrences per slot; one
+primary slot and list the others in `additional_slot_ids`. This renderer supports `short_text`
+with every rubric criterion bound to its `slot_id`, or `matching` with every answer mapping bound
+to its `slot_id`. Every linked slot needs its own response evidence; matching by elimination is
+not independent proof for a pair. A single selection or scalar result cannot be copied across slots.
+If another response type is necessary, preserve that authored task outside this adapter
+and provide an appropriate view; do not weaken it to satisfy this serialization. Do not copy a
+whole-question result to every KC. Use ordinary single-slot questions when these evidence components
+cannot be separated. Counts refer to item occurrences per slot; one
 integrated question is still one question, not duplicated text for each KC.
 
 ## Context and hints

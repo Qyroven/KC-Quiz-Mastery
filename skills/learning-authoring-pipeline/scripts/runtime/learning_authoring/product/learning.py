@@ -70,6 +70,11 @@ def build_learning_package(
             "Integrated items are authoring/review only until Learning supports per-slot rubric "
             "evidence; refusing to copy a whole-question result to multiple KCs."
         )
+    if any(question["interaction"] == "numeric_input" for question in quiz["questions"]):
+        raise RegistrationSafetyError(
+            "numeric_input is authoring/review only until Learning supports numeric scoring; "
+            "refusing to export an unsupported learner interaction."
+        )
     kc_set = _read_json_object(root / "kc-proposed.json", "KC")
     quiz_input = _read_json_object(root / "quiz" / "quiz-input.json", "Quiz input")
     selected = quiz_input["runtime"]["selected_kc_ids"]

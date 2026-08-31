@@ -312,7 +312,14 @@ def quiz_review_material(
         "ordering_options",
     }
     learner_questions = [
-        {key: value for key, value in question.items() if key in learner_fields}
+        {
+            **{key: value for key, value in question.items() if key in learner_fields},
+            **(
+                {"response_unit": question["correct_answer"]["numeric"]["unit"]}
+                if question["interaction"] == "numeric_input"
+                else {}
+            ),
+        }
         for question in batch_raw["questions"]
     ]
     key_questions = [

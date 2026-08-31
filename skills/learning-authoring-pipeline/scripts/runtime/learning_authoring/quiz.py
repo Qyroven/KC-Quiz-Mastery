@@ -40,6 +40,7 @@ ALLOWED_INTERACTIONS = (
     "matching",
     "ordering",
     "short_text",
+    "numeric_input",
 )
 
 
@@ -199,7 +200,11 @@ def build_quiz_input(
         raise ValueError("Quiz requires at least one selected Leaf KC")
 
     adaptive = config.variants_per_kc is None
-    can_integrate = adaptive and "short_text" in config.allowed_interactions
+    integrated_types = [
+        kind for kind in ("short_text", "matching")
+        if adaptive and kind in config.allowed_interactions
+    ]
+    can_integrate = bool(integrated_types)
     expected_question_count = None if adaptive else len(selected_kc_ids) * config.variants_per_kc
     minimum_question_count = (
         (config.variants_per_slot or 1) * (
@@ -270,7 +275,8 @@ def build_quiz_input(
             "total_question_budget": config.total_question_budget,
             "expected_question_count": expected_question_count,
             "minimum_question_count": minimum_question_count,
-            "integrated_constructed_responses": can_integrate,
+            "integrated_constructed_responses": "short_text" in integrated_types,
+            "integrated_response_types": integrated_types,
             "allowed_interactions": list(config.allowed_interactions),
             "language": config.language,
         },

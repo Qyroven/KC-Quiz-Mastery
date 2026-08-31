@@ -44,6 +44,63 @@ def integrated_output(source):
     return raw
 
 
+def set_integrated_matching(question):
+    """Synthetic two-part key; no claim that schema validity proves attribution."""
+    slots = [question["slot_id"], *question["additional_slot_ids"]]
+    question.update(
+        interaction="matching",
+        rubric=[],
+        matching_left=[{"option_id": f"L-{i}", "text": f"Case {i}"} for i in (1, 2)],
+        matching_right=[{"option_id": f"R-{i}", "text": f"Action {i}"} for i in (2, 1)],
+        correct_answer={
+            "selection_ids": [],
+            "ordering": [],
+            "text": "",
+            "mappings": [
+                {"left": f"L-{i}", "right": "R-1", "slot_id": slot}
+                for i, slot in enumerate(slots, 1)
+            ],
+        },
+    )
+
+
+def test_matching_parts_can_cover_slots_without_forcing_distinct_right_answers(source):
+    raw = integrated_output(source)
+    set_integrated_matching(raw["questions"][0])
+    batch = QuizBatch.model_validate(raw)
+    payload = build_quiz_input(
+        kc_set(source),
+        kc_set_sha256=KC_SHA256,
+        config=QuizConfig(
+            include_all_kcs=True,
+            allowed_interactions=("matching",),
+            total_question_budget=1,
+        ),
+    )
+    batch.validate_against_input(payload)
+    assert payload["runtime"]["integrated_response_types"] == ["matching"]
+    assert payload["runtime"]["integrated_constructed_responses"] is False
+    assert batch.model_dump(mode="json") == raw
+    assert batch.question_kc_ids(batch.questions[0]) == ["KC-001", "KC-002"]
+
+
+@pytest.mark.parametrize("defect", ["unbound", "unknown", "missing_slot", "missing_pair"])
+def test_integrated_matching_requires_each_pair_and_each_slot_to_be_bound(source, defect):
+    raw = integrated_output(source)
+    set_integrated_matching(raw["questions"][0])
+    mappings = raw["questions"][0]["correct_answer"]["mappings"]
+    if defect == "unbound":
+        mappings[1].pop("slot_id")
+    elif defect == "unknown":
+        mappings[1]["slot_id"] = "unknown"
+    elif defect == "missing_slot":
+        mappings[1]["slot_id"] = mappings[0]["slot_id"]
+    else:
+        mappings.pop()
+    with pytest.raises(ValidationError):
+        QuizBatch.model_validate(raw)
+
+
 def test_one_integrated_item_covers_two_slots_without_duplicating_the_question(source):
     raw = integrated_output(source)
     before = deepcopy(raw)
@@ -120,23 +177,28 @@ def test_single_select_accepts_supported_option_counts_without_padding(source, c
         QuizBatch.model_validate(raw)
 
 
+@pytest.mark.parametrize("interaction", ["short_text", "matching"])
 def test_existing_learning_export_refuses_to_misattribute_integrated_evidence(
-    source, tmp_path, monkeypatch
+    source, tmp_path, monkeypatch, interaction
 ):
     from learning_authoring.product import learning
     from learning_authoring.product.review_registration import RegistrationSafetyError
 
+    raw = integrated_output(source)
+    if interaction == "matching":
+        set_integrated_matching(raw["questions"][0])
     monkeypatch.setattr(learning, "prepare_review_registration", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         learning,
         "quiz_review_material",
-        lambda *args: {"artifacts": {"quiz": integrated_output(source)}},
+        lambda *args: {"artifacts": {"quiz": raw}},
     )
     with pytest.raises(RegistrationSafetyError, match="per-slot rubric evidence"):
         learning.build_learning_package(tmp_path)
 
 
-def test_integrated_import_and_portal_preserve_raw_and_count_unique_items(tmp_path):
+@pytest.mark.parametrize("interaction", ["short_text", "matching"])
+def test_integrated_import_and_portal_preserve_raw_and_count_unique_items(tmp_path, interaction):
     from learning_authoring.agent_session import agent_import, prepare_agent_task
     from learning_authoring.artifacts import read_json, sha256_file
     from learning_authoring.product.showcase import build_showcase
@@ -164,6 +226,8 @@ def test_integrated_import_and_portal_preserve_raw_and_count_unique_items(tmp_pa
             {"slot_id": "S-apply", "criterion": "Apply the condition.", "points": 1},
         ],
     )
+    if interaction == "matching":
+        set_integrated_matching(question)
     candidate = run / "integrated-candidate.json"
     unchanged = _write_raw(candidate, raw)
     imported = agent_import("quiz", run, candidate, task_package=Path(task["task_package"]))
@@ -180,12 +244,15 @@ def test_integrated_import_and_portal_preserve_raw_and_count_unique_items(tmp_pa
     assert candidate.read_bytes() == unchanged
 
 
-def test_integrated_review_renders_every_slot_without_duplicating_questions(source):
+@pytest.mark.parametrize("interaction", ["short_text", "matching"])
+def test_integrated_review_renders_every_slot_without_duplicating_questions(source, interaction):
     from learning_authoring.quiz_review import _TEMPLATE
     from tests.test_review_compatibility import inline_script, quiz_review_data, run_js
 
     data = quiz_review_data(source, adaptive=True)
     data["quiz"] = integrated_output(source)
+    if interaction == "matching":
+        set_integrated_matching(data["quiz"]["questions"][0])
     data["input"] = build_quiz_input(
         kc_set(source), kc_set_sha256=KC_SHA256, config=QuizConfig(include_all_kcs=True)
     )

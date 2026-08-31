@@ -8,6 +8,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    FiniteFloat,
     SerializerFunctionWrapHandler,
     StrictStr,
     model_serializer,
@@ -20,6 +21,7 @@ Interaction = Literal[
     "matching",
     "ordering",
     "short_text",
+    "numeric_input",
 ]
 QuizSchemaVersion = Literal["quiz-batch.v1", "quiz-batch.v2", "quiz-batch.v3"]
 CURRENT_QUIZ_SCHEMA_VERSION: QuizSchemaVersion = "quiz-batch.v3"
@@ -145,6 +147,14 @@ class QuizMapping(BaseModel):
 
     left: str = Field(min_length=1)
     right: str = Field(min_length=1)
+    slot_id: str | None = Field(default=None, min_length=1)
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if "slot_id" not in self.model_fields_set:
+            result.pop("slot_id", None)
+        return result
 
 
 class QuizImageCrop(BaseModel):
@@ -257,13 +267,23 @@ class QuizStimulus(BaseModel):
         return self
 
 
+class QuizNumericAnswer(BaseModel):
+    """A scalar key with explicit units and tolerance, not an inferred scoring policy."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: FiniteFloat = Field(strict=True)
+    absolute_tolerance: FiniteFloat = Field(ge=0, strict=True)
+    unit: StrictStr = Field(description="Displayed unit; empty string for a dimensionless answer.")
+
+
 class QuizAnswer(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     selection_ids: list[str] = Field(
         description=(
             "Correct choice option IDs for single_select or multi_select only. "
-            "Must be [] for matching, ordering, and short_text."
+            "Must be [] for matching, ordering, short_text, and numeric_input."
         )
     )
     ordering: list[str] = Field(
@@ -281,10 +301,21 @@ class QuizAnswer(BaseModel):
     text: str = Field(
         description=(
             'Exemplar answer for short_text only. Must be the empty string ("") for '
-            "single_select, multi_select, matching, and ordering; put their post-answer "
-            "explanation in answer_explanation instead."
+            "single_select, multi_select, matching, ordering, and numeric_input; "
+            "put their post-answer explanation in answer_explanation instead."
         )
     )
+    numeric: QuizNumericAnswer | None = Field(
+        default=None,
+        description="Required only for numeric_input; other interactions must omit it or use null.",
+    )
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if "numeric" not in self.model_fields_set:
+            result.pop("numeric", None)
+        return result
 
 
 class QuizRubricPoint(BaseModel):
@@ -350,8 +381,8 @@ class QuizQuestion(BaseModel):
     rubric: list[QuizRubricPoint] = Field(
         description=(
             "Scoring criteria for short_text only; short_text requires a nonempty rubric. "
-            "Must be [] for single_select, multi_select, matching, and ordering, which "
-            "use correct_answer selection_ids, mappings, or ordering instead."
+            "Must be [] for single_select, multi_select, matching, ordering, and numeric_input, "
+            "which use correct_answer selection_ids, mappings, ordering, or numeric instead."
         )
     )
     answer_explanation: str = Field(
@@ -404,12 +435,27 @@ class QuizQuestion(BaseModel):
         if len(linked) != len(set(linked)):
             raise ValueError("question repeats an assessment slot")
         if self.additional_slot_ids:
-            if not self.slot_id or self.interaction != "short_text":
-                raise ValueError("integrated slots require short_text and a primary slot")
-            if {point.slot_id for point in self.rubric} != set(linked):
-                raise ValueError("integrated rubric must score every linked slot separately")
+            if not self.slot_id:
+                raise ValueError("integrated slots require a primary slot")
+            if self.interaction == "short_text":
+                if {point.slot_id for point in self.rubric} != set(linked):
+                    raise ValueError("integrated rubric must score every linked slot separately")
+            elif self.interaction == "matching":
+                if {pair.slot_id for pair in answer.mappings} != set(linked):
+                    raise ValueError("integrated matching must bind each pair to a linked slot")
+            else:
+                raise ValueError(
+                    "integrated slots require separately scored text or matching parts"
+                )
         elif any(point.slot_id not in {None, self.slot_id} for point in self.rubric):
             raise ValueError("rubric cites a slot outside its question")
+        if not self.additional_slot_ids and any(
+            pair.slot_id not in {None, self.slot_id} for pair in answer.mappings
+        ):
+            raise ValueError("matching pair cites a slot outside its question")
+
+        if self.interaction != "numeric_input" and answer.numeric is not None:
+            raise ValueError("numeric key is only valid for numeric_input")
 
         if self.interaction == "single_select":
             if len(choice_ids) < 2 or len(answer.selection_ids) != 1:
@@ -430,8 +476,8 @@ class QuizQuestion(BaseModel):
             if answer.text or self.rubric:
                 raise ValueError("multi_select must not contain text-answer fields")
         elif self.interaction == "matching":
-            if len(left_ids) < 3 or len(right_ids) < 3:
-                raise ValueError("matching requires at least 3 options on each side")
+            if len(left_ids) < 2 or len(right_ids) < 2:
+                raise ValueError("matching requires at least 2 options on each side")
             mapped_left = [mapping.left for mapping in answer.mappings]
             mapped_right = [mapping.right for mapping in answer.mappings]
             if set(mapped_left) != left_ids or len(mapped_left) != len(set(mapped_left)):
@@ -451,6 +497,16 @@ class QuizQuestion(BaseModel):
                 raise ValueError("ordering contains fields for another interaction")
             if answer.text or self.rubric:
                 raise ValueError("ordering must not contain text-answer fields")
+        elif self.interaction == "numeric_input":
+            if answer.numeric is None:
+                raise ValueError("numeric_input requires a numeric key, unit and tolerance")
+            if choice_ids or left_ids or right_ids or ordering_ids:
+                raise ValueError("numeric_input contains response options")
+            if (
+                answer.text or answer.selection_ids or answer.ordering
+                or answer.mappings or self.rubric
+            ):
+                raise ValueError("numeric_input must use only its numeric key")
         else:
             if not answer.text or not self.rubric:
                 raise ValueError("short_text requires an exemplar answer and rubric")

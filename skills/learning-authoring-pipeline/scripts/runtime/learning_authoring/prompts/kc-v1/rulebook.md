@@ -26,7 +26,10 @@ Before returning, perform three checks:
 
 - **Coverage:** every meaningful source capability is represented or specifically uncovered.
 - **Grounding:** every positive sentence is supported by its own cited evidence.
-- **Granularity:** each Leaf KC has one coherent learner response and one coherent remediation path.
+- **Granularity:** challenge a questionable merge with contrasting learner responses: succeed at
+  one part, fail another, and reverse those strengths. If the needed practice differs because these
+  are independent capabilities, split them even if one exercise combines them. Do not split every
+  step or arithmetic slip. Keep a concrete boundary decision in existing notes, not an atomicity flag.
 
 Compare each description with its observable claim and scope. Naming a capability in background
 text does not make it assessed. Preserve independently learnable capabilities or account for them

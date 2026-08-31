@@ -69,7 +69,11 @@ misconceptions, assessment intent) from source claims. Conditions and exceptions
 Keep the description and observable scope consistent. Material named in a description but outside
 its claim is supporting context or an unmeasured capability; say which. Do not hide lost capabilities
 under a broad heading. Check whether a learner could succeed at one part, fail another, and need
-different practice. Preserve that diagnosable distinction without fragmenting inseparable work.
+different practice. For a questionable boundary, try those contrasting responses and identify the
+different next practice. Split when the difference is an independently learnable capability; keep
+inseparable steps together. Record the concrete boundary decision in existing KC notes or the report,
+not a generic "atomic" flag. A group title, one combined exercise, or a shared total score does not
+make capabilities inseparable. Nor does a partial arithmetic error alone justify a new leaf.
 
 Across PDFs, merge only equivalent capabilities with source-qualified evidence. Preserve differences,
 conflicts and assumptions; one source does not repair an unreadable region in another. Account for
@@ -80,10 +84,11 @@ do not hide the omission only in KC. Counts follow content, not pages, batches o
 ### Worked contrast: one topic does not mean one capability
 
 Suppose supplied materials teach calculating a weighted mean and judging whether a sample supports
-a population claim. A learner can calculate correctly but ignore a biased sample. The errors need
-different feedback, so preserve the two capabilities rather than "Understand averages" with only a
-calculation question. In contrast, multiplying by weights, summing and dividing can be inseparable
-steps of the calculation; they do not automatically need separate leaves.
+a population claim. Learner A calculates correctly but generalizes from a biased sample; learner B
+spots the bias but calculates incorrectly. The same partial total would hide opposite learning needs:
+sampling practice for A, weighted calculation for B. Keep separate leaves even if one integrated
+question assesses both, and attribute its scored work separately. Multiplying by weights, summing
+and dividing are steps of the calculation; they do not automatically need separate leaves.
 
 Another instructor's equivalent calculation example supports the same KC with a separate citation.
 Different sampling assumptions stay qualified. If only calculation is asked, report "calculation
@@ -98,8 +103,12 @@ coverage solely by iterating over KC IDs after writing questions. Compare actual
 the KC capabilities and disclose what remains unmeasured.
 
 No default question budget, per-KC multiplier, Bloom ladder or type mix applies. Respect quantities
-the user supplies and explain resulting coverage tradeoffs. Do not suppress useful calculation,
-visual, selection or programming tasks because a renderer makes prose easier.
+the user supplies and explain resulting coverage tradeoffs. Make response type and useful variant
+count explicit authoring decisions; a script's default `short_text` or `variant_count=1` is not a
+decision. Equal choices are fine when justified. A numeric response can measure a result; request
+working or reasoning only when that evidence matters. Selection, construction, visual and programming
+tasks are options, not quotas. Do not expand a simple task merely to justify an open response or
+constrain it to a renderer. Check that serialized choices still reflect the intended task.
 
 Supply a clear task, all necessary givens, an answer/key or rubric, explanation and useful hints.
 Provide the actual table, formula, figure or code needed; a source citation or hint cannot substitute.
@@ -112,7 +121,9 @@ A supplied formula may support application but cannot test its recall. A source 
 already contain the solution; adapt/redraw or author appropriate stimuli without removing needed
 givens. Selected options need plausible near misses without length, tone, position or wording cues.
 Matching/ordering must not expose the intended solution through presentation unless reading that
-representation is itself the honestly stated target.
+representation is itself the honestly stated target. Source tables often list illustrative choices,
+not mutually exclusive rules. Try the strongest defensible competing choice under the stated facts;
+if several fit, qualify the task or accept them. Do not force one-to-one matching simply to get a key.
 
 Rubrics score what the visible task requests and what its correctness requires, not extra deliverables
 or preferred keywords. Accept equivalent solutions; reject consequential errors. Define concrete
@@ -136,31 +147,47 @@ complete", and state "A complete; B, C and D not started". Ask: "Which job can s
   dependency reasoning. Actually apply the criterion to this response; do not just label it checked.
 - Hint: "Check every incoming dependency against the completed set" supports a method. "Choose B"
   supplies the answer. The diagram and state belong in the initial task, not only in a hint/citation.
+  After the method hint, the learner must still apply the completion state to C and D and identify B;
+  saying only "work remains" is not this check. If readiness labels are also supplied, reassess leakage.
 - Shortcut: copying A,B,C,D does not answer this state-dependent question. Asking instead to recall
   a workflow order while showing its complete ordered list would bypass that different target.
 - Scope: this tests readiness, not failure recovery or resource optimization. Renaming the jobs
   cannot establish those other capabilities. Verify actual arrowheads/labels when rendered.
 
-The check result is the valid response, rejected near miss and stated limitation, not a self-issued
-PASS. This remains an author check, not independent learner validation.
+Now add a pending job E with no prerequisites. "E can start" is a genuine competing answer, not a
+paraphrase of B. A single-key B question is now underdetermined. Ask for all ready jobs and accept
+{B,E}, or supply a real selection constraint. For the ready-set criterion, an example policy is
+2 points for exactly {B,E}, 1 for one ready job and no blocked job, 0 if any blocked job is included:
+{E} earns 1; {B,C,E} earns 0. This tests omission versus an invalid dependency decision, not a
+preference for the exemplar's wording. The original no-E case must still have its original answer.
+
+The check result is the competing answer, applied criterion and remaining limitation, not a
+self-issued PASS. This remains an author check, not independent learner validation.
 
 ## Check the final work and deliver
 
 Try the final questions from learner-visible material without hints or source-only context.
-Recompute arithmetic; test code safely where appropriate. Try a different valid response, a plausible
-near miss, and a shortcut that avoids the target work. Check key/rubric alignment and cumulative hints.
-When an error is found, revise the item and recheck affected content rather than merely its explanation.
+Recompute arithmetic; test code safely where appropriate. Challenge the key with the strongest
+plausible competing answer, not only an obviously wrong response or a paraphrase of the key.
+Apply actual scoring criteria to valid and partially wrong responses. Try shortcuts without target
+knowledge, including bank-wide option-length/answer-count patterns. For each hint prefix identify
+the supplied assistance and specific target work still unresolved; revise a prefix that completes it.
 
 Keep brief observable check results or counterexamples against final item IDs in existing check fields
-or the run report: what was tested, what happened and the remaining limit. Do not expose private
-reasoning, duplicate the answer key as proof, or assert self-assigned `checked`/`self_contained` flags
-as semantic tests. Unperformed checks remain unverified. Schema, page counts and ID coverage do not
+or the run report: what was tested, what happened and the remaining limit. Scripts may store these
+observations, but must not synthesize semantic success from field presence, join hint text to a
+repeated assurance, or count a copied key as an alternative answer. Author checks can be performed
+during drafting; do not describe them as blind or independent. Do not expose private reasoning.
+Unperformed checks remain unverified. Schema, page counts and ID coverage do not
 upgrade semantic confidence. No extra agent, mandatory judge, new report per step or self-issued score
 is needed. Match confidence to actual checks, not the size of the generated bank.
 
 Drafts may be edited. Preserve previously delivered/imported versions, with reasons and dependencies
-for revisions. Checks apply to the version inspected: changed source, KC, stem, key, hint or media
-requires affected checks again. Stop when resolved or when no supported progress remains; disclose
+for revisions. After a change, reconcile the affected KC boundary, visible task, key/rubric, hints,
+evidence intent, Bloom/difficulty and their justification as one item. Narrowing an intent must not
+leave an older, broader label or coverage claim. Preserve unmeasured capabilities rather than hiding
+them by narrowing the KC to the question. Checks apply to the version inspected, not merely its ID.
+Stop when resolved or when no supported progress remains; disclose
 specific unresolved defects instead of looping, guessing or silently dropping content.
 
 Deliver separate stage JSON and a concise report with coverage, actual checks and remaining gaps.
