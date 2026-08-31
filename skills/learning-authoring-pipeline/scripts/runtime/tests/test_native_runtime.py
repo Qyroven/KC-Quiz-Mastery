@@ -33,7 +33,6 @@ REMOVED_PROVIDER_COMMANDS = {
 
 def test_base_install_has_no_provider_or_dotenv_dependency() -> None:
     project = tomllib.loads((REPOSITORY_ROOT / "pyproject.toml").read_text())
-    assert project["project"]["version"] == "4.0.0"
     assert project["project"]["dependencies"] == ["pydantic>=2.10,<3", "pypdfium2"]
     assert "legacy-api" not in project["project"]["optional-dependencies"]
 
@@ -42,6 +41,7 @@ def test_base_install_has_no_provider_or_dotenv_dependency() -> None:
         package["name"]: package
         for package in tomllib.loads((REPOSITORY_ROOT / "uv.lock").read_text())["package"]
     }
+    assert packages[project["project"]["name"]]["version"] == project["project"]["version"]
     pending = ["learning-authoring-tool"]
     reached = set()
     while pending:

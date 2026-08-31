@@ -44,6 +44,38 @@ def test_page_note_evidence_must_exist() -> None:
         ExtractedPage.model_validate(data)
 
 
+def test_page_meaning_and_uncertainty_do_not_replace_detailed_content() -> None:
+    data = page(1, "b1").model_dump(mode="json")
+    data["blocks"][0]["content"] = {
+        "nodes": ["input", "review", "output"],
+        "edges": [{"from": "input", "to": "review", "condition": "needs checking"}],
+        "table": {"columns": ["state", "action"], "rows": [["pending", "wait"]]},
+    }
+    data["page_note"] = {
+        "summary": "The page relates a review decision to the pending state.",
+        "explanation": "Input needing checking goes to review; pending work waits.",
+        "key_takeaways": [],
+        "evidence_block_ids": ["b1"],
+        "uncertainties": ["The connection from review to output is not legible."],
+    }
+
+    parsed = ExtractedPage.model_validate(data)
+
+    assert parsed.model_dump(mode="json") == data
+
+
+def test_non_teaching_page_does_not_require_invented_takeaways() -> None:
+    data = page(1, "b1").model_dump(mode="json")
+    data.update(role="blank", blocks=[], reading_order=[])
+    data["page_note"] = PageNote(summary="Blank page.").model_dump(mode="json")
+
+    parsed = ExtractedPage.model_validate(data)
+
+    assert parsed.model_dump(mode="json") == data
+    assert parsed.page_note.explanation is None
+    assert parsed.page_note.key_takeaways == []
+
+
 def test_document_requires_complete_ordered_pages(source) -> None:
     data = payload().model_dump(mode="json")
     data["pages"].reverse()

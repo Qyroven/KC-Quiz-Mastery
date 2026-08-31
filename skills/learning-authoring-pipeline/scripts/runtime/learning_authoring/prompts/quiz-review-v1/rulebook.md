@@ -35,6 +35,8 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   and lecturer context conflict, identify the conflict instead of silently
   choosing one. Trace a possible upstream defect to extraction or KC only when
   the supplied evidence supports that diagnosis.
+  A faithfully adapted figure or self-contained authored scenario is permitted; check its
+  declared provenance and assumptions rather than requiring an unchanged slide screenshot.
 - **answerability:** Can a learner answer from the stated information and
   expected KC knowledge? Check instructions, scope, units, negations,
   interpretation, missing visual data, and genuinely competing answers. Do not
@@ -90,6 +92,9 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   a key or rubric defect with exact locations, distinguishing unclear scoring
   from a demonstrated rejection of a valid response. Check that ID-based keys
   resolve to actual displayed choices; do not silently repair a mismatched key.
+  Where partial credit is offered, check that it distinguishes concrete incomplete work;
+  generic "right direction" alone leaves grading ambiguous. Binary criteria are valid when
+  there is no meaningful partial evidence, and do not require extra rubric complexity.
 - **cues_and_variants:** Could a learner obtain the answer through superficial
   cues without the intended knowledge? Inspect distractor plausibility,
   grammatical fit, option specificity, elimination, displayed ordering,

@@ -63,6 +63,24 @@ def test_replace_symlink_backs_up_discovery_entry_not_its_target(tmp_path: Path)
     assert backups[0].resolve() == canonical
 
 
+def test_full_package_installs_identically_for_both_hosts(tmp_path: Path) -> None:
+    subprocess.run(
+        [sys.executable, str(INSTALLER), "both", "--home", str(tmp_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    codex = tmp_path / ".agents/skills/learning-authoring-pipeline"
+    claude = tmp_path / ".claude/skills/learning-authoring-pipeline"
+    codex_files = {p.relative_to(codex): p.read_bytes() for p in codex.rglob("*") if p.is_file()}
+    claude_files = {p.relative_to(claude): p.read_bytes() for p in claude.rglob("*") if p.is_file()}
+
+    assert codex_files == claude_files
+    for path, content in codex_files.items():
+        assert content == (SKILL_ROOT / path).read_bytes()
+    assert not any("tests" in path.parts or ".venv" in path.parts for path in codex_files)
+
+
 def test_instructions_only_package_installs_without_runtime(tmp_path: Path) -> None:
     source = tmp_path / "portable-skill"
     (source / "scripts").mkdir(parents=True)

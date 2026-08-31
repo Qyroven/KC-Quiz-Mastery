@@ -6,6 +6,8 @@ remediated on its own. A KC Group is only a navigation container.
 Split when knowledge, observable learner response, or remediation differs materially. Merge only
 paraphrases, examples, or inseparable parts. Recurrence, shared vocabulary, adjacency, or a common
 topic does not prove equivalence across sources.
+Ask whether a learner could demonstrate one part but fail another and need different feedback or
+practice. Preserve that diagnostically important distinction without splitting every fact or step.
 
 Every PDF keeps its own source identity and page numbering. A shared KC may use evidence from
 several sources only when each claim retains source-qualified evidence and all material conditions,
@@ -13,6 +15,7 @@ limits, and conflicts remain explicit. Resolve instructional visual relationship
 another source may support the shared KC, but cannot clear a missing edge, endpoint,
 label, value association, or warning in the original source.
 
-Extraction is an agent-authored faithful representation of source content and visual relationships,
-not merely raw text or a condensed lesson summary. Lecturer context is supplementary
+Extraction is an agent-authored faithful representation of source content and visual relationships.
+Use detailed content together with source-grounded page notes, not raw text or summaries alone;
+notes do not replace the cited supporting blocks. Lecturer context is supplementary
 and separately cited; it never becomes PDF evidence. KC count is an outcome, never a target.

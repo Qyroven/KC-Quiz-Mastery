@@ -11,11 +11,14 @@ Create a separate Leaf KC only when at least one of these differs materially:
 - what feedback or remediation would follow from failure.
 
 Merge paraphrases, examples, and inseparable parts of one capability. Do not merge capabilities
-merely because they share a slide, heading, or topic. Do not turn decorative details, isolated
-statistics, speaker biography, agenda text, or unsupported interpretation into KCs.
+merely because they share a slide, heading, or topic. Ask whether a learner could demonstrate one
+part but fail another and need different feedback or practice. Preserve that distinction when
+it changes what can be diagnosed. A detail becomes a KC only when it carries its own meaningful
+learning capability; otherwise keep it as supporting content, not a target added to raise counts.
 
 Extraction is the agent's source-faithful reading of text, visuals, and their relationships.
-Use its actual cited content as evidence; a raw text reading is not a substitute. Lecturer context
+Use detailed content together with the source-grounded page notes, not summaries alone. Cite the
+actual supporting content; a page note or raw text reading is not independent proof. Lecturer context
 is supplementary and separately cited; it never becomes PDF evidence.
 
 Every positive KC claim must be entailed by evidence cited on that same KC. If a chart, diagram, or

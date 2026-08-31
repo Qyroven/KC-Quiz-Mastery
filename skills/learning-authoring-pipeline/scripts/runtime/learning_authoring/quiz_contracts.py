@@ -290,7 +290,14 @@ class QuizAnswer(BaseModel):
 class QuizRubricPoint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    criterion: str = Field(min_length=1)
+    criterion: str = Field(
+        min_length=1,
+        description=(
+            "Observable work requested by the question that earns credit, allowing valid "
+            "alternatives. If partial credit applies, describe the concrete incomplete work "
+            "and credit awarded, not merely 'partly correct'. Binary criteria are also valid."
+        ),
+    )
     points: int = Field(ge=1)
     slot_id: str | None = Field(default=None, min_length=1)
 

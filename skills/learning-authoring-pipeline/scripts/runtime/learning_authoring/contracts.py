@@ -148,11 +148,28 @@ class PageNote(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    summary: str = Field(min_length=1)
-    explanation: str | None = None
-    key_takeaways: list[str] = Field(default_factory=list)
-    evidence_block_ids: list[str] = Field(default_factory=list)
-    uncertainties: list[str] = Field(default_factory=list)
+    summary: str = Field(
+        min_length=1,
+        description="What this page communicates, or its non-teaching role; not an inspection log.",
+    )
+    explanation: str | None = Field(
+        default=None,
+        description=(
+            "Agent-authored explanation of source-supported meaning, relationships and conditions "
+            "across the page. Use when the summary alone is insufficient; retain detailed blocks. "
+            "Not lecturer notes, invented teaching content, or a substitute for unreadable content."
+        ),
+    )
+    key_takeaways: list[str] = Field(
+        default_factory=list, description="Source-supported takeaways, with no fixed count."
+    )
+    evidence_block_ids: list[str] = Field(
+        default_factory=list, description="Same-page blocks supporting the explanation."
+    )
+    uncertainties: list[str] = Field(
+        default_factory=list,
+        description="Specific reading gaps or ambiguous meaning, separate from recovered content.",
+    )
 
 
 class ExtractedPage(BaseModel):

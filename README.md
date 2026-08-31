@@ -4,6 +4,11 @@ Read one or more PDFs, including their informative visuals, into faithful Extrac
 Knowledge Components, and Quiz with hints and scoring. Optional lecturer notes/context join at KC
 with separate provenance. The active coding agent authors all three stages; tools support its work.
 
+Version **4.1.0** keeps detailed per-page content alongside a source-grounded `page_note`, separates
+independently assessable KC capabilities, and requires answerable tasks with target-aligned stimuli,
+hints and scoring. The agent may reuse, adapt or create quiz stimuli; authored scenarios are not
+presented as original slide evidence. A KC reference alone does not demonstrate full quiz coverage.
+
 The skill sets learning and delivery criteria, not a fixed tool sequence. It does not prescribe a
 model, native-text-only reading, page/KC/question quota, or a candidate-attempt cap. It never calls a
 model-provider API. A particular host's tools and file access still determine what it can read;

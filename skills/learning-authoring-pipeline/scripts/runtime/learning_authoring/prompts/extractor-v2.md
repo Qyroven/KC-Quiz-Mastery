@@ -31,9 +31,12 @@ summarize content away to fit an output limit. Choose reading/writing units that
   Use the supplied expected_page_count to check identity, not to infer content.
 - A block's kind is an open string; content can be text, an object, or a list. Represent complex
   source structure directly instead of flattening it. Use stable IDs and source-page references.
-- Keep page_note grounded in the page's actual extracted blocks. Its explanation describes
-  source-visible relationships, never compensates for omitted content. Distinguish it from
-  lecturer notes, which are separate additional context at KC.
+- In page_note, explain what the whole page communicates and how its meaningful components
+  connect, grounded in the actual blocks and source. A layout inventory or inspection log is
+  not that explanation. Keep detailed content in blocks and reading uncertainty separate;
+  the note never compensates for omitted content. For a non-teaching page, state its role
+  without inventing a lesson. No fixed note length or takeaway count is required. Lecturer
+  notes are separately attributed additional context at KC, not agent-authored page notes.
 - Use region.localization_status=located only for a reliably identified region with normalized
   top-left geometry. Approximate visually verified bounds are sufficient; do not invent precise
   boxes. Use unresolved and empty geometry when location cannot be established, without dropping

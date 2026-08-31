@@ -24,7 +24,8 @@ or demands deliverables the learner was never asked to provide.
 The scope is this Quiz against its supplied KCs and the source necessary for its
 citations. It is not an audit of every extraction page or every KC in the course.
 Preserve the distinction between PDF evidence and optional lecturer context.
-Neither missing page notes nor missing lecturer notes is an error by itself.
+Lecturer notes are optional. A missing page explanation concerns Extraction completeness, not
+automatically the validity of a question whose needed source content is otherwise verified.
 
 An independent review means a separate reviewer context supplied by the host,
 not a promise that models are statistically independent. Copy the host-bound
