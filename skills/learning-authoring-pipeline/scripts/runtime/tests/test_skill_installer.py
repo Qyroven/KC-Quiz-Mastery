@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -98,3 +99,67 @@ def test_instructions_only_package_installs_without_runtime(tmp_path: Path) -> N
         installed = home / host / "skills/learning-authoring-pipeline"
         assert (installed / "SKILL.md").read_bytes() == (source / "SKILL.md").read_bytes()
         assert not (installed / "scripts/runtime").exists()
+
+
+def test_installer_excludes_private_generated_and_unrelated_files(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    scripts = source / "scripts"
+    scripts.mkdir(parents=True)
+    (source / "SKILL.md").write_text("Portable packaging fixture.\n")
+    installer = scripts / "install_skill.py"
+    shutil.copyfile(INSTALLER, installer)
+    kept = {
+        "agents/openai.yaml",
+        "references/workflow.md",
+        "scripts/runtime/pyproject.toml",
+        "scripts/runtime/learning_authoring/prompts/task.md",
+        "scripts/runtime/learning_authoring/showcase_assets/robots.txt",
+        "scripts/runtime/supabase/migrations/example.sql",
+    }
+    excluded = {
+        ".env",
+        ".git/config",
+        "scratch.md",
+        "output/quiz.json",
+        "scripts/old_generator.py",
+        "scripts/runtime/.env.local",
+        "scripts/runtime/tests/test_fixture.py",
+        "scripts/runtime/learning_authoring/legacy_api/client.py",
+        "scripts/runtime/learning_authoring/prompts/.env",
+        "scripts/runtime/learning_authoring/prompts/previous.zip",
+        "scripts/runtime/learning_authoring/prompts/debug.log",
+        "scripts/runtime/learning_authoring/prompts/task.md.bak",
+        "scripts/runtime/learning_authoring/prompts/__pycache__/old.pyc",
+        "scripts/runtime/learning_authoring/prompts/runs/quiz.json",
+    }
+    for relative in kept | excluded:
+        path = source / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("synthetic fixture\n")
+    outside = tmp_path / "private.md"
+    outside.write_text("must stay outside the package\n")
+    (source / "references/linked.md").symlink_to(outside)
+    home = tmp_path / "recipient"
+
+    subprocess.run(
+        [sys.executable, str(installer), "codex", "--home", str(home)],
+        check=True, capture_output=True, text=True,
+    )
+
+    installed = home / ".agents/skills/learning-authoring-pipeline"
+    actual = {str(path.relative_to(installed)) for path in installed.rglob("*") if path.is_file()}
+    assert actual == kept | {"SKILL.md", "scripts/install_skill.py"}
+    assert outside.read_text() == "must stay outside the package\n"
+
+
+def test_installed_reference_links_resolve_without_repository_files(tmp_path: Path) -> None:
+    _install(tmp_path)
+    installed = tmp_path / ".agents/skills/learning-authoring-pipeline"
+    documents = [installed / "SKILL.md", *(installed / "references").glob("*.md")]
+    for document in documents:
+        for target in re.findall(r"\]\(([^)]+)\)", document.read_text()):
+            if target.startswith(("https://", "http://", "#")):
+                continue
+            resolved = (document.parent / target.split("#", 1)[0]).resolve()
+            assert resolved.is_relative_to(installed), (document, target)
+            assert resolved.is_file(), (document, target)

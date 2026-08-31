@@ -1,7 +1,7 @@
 """Subscription-native authoring commands.
 
-Provider adapters and Teacher/Student product exports live in separate modules so installing the
-Agent Skill never implies an API runtime or a deployed learning product.
+The active coding agent authors the content. These optional helpers prepare sources, import
+revisions and render reviews; Teacher/Student exports have a separate product entry point.
 """
 
 from __future__ import annotations
@@ -478,9 +478,7 @@ def _status(run_dir: Path) -> dict[str, Any]:
         "extraction_proposed": artifacts.proposed,
         "extraction_review_built": artifacts.review_html,
         "extraction_approved": artifacts.approved,
-        "kc_request_preview": artifacts.kc_request_preview,
         "kc_proposed": artifacts.kc_proposed,
-        "quiz_request_preview": quiz_artifacts.quiz_request_preview,
         "quiz_proposed": quiz_artifacts.quiz_proposed,
         "quiz_review_built": artifacts.quiz_review_html,
         "quiz_semantic_report": root / "quiz" / "quiz-semantic-audit.json",
@@ -493,10 +491,6 @@ def _status(run_dir: Path) -> dict[str, Any]:
     result["artifacts"]["connected_portal_built"] = portal is not None
     if portal is not None:
         result["connected_portal"] = portal
-    if artifacts.checkpoint.is_file():
-        checkpoint = read_json(artifacts.checkpoint)
-        result["response_id"] = checkpoint.get("response_id")
-        result["response_status"] = checkpoint.get("status")
     if artifacts.metrics.is_file():
         result["extraction_metrics"] = read_json(artifacts.metrics)
     if artifacts.kc_metrics.is_file():

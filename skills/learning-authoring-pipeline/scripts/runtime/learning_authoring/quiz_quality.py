@@ -1064,7 +1064,7 @@ def build_quiz_form_audit(batch: QuizBatch) -> dict[str, Any]:
     )
     revision_recommended = bool(trigger_codes)
     return {
-        "audit_version": "quiz-form-audit.v2",
+        "audit_version": "quiz-form-audit.v3",
         "scope": (
             "surface-form heuristics plus deterministic internal-consistency checks; "
             "not semantic correctness or approval"
@@ -1079,13 +1079,16 @@ def build_quiz_form_audit(batch: QuizBatch) -> dict[str, Any]:
             "recommended": revision_recommended,
             "trigger_codes": trigger_codes,
             "question_ids": trigger_question_ids,
-            "max_fresh_candidate_revisions": 1,
             "automatic_repair_performed": False,
             "semantic_quality_proven": False,
             "next_action": (
-                "AUTHOR_ONE_FRESH_CANDIDATE_FROM_THE_SAME_FROZEN_TASK"
+                "INSPECT_FLAGGED_ITEMS_AND_REVISE_IF_SUPPORTED"
                 if revision_recommended
-                else "PROCEED_TO_INDEPENDENT_SEMANTIC_REVIEW"
+                else "CONTINUE_AUTHORING_WITH_SEMANTIC_CHECKS"
+            ),
+            "interpretation": (
+                "Diagnostic warnings only, not an approval or a revision limit. Preserve prior "
+                "versions and recheck changed work; disclose any unresolved findings."
             ),
         },
         "questions": question_reports,

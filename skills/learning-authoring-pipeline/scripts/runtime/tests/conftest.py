@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any
 
 import pytest
 
@@ -18,59 +15,6 @@ from learning_authoring.contracts import (
     SourceRegion,
     WarningRecord,
 )
-
-
-class FakeResponse:
-    def __init__(
-        self,
-        output: Any,
-        *,
-        response_id: str = "resp_test",
-        status: str = "completed",
-    ) -> None:
-        self.id = response_id
-        self.status = status
-        self.output_text = output if isinstance(output, str) else json.dumps(output)
-
-    def model_dump(self, mode: str = "json") -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "status": self.status,
-            "output_text": self.output_text,
-            "usage": {
-                "input_tokens": 10,
-                "output_tokens": 5,
-                "total_tokens": 15,
-                "input_tokens_details": {"cached_tokens": 2},
-                "output_tokens_details": {"reasoning_tokens": 1},
-            },
-        }
-
-
-class FakeResponses:
-    def __init__(self, *, created: list[Any] | None = None, retrieved: list[Any] | None = None):
-        self.created = list(created or [])
-        self.retrieved = list(retrieved or [])
-        self.create_calls: list[dict[str, Any]] = []
-        self.retrieve_calls: list[str] = []
-
-    def create(self, **request: Any) -> Any:
-        self.create_calls.append(request)
-        value = self.created.pop(0)
-        if isinstance(value, Exception):
-            raise value
-        return value
-
-    def retrieve(self, response_id: str) -> Any:
-        self.retrieve_calls.append(response_id)
-        value = self.retrieved.pop(0)
-        if isinstance(value, Exception):
-            raise value
-        return value
-
-
-def fake_client(*, created: list[Any] | None = None, retrieved: list[Any] | None = None):
-    return SimpleNamespace(responses=FakeResponses(created=created, retrieved=retrieved))
 
 
 @pytest.fixture

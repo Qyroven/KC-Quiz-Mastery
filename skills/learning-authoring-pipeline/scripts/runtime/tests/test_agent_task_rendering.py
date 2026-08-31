@@ -9,10 +9,29 @@ from learning_authoring.agent_session import (
     EXECUTION_MODE,
     _load_task_package,
     _write_task_package,
+    agent_init,
     prepare_agent_task,
     read_agent_task_input,
 )
 from learning_authoring.artifacts import read_json, sha256_file
+from learning_authoring.extraction_prompt import load_extraction_prompt_package
+from tests.conftest import write_blank_pdf
+
+
+def test_extraction_task_uses_the_same_prompt_loader_as_package_inspection(tmp_path) -> None:
+    pdf = tmp_path / "source.pdf"
+    write_blank_pdf(pdf)
+    run = tmp_path / "run"
+    agent_init(pdf, run)
+    result = prepare_agent_task("extraction", run)
+    task = read_json(Path(result["task_package"]))
+    package = load_extraction_prompt_package()
+
+    assert task["instructions"] == package.instructions
+    assert task["candidate_contract"]["schema"] == package.output_schema
+    assert task["worked_examples"] == [example.as_payload() for example in package.worked_examples]
+    assert task["prompt_lineage"]["package_version"] == package.manifest["package_version"]
+    assert task["prompt_lineage"]["package_sha256"] == package.manifest["package_sha256"]
 
 
 @pytest.mark.parametrize("stage", ("extraction", "kc", "quiz", "quiz-review"))

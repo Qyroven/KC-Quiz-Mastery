@@ -262,13 +262,14 @@ def test_agent_extraction_uses_no_provider_and_preserves_exact_candidate_bytes(
     assert metrics["execution_mode"] == EXECUTION_MODE
     assert metrics["provider_api_calls"] == 0
     assert metrics["usage"] is None and metrics["usage_available"] is False
-    assert metrics["gateway_reported_cost_usd"] is None
+    assert metrics["cost_available"] is False
+    assert "gateway_reported_cost_usd" not in metrics
     assert metrics["human_review_required"] is True
     assert metrics["approved"] is False
     assert artifacts.review_html.is_file()
     assert "usage unavailable" in artifacts.review_html.read_text(encoding="utf-8")
-    assert not artifacts.api_response.exists()
-    assert not artifacts.checkpoint.exists()
+    assert not (run_dir / "api-response.json").exists()
+    assert not (run_dir / "background-checkpoint.json").exists()
     assert not artifacts.approved.exists()
     assert not artifacts.approval.exists()
 
@@ -362,8 +363,8 @@ def test_agent_kc_and_quiz_demo_stay_unapproved_and_preserve_raw_bytes(
     assert read_json(quiz_artifacts.quiz_metrics)["provider_api_calls"] == 0
     assert read_json(quiz_artifacts.quiz_metrics)["usage"] is None
     assert (run_dir / "quiz-review.html").is_file()
-    assert not quiz_artifacts.quiz_api_response.exists()
-    assert not quiz_artifacts.quiz_checkpoint.exists()
+    assert not (run_dir / "quiz/quiz-api-response.json").exists()
+    assert not (run_dir / "quiz/quiz-background-checkpoint.json").exists()
 
 
 def test_invalid_agent_candidate_is_archived_before_contract_rejection(

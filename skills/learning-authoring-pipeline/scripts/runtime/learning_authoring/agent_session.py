@@ -39,6 +39,7 @@ from learning_authoring.authoring_context import (
     prepare_bundle_authoring_context,
 )
 from learning_authoring.contracts import ExtractedSource, ExtractedSourcePayload, SourceDescriptor
+from learning_authoring.extraction_prompt import load_extraction_prompt_package
 from learning_authoring.kc import load_approved_extraction, load_prompt_package
 from learning_authoring.kc_contracts import ProposedKCSet
 from learning_authoring.kc_diagnostics import kc_review_diagnostics
@@ -168,61 +169,6 @@ def _prompt_task_fields(prompt: Any) -> dict[str, Any]:
         "worked_examples": _worked_examples_payload(prompt),
         "prompt_lineage": prompt.lineage,
     }
-
-
-def _native_extraction_prompt_fields() -> tuple[str, dict[str, Any]]:
-    """Load Extraction prompt assets without importing the legacy execution adapter."""
-
-    prompt_path = PACKAGE_DIR / "prompts" / "extractor-v2.md"
-    instructions = prompt_path.read_text(encoding="utf-8")
-    output_schema = ExtractedSourcePayload.model_json_schema()
-    suite = load_worked_example_suite(
-        PACKAGE_DIR / "prompts" / "extractor-v2" / "examples-v1",
-        expected_stage="extraction",
-        expected_contract_version="extracted-source.v2",
-    )
-    schema_bytes = json.dumps(output_schema, ensure_ascii=False, sort_keys=True).encode()
-    components = {
-        "instructions": {
-            "filename": prompt_path.name,
-            "sha256": hashlib.sha256(instructions.encode()).hexdigest(),
-            "content": instructions,
-        },
-        "output_schema": {
-            "source": "learning_authoring.contracts.ExtractedSourcePayload",
-            "schema_version": "extracted-source.v2",
-            "sha256": hashlib.sha256(schema_bytes).hexdigest(),
-            "content": output_schema,
-        },
-        "worked_examples": worked_examples_component(
-            suite,
-            filename="extractor-v2/examples-v1/manifest.json",
-        ),
-    }
-    package_bytes = json.dumps(components, ensure_ascii=False, sort_keys=True).encode()
-    return instructions, {
-        "worked_examples": suite.as_payload(),
-        "prompt_lineage": {
-            "package_version": "extraction-prompt.v1",
-            "instruction_order": ["instructions"],
-            "structured_output_component": "output_schema",
-            "worked_examples_component": "worked_examples",
-            "worked_example_order": list(suite.example_order),
-            "package_sha256": hashlib.sha256(package_bytes).hexdigest(),
-            "components": components,
-        },
-    }
-
-
-def _extraction_instructions(prompt_instructions: str) -> str:
-    return (
-        "READING POLICY:\n"
-        "- The agent reads every source page, including informative visuals.\n"
-        "- Choose PDF reading, text, page images, zooming, OCR or scripts as useful.\n"
-        "- Inspect at a resolution that supports the content; no fixed image or batch limit.\n"
-        "- Machine text is a reading aid, not complete semantic Extraction.\n\n"
-        + prompt_instructions
-    )
 
 
 def _bundle_kc_prompt_fields(schema: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -594,7 +540,6 @@ def _unavailable_metrics() -> dict[str, Any]:
         "usage": None,
         "usage_available": False,
         "usage_status": "unavailable_in_subscription_session",
-        "gateway_reported_cost_usd": None,
         "cost_available": False,
         "cost_status": "unavailable_in_subscription_session",
         "human_review_required": True,
@@ -903,8 +848,9 @@ def _validate_official_task_prompt_material(
         raise ValueError("agent-task.v3 requires a frozen input boundary")
 
     if stage == "extraction":
-        instructions, fields = _native_extraction_prompt_fields()
-        expected_instructions = _extraction_instructions(instructions)
+        prompt = load_extraction_prompt_package()
+        expected_instructions = prompt.instructions
+        fields = _prompt_task_fields(prompt)
         schema = agent_schema("extraction")
     elif stage == "kc":
         bundle_mode = (root / SOURCE_BUNDLE_MANIFEST).is_file()
@@ -1287,7 +1233,8 @@ def prepare_agent_task(
             },
         )
     if stage == "extraction":
-        prompt_instructions, prompt_fields = _native_extraction_prompt_fields()
+        prompt = load_extraction_prompt_package()
+        prompt_fields = _prompt_task_fields(prompt)
         source = _manifest_source(root)
         artifacts = RunArtifacts(root)
         manifest = read_json(artifacts.source_manifest)
@@ -1302,7 +1249,7 @@ def prepare_agent_task(
         ]
         task = {
             **common,
-            "instructions": _extraction_instructions(prompt_instructions),
+            "instructions": prompt.instructions,
             **prompt_fields,
             "input_boundary": {
                 "delivery": "native_pdf_primary",
@@ -1924,7 +1871,6 @@ def import_quiz(
         "request_fingerprint": fingerprint,
         "contract_valid": True,
         "raw_output_unedited": True,
-        "repair_calls": 0,
         "selected_kc_count": len(quiz_input["runtime"]["selected_kc_ids"]),
         "question_count": len(proposed.questions),
         "assessment_slot_count": len(proposed.assessment_slots),

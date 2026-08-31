@@ -487,10 +487,10 @@ def test_bank_level_answer_position_and_correct_length_patterns_are_flagged() ->
         "CORRECT_OPTION_LENGTH_PATTERN",
     } <= set(guidance["trigger_codes"])
     assert guidance["question_ids"] == [f"Q-{index:03d}" for index in range(1, 13)]
-    assert guidance["max_fresh_candidate_revisions"] == 1
+    assert "max_fresh_candidate_revisions" not in guidance
     assert guidance["automatic_repair_performed"] is False
     assert guidance["semantic_quality_proven"] is False
-    assert guidance["next_action"] == "AUTHOR_ONE_FRESH_CANDIDATE_FROM_THE_SAME_FROZEN_TASK"
+    assert guidance["next_action"] == "INSPECT_FLAGGED_ITEMS_AND_REVISE_IF_SUPPORTED"
 
 
 def test_repeated_multi_select_key_shape_across_kcs_requests_fresh_candidate() -> None:
@@ -547,5 +547,5 @@ def test_consistent_dimension_normalization_and_polarity_are_not_flagged() -> No
     assert audit["fresh_candidate_guidance"]["recommended"] is False
     assert (
         audit["fresh_candidate_guidance"]["next_action"]
-        == "PROCEED_TO_INDEPENDENT_SEMANTIC_REVIEW"
+        == "CONTINUE_AUTHORING_WITH_SEMANTIC_CHECKS"
     )

@@ -556,25 +556,3 @@ def validate_kc_set_against_bundle(
         raise ValueError("legacy KC validation requires exactly the bundle's one Extraction")
     parsed.validate_against_source(extractions[only], authoring_context=authoring_context)
     return parsed
-
-
-def source_qualified_evidence(
-    kc_set: KCSet,
-    bundle: SourceBundle,
-) -> list[dict[str, Any]]:
-    """Project all PDF evidence into one unambiguous downstream representation."""
-
-    if isinstance(kc_set, SourceBundleKCSet):
-        return [
-            evidence.model_dump(mode="json")
-            for kc in kc_set.leaf_kcs
-            for evidence in kc.source_evidence
-        ]
-    if len(bundle.sources) != 1:
-        raise ValueError("legacy KC evidence cannot be inferred for multiple sources")
-    source_id = bundle.sources[0].source.source_id
-    return [
-        {"source_id": source_id, **evidence.model_dump(mode="json")}
-        for kc in kc_set.leaf_kcs
-        for evidence in kc.source_evidence
-    ]

@@ -11,7 +11,7 @@ from learning_authoring.quiz_contracts import QuizBatch
 from learning_authoring.quiz_semantics import (
     CRITERIA,
     QuizSemanticAudit,
-    load_semantic_review_prompt,
+    load_semantic_review_prompt_package,
     semantic_audit_summary,
     semantic_review_schema,
     validate_semantic_audit,
@@ -481,7 +481,7 @@ def test_mutating_already_parsed_report_does_not_bypass_validation(source) -> No
 
 
 def test_prompt_is_one_scoped_agent_review_not_provider_or_automatic_repair() -> None:
-    prompts = load_semantic_review_prompt()
+    prompts = load_semantic_review_prompt_package().components
     assert list(prompts) == ["foundation", "rulebook", "task"]
     joined = "\n".join(prompts.values())
     for required in (

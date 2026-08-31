@@ -74,6 +74,28 @@ def test_experimental_quiz_commands_are_not_public() -> None:
         assert removed not in help_text
 
 
+def test_status_reports_current_artifacts_without_legacy_provider_state(tmp_path, capsys) -> None:
+    historical = {
+        "background-checkpoint.json": '{"response_id":"old-response","status":"queued"}',
+        "kc-request-preview.json": "{}",
+        "quiz/quiz-request-preview.json": "{}",
+    }
+    for relative, content in historical.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+
+    assert main(["status", str(tmp_path)]) == 0
+    status = json.loads(capsys.readouterr().out)
+
+    assert "extraction_proposed" in status["artifacts"]
+    assert "quiz_proposed" in status["artifacts"]
+    assert "kc_request_preview" not in status["artifacts"]
+    assert "quiz_request_preview" not in status["artifacts"]
+    assert "response_id" not in status and "response_status" not in status
+    assert all((tmp_path / path).read_text() == data for path, data in historical.items())
+
+
 def test_portal_build_defaults_to_run_local_connected_portal(
     tmp_path, monkeypatch, capsys
 ) -> None:

@@ -31,7 +31,6 @@ from learning_authoring.quiz_semantics import (
     BUNDLE_EXAMPLES_DIR as BUNDLE_REVIEW_EXAMPLES_DIR,
 )
 from learning_authoring.quiz_semantics import (
-    load_semantic_review_prompt,
     load_semantic_review_prompt_package,
     semantic_audit_summary,
     validate_semantic_audit,
@@ -77,7 +76,29 @@ def test_stage_packages_expose_examples_and_content_bound_lineage() -> None:
     assert legacy_quiz.worked_examples == ()
     assert legacy_quiz.manifest["worked_example_order"] == []
     assert "worked_examples" not in legacy_quiz.manifest["components"]
-    assert load_semantic_review_prompt() == load_semantic_review_prompt_package().components
+
+
+def test_every_shipped_prompt_asset_is_read_by_a_stage_loader(monkeypatch) -> None:
+    prompt_root = Path(__file__).parents[1] / "learning_authoring/prompts"
+    accessed: set[Path] = set()
+    original_open = Path.open
+
+    def record_open(path, *args, **kwargs):
+        resolved = path.resolve()
+        if resolved.is_relative_to(prompt_root.resolve()):
+            accessed.add(resolved)
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", record_open)
+    _packages()
+    _bundle_packages()
+    _bundle_kc_prompt_fields(SourceBundleKCSet.model_json_schema())
+
+    shipped = {path.resolve() for path in prompt_root.rglob("*") if path.is_file()}
+    assert shipped == accessed, {
+        "unused_assets": sorted(str(path.relative_to(prompt_root)) for path in shipped - accessed),
+        "unshipped_assets": sorted(str(path) for path in accessed - shipped),
+    }
 
 
 def test_official_prompt_and_example_packages_are_neutral_to_day09_holdout() -> None:

@@ -112,14 +112,6 @@ class RunArtifacts:
         return self.run_dir / "extraction-metadata.json"
 
     @property
-    def checkpoint(self) -> Path:
-        return self.run_dir / "background-checkpoint.json"
-
-    @property
-    def api_response(self) -> Path:
-        return self.run_dir / "api-response.json"
-
-    @property
     def proposed(self) -> Path:
         return self.run_dir / "extracted-source.proposed.json"
 
@@ -144,36 +136,12 @@ class RunArtifacts:
         return self.run_dir / "contract-errors.json"
 
     @property
-    def repair_dir(self) -> Path:
-        return self.run_dir / "repair"
-
-    @property
-    def repair_summary(self) -> Path:
-        return self.run_dir / "repair-summary.json"
-
-    @property
     def review_html(self) -> Path:
         return self.run_dir / "extraction-review.html"
 
     @property
-    def kc_prompt_package(self) -> Path:
-        return self.run_dir / "kc-prompt-package.json"
-
-    @property
-    def kc_request_preview(self) -> Path:
-        return self.run_dir / "kc-request-preview.json"
-
-    @property
     def kc_metadata(self) -> Path:
         return self.run_dir / "kc-generation-metadata.json"
-
-    @property
-    def kc_checkpoint(self) -> Path:
-        return self.run_dir / "kc-background-checkpoint.json"
-
-    @property
-    def kc_api_response(self) -> Path:
-        return self.run_dir / "kc-api-response.json"
 
     @property
     def kc_proposed(self) -> Path:
@@ -192,24 +160,8 @@ class RunArtifacts:
         return self.run_dir / "quiz-input.json"
 
     @property
-    def quiz_prompt_package(self) -> Path:
-        return self.run_dir / "quiz-prompt-package.json"
-
-    @property
-    def quiz_request_preview(self) -> Path:
-        return self.run_dir / "quiz-request-preview.json"
-
-    @property
     def quiz_metadata(self) -> Path:
         return self.run_dir / "quiz-generation-metadata.json"
-
-    @property
-    def quiz_checkpoint(self) -> Path:
-        return self.run_dir / "quiz-background-checkpoint.json"
-
-    @property
-    def quiz_api_response(self) -> Path:
-        return self.run_dir / "quiz-api-response.json"
 
     @property
     def quiz_raw_output(self) -> Path:

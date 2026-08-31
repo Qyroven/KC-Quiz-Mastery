@@ -78,3 +78,16 @@ def test_invalid_text_codepoint_requests_a_fresh_candidate(tmp_path, source) -> 
     assert audit["invalid_text_artifact_count"] == 1
     assert audit["fresh_candidate_guidance"]["recommended"] is True
     assert "INVALID_TEXT_CODEPOINT" in audit["fresh_candidate_guidance"]["trigger_codes"]
+    assert audit["fresh_candidate_guidance"]["next_action"] == (
+        "inspect_flagged_source_content_and_revise_if_supported"
+    )
+    assert "max_fresh_candidate_revisions" not in audit["fresh_candidate_guidance"]
+
+
+def test_no_form_flags_does_not_require_a_human_pause(tmp_path, source) -> None:
+    make_run_dir(tmp_path, source)
+    audit = build_audit(payload().with_source(source), tmp_path)
+    assert audit["fresh_candidate_guidance"]["recommended"] is False
+    assert audit["fresh_candidate_guidance"]["next_action"] == (
+        "continue_authoring_with_semantic_checks"
+    )

@@ -77,28 +77,38 @@ def _timestamped_backup(destination: Path, label: str) -> Path:
 
 
 def _copy_ignore(source: Path):
-    """Exclude development-only and historical files from personal installations."""
+    """Copy maintained package roots, excluding private/generated development artifacts."""
 
+    source = source.resolve()
     runtime = (source / "scripts" / "runtime").resolve()
+    allowed_children = {
+        source: {"SKILL.md", "agents", "references", "scripts"},
+        source / "scripts": {"install_skill.py", "runtime"},
+        runtime: {"pyproject.toml", "uv.lock", "learning_authoring", "supabase"},
+    }
 
     def ignore(directory: str, names: list[str]) -> set[str]:
         current = Path(directory).resolve()
         ignored = {
             name
             for name in names
-            if name in {
+            if name.startswith(".")
+            or name in {
                 "__pycache__",
-                ".DS_Store",
-                ".venv",
-                ".pytest_cache",
-                ".ruff_cache",
                 "build",
                 "dist",
+                "runs",
+                "slides",
+                "output",
+                "outputs",
+                "tmp",
+                "node_modules",
             }
-            or name.endswith((".pyc", ".egg-info"))
+            or name.endswith((".pyc", ".pyo", ".egg-info", ".log", ".zip", ".bak", ".tmp", "~"))
+            or (Path(directory) / name).is_symlink()
         }
-        if current == runtime:
-            ignored.update({"tests", "scripts", "showcase"} & set(names))
+        if current in allowed_children:
+            ignored.update(set(names) - allowed_children[current])
         if current == runtime / "learning_authoring":
             ignored.update({"legacy_api"} & set(names))
         return ignored

@@ -10,7 +10,7 @@ from typing import Any
 
 from learning_authoring.contracts import ExtractedSource, source_region_geometry_state
 
-AUDIT_VERSION = "extraction-audit.v6"
+AUDIT_VERSION = "extraction-audit.v7"
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _INVALID_TEXT_CODEPOINTS = {0xFFFE, 0xFFFF}
 
@@ -34,35 +34,6 @@ def validate_extraction_geometry(extracted: ExtractedSource) -> None:
         preview = ", ".join(f"page {row['page']} block {row['block_id']}" for row in invalid[:5])
         suffix = f" (+{len(invalid) - 5} more)" if len(invalid) > 5 else ""
         raise ValueError("Extraction contains invalid normalized geometry: " + preview + suffix)
-
-
-def response_usage(raw: dict[str, Any]) -> dict[str, int]:
-    usage = raw.get("usage") or {}
-    input_details = usage.get("input_tokens_details") or {}
-    output_details = usage.get("output_tokens_details") or {}
-
-    def integer(value: Any) -> int:
-        return int(value) if isinstance(value, (int, float)) else 0
-
-    return {
-        "input_tokens": integer(usage.get("input_tokens")),
-        "cached_input_tokens": integer(input_details.get("cached_tokens")),
-        "output_tokens": integer(usage.get("output_tokens")),
-        "reasoning_tokens": integer(output_details.get("reasoning_tokens")),
-        "total_tokens": integer(usage.get("total_tokens")),
-    }
-
-
-def reported_cost(raw: dict[str, Any]) -> float | None:
-    candidates = [
-        raw.get("response_cost"),
-        (raw.get("usage") or {}).get("cost"),
-        (raw.get("_hidden_params") or {}).get("response_cost"),
-    ]
-    return next(
-        (float(value) for value in candidates if isinstance(value, (int, float)) and value >= 0),
-        None,
-    )
 
 
 def _strings(value: Any) -> Iterable[str]:
@@ -214,13 +185,14 @@ def _fresh_candidate_guidance(
         "trigger_codes": trigger_codes,
         "details": details,
         "next_action": (
-            "author_one_fresh_candidate_from_the_same_frozen_task"
+            "inspect_flagged_source_content_and_revise_if_supported"
             if trigger_codes
-            else "continue_to_human_semantic_review"
+            else "continue_authoring_with_semantic_checks"
         ),
         "interpretation": (
-            "Mechanical promotion gate only. No trigger is proof of semantic completeness, "
-            "and a trigger is not permission to patch the archived candidate."
+            "Diagnostic warnings only, not an approval or a revision limit. Inspect the source "
+            "before revising; preserve archived versions and recheck affected downstream work. "
+            "No trigger is proof of semantic completeness."
         ),
     }
 

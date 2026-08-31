@@ -4,13 +4,11 @@ Read one or more PDFs, including their informative visuals, into faithful Extrac
 Knowledge Components, and Quiz with hints and scoring. Optional lecturer notes/context join at KC
 with separate provenance. The active coding agent authors all three stages; tools support its work.
 
-Version **4.4.0** keeps faithful Extraction and bounded KCs, and distinguishes cognitive operation
-from estimated difficulty for each question. Demanding goals may receive preparatory practice,
-useful variants and a fresh independent check, without fixed ladders or hard-item multipliers.
-The authoring review supports per-item labels while preserving old raw records and slot estimates.
-The instructions distinguish exact quantity requests from upper limits. These are authoring
-improvements, not a learner scheduler, mastery change or product deployment. Examples guide decisions;
-they do not prescribe lesson topics, counts, schemas or response types.
+Version **4.4.1** retains agent-led multimodal reading, bounded KCs, per-question Bloom/difficulty
+and purposeful practice without fixed question multipliers. This maintenance release removes unused
+repair/provider-era helpers, uses one Extraction prompt loader, and removes obsolete revision-limit
+instructions from diagnostics. It does not change course content, deploy the product or establish
+pedagogical quality. Examples guide decisions rather than prescribe lesson topics or output counts.
 
 The skill sets learning and delivery criteria, not a fixed tool sequence. It does not prescribe a
 model, native-text-only reading, page/KC/question quota, or a candidate-attempt cap. It never calls a
@@ -30,9 +28,12 @@ To replace both existing installations:
 
     python3 skills/learning-authoring-pipeline/scripts/install_skill.py both --replace
 
-Backups stay outside skill discovery. The installer needs Python 3; it does not install or launch
-a runtime. For another Agent Skills-compatible host, copy the learning-authoring-pipeline folder
-into that host's skill directory. Invocation syntax and available tools vary by host.
+Backups stay outside skill discovery. The installer copies maintained package roots, excluding hidden
+files, linked files, generated runs, caches, archives and runtime tests. It needs Python 3 and does
+not install or launch a runtime. Pulling the repository does not update an installed copy; rerun
+the installer with `--replace`. For another Agent Skills-compatible host, copy the
+learning-authoring-pipeline folder into that host's skill directory. Invocation syntax and
+available tools vary by host.
 
 Invoke the skill and supply the PDFs plus optional notes and the requested outputs. For example:
 
@@ -67,6 +68,8 @@ The authoring entry point is `learning-authoring`; separate product exports use
     uv run pytest -q
     uv run ruff check .
 
+Packaging checks also exercise the real prompt loaders and detect unused prompt assets, broken
+reference links and accidental development files in personal installations.
 These tests check software behavior, not pedagogical quality. Author self-checks, independent review,
 human approval, and learner validation are distinct. No claim that the skill beats a baseline
 follows from installation, schema validity, provenance, or passing technical tests.

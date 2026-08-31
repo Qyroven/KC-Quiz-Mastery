@@ -2,7 +2,7 @@
 
 This is a small continuation of Authoring, not another model pipeline:
 
-For the separate Teacher/Student apps in runtime 0.6, also read
+For the optional separate Teacher/Student apps, also read
 [teacher-student.md](teacher-student.md). The original combined portal below remains a local
 practice/review surface; it is not the Student deployment. Shared role apps require a
 course-scoped teacher grant and an explicit immutable release before Student can enroll.

@@ -14,7 +14,6 @@ from learning_authoring.source_bundle import (
     load_bundle_extractions,
     load_source_bundle,
     prepare_source_bundle,
-    source_qualified_evidence,
     validate_kc_set_against_bundle,
 )
 from tests.conftest import payload
@@ -163,7 +162,7 @@ def _bundled_kc(bundle, extractions: dict[str, ExtractedSource]) -> dict:
     }
 
 
-def test_one_pdf_bundle_accepts_legacy_kc_and_qualifies_its_evidence(tmp_path) -> None:
+def test_one_pdf_bundle_accepts_legacy_kc_without_mutating_its_evidence(tmp_path) -> None:
     run, extracted = _source_run(tmp_path, "concepts")
     bundle = prepare_source_bundle(tmp_path, [run])
     extractions = load_bundle_extractions(tmp_path, bundle)
@@ -171,10 +170,11 @@ def test_one_pdf_bundle_accepts_legacy_kc_and_qualifies_its_evidence(tmp_path) -
     before = deepcopy(candidate)
 
     parsed = validate_kc_set_against_bundle(candidate, bundle, extractions)
-    qualified = source_qualified_evidence(parsed, bundle)
 
     assert [entry.source.source_id for entry in bundle.sources] == [extracted.source.source_id]
-    assert {item["source_id"] for item in qualified} == {extracted.source.source_id}
+    assert [item.model_dump(mode="json") for item in parsed.leaf_kcs[0].source_evidence] == (
+        candidate["leaf_kcs"][0]["source_evidence"]
+    )
     assert candidate == before
     assert all("source_id" not in item for item in candidate["leaf_kcs"][0]["source_evidence"])
 
@@ -186,10 +186,9 @@ def test_n_pdf_bundle_validates_one_shared_kc_with_source_qualified_refs(tmp_pat
     candidate = _bundled_kc(bundle, extractions)
 
     parsed = validate_kc_set_against_bundle(candidate, bundle, extractions)
-    qualified = source_qualified_evidence(parsed, bundle)
 
     assert isinstance(parsed, SourceBundleKCSet)
-    assert [item["source_id"] for item in qualified] == [
+    assert [item.source_id for kc in parsed.leaf_kcs for item in kc.source_evidence] == [
         entry.source.source_id for entry in bundle.sources
     ]
     assert len(parsed.page_audit) == sum(entry.source.page_count for entry in bundle.sources)

@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Read one or more course PDFs and optional lecturer context into faithful multimodal Extraction, shared Knowledge Components, and answerable Quiz with hints and scoring. Use the active coding agent for authoring or review; deliver separate JSON and a connected local portal when requested.
 metadata:
   author: Qyroven
-  version: "4.4.0"
+  version: "4.4.1"
 ---
 
 # Learning Authoring Pipeline

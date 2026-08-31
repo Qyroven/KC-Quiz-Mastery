@@ -296,12 +296,6 @@ def load_semantic_review_prompt_package(
     )
 
 
-def load_semantic_review_prompt(prompt_dir: Path = DEFAULT_PROMPT_DIR) -> dict[str, str]:
-    """Compatibility wrapper returning only ordered instruction components."""
-
-    return dict(load_semantic_review_prompt_package(prompt_dir).components)
-
-
 def _payload(value: BaseModel | Mapping[str, Any]) -> dict[str, Any]:
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json")
