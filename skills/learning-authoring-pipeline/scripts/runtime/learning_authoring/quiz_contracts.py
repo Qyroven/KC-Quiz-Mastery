@@ -147,19 +147,100 @@ class QuizMapping(BaseModel):
     right: str = Field(min_length=1)
 
 
+class QuizImageCrop(BaseModel):
+    """Optional normalized, top-left crop of a source page, never invented pixels."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    x: float = Field(ge=0, lt=1)
+    y: float = Field(ge=0, lt=1)
+    w: float = Field(gt=0, le=1)
+    h: float = Field(gt=0, le=1)
+
+    @model_validator(mode="after")
+    def inside_page(self) -> QuizImageCrop:
+        if self.x + self.w > 1 or self.y + self.h > 1:
+            raise ValueError("image crop must stay inside the source page")
+        return self
+
+
+class QuizStimulusBlock(BaseModel):
+    """One learner-visible block; image IDs come from the frozen media catalogue."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["text", "table", "formula", "image"]
+    text: str = ""
+    table_columns: list[str] = Field(default_factory=list)
+    table_rows: list[list[str]] = Field(default_factory=list)
+    formula: str = ""
+    asset_id: str | None = None
+    alt: str = ""
+    crop: QuizImageCrop | None = None
+
+    @model_validator(mode="after")
+    def one_representation(self) -> QuizStimulusBlock:
+        if self.kind == "image":
+            if not self.asset_id or not self.asset_id.strip() or not self.alt.strip():
+                raise ValueError("image requires a catalogue asset_id and descriptive alt text")
+            if self.text or self.table_columns or self.table_rows or self.formula:
+                raise ValueError("image block must not mix text/table/formula fields")
+        else:
+            if self.asset_id is not None or self.alt or self.crop is not None:
+                raise ValueError("only image blocks may reference media")
+            if self.kind == "text":
+                valid = bool(self.text.strip()) and not (
+                    self.table_columns or self.table_rows or self.formula
+                )
+            elif self.kind == "formula":
+                valid = bool(self.formula.strip()) and not (
+                    self.text or self.table_columns or self.table_rows
+                )
+            else:
+                valid = bool(self.table_columns and self.table_rows) and not (
+                    self.text or self.formula
+                ) and all(len(row) == len(self.table_columns) for row in self.table_rows)
+            if not valid:
+                raise ValueError("stimulus block must contain its complete declared representation")
+        return self
+
+
 class QuizStimulus(BaseModel):
     """Learner-visible context; fields for unused representations must stay empty."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["none", "text", "table", "formula"]
+    kind: Literal["none", "text", "table", "formula", "composite"]
     text: str
     table_columns: list[str]
     table_rows: list[list[str]]
     formula: str
+    blocks: list[QuizStimulusBlock] = Field(default_factory=list)
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if "blocks" not in self.model_fields_set:
+            result.pop("blocks", None)
+        return result
+
+    def parts(self) -> list[QuizStimulusBlock]:
+        if self.kind == "composite":
+            return self.blocks
+        if self.kind == "none":
+            return []
+        return [QuizStimulusBlock.model_validate(self.model_dump(exclude={"blocks"}))]
 
     @model_validator(mode="after")
     def representation_is_exact(self) -> QuizStimulus:
+        if self.kind == "composite":
+            if not self.blocks or any(
+                (self.text, self.table_columns, self.table_rows, self.formula)
+            ):
+                raise ValueError("composite stimulus uses a nonempty ordered blocks list only")
+            return self
+        if self.blocks:
+            raise ValueError("only composite stimulus may contain blocks")
         if self.kind == "none":
             if self.text or self.table_columns or self.table_rows or self.formula:
                 raise ValueError("none stimulus must be empty")
@@ -575,6 +656,20 @@ class QuizBatch(BaseModel):
                 }
                 if not cited <= allowed_evidence:
                     raise ValueError(f"{question.question_id} cites evidence outside its KC")
+                media = {asset["asset_id"]: asset for asset in payload.get("media_assets", [])}
+                for block in question.stimulus.parts():
+                    if block.kind != "image":
+                        continue
+                    asset = media.get(block.asset_id)
+                    if asset is None:
+                        raise ValueError(f"{question.question_id} references unknown image asset")
+                    if (asset.get("source_id"), asset["page"]) not in {
+                        (reference.source_id, reference.page)
+                        for reference in question.evidence_refs
+                    }:
+                        raise ValueError(
+                            f"{question.question_id} image is outside its cited evidence"
+                        )
                 cited_context = {
                     (
                         reference.context_id,

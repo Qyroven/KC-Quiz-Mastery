@@ -163,7 +163,7 @@ const auditByPage=Object.fromEntries(proposal.page_audit.map(x=>[x.page,x]));
 const evidenceByPage={};kcs.forEach(k=>k.source_evidence.forEach(e=>(evidenceByPage[e.page]??=[]).push({kc:k,evidence:e})));
 const contextKcs=()=>kcs.filter(k=>(k.context_evidence||[]).length);
 const uncoveredByPage={};proposal.uncovered_content.forEach(x=>(uncoveredByPage[x.page]??=[]).push(x));
-const warningsByPage={};proposal.generation_warnings.forEach(x=>x.pages.forEach(p=>(warningsByPage[p]??=[]).push(x)));
+const warningsByPage={};proposal.generation_warnings.forEach(x=>{const pages=Array.isArray(x.pages)&&x.pages.length?x.pages:source.pages.map(p=>p.page_number);pages.forEach(p=>(warningsByPage[p]??=[]).push(x))});
 const contextClasses=new Set(['context','administrative','cover','section_divider']);
 function compactContent(value){if(typeof value==='string')return value;if(Array.isArray(value))return value.map(compactContent).join(' · ');if(value&&typeof value==='object')return Object.entries(value).map(([k,v])=>`${k}: ${compactContent(v)}`).join(' · ');return String(value??'')}
 function blockState(page,blockId){const audit=auditByPage[page];if((uncoveredByPage[page]||[]).some(x=>x.block_ids.includes(blockId)))return'uncovered';if((evidenceByPage[page]||[]).some(x=>x.evidence.block_ids.includes(blockId)))return'covered';if(contextClasses.has(audit.classification))return'context';return'review'}

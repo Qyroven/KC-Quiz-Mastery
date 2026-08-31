@@ -216,7 +216,6 @@ _FRESH_CANDIDATE_TRIGGER_CODES = frozenset(
         "NORMALIZATION_SUM_MISMATCH",
         "ORDERING_ALREADY_SOLVED",
         "RUBRIC_CHOICE_SET_MISMATCH",
-        "RUBRIC_HIDDEN_REQUIREMENT",
     }
 )
 
@@ -235,18 +234,17 @@ def _tokens(text: str) -> set[str]:
 
 
 def _visible_stem(question: QuizQuestion) -> str:
-    stimulus = question.stimulus
-    column_text = " ".join(stimulus.table_columns)
-    table_text = " ".join(value for row in stimulus.table_rows for value in row)
     return " ".join(
         value
-        for value in (
-            stimulus.text,
-            column_text,
-            table_text,
-            stimulus.formula,
-            question.prompt,
-        )
+        for value in [question.prompt] + [
+            value
+            for block in question.stimulus.parts()
+            for value in (
+                block.text, " ".join(block.table_columns),
+                " ".join(value for row in block.table_rows for value in row),
+                block.formula, block.alt,
+            )
+        ]
         if value
     )
 
@@ -437,11 +435,13 @@ def _normalization_issues(question: QuizQuestion) -> list[dict[str, Any]]:
                 "expected_total": expected_total,
             }
         )
-    if question.stimulus.kind == "table":
-        for column_index, column in enumerate(question.stimulus.table_columns):
+    for block in question.stimulus.parts():
+        if block.kind != "table":
+            continue
+        for column_index, column in enumerate(block.table_columns):
             if not _NORMALIZATION_LABEL.search(_fold(column)):
                 continue
-            raw_values = [row[column_index].strip() for row in question.stimulus.table_rows]
+            raw_values = [row[column_index].strip() for row in block.table_rows]
             if not raw_values or any(
                 not re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?%?", value)
                 for value in raw_values
@@ -519,8 +519,9 @@ def _rubric_issues(question: QuizQuestion) -> list[dict[str, Any]]:
         issues.append(
             _issue(
                 "RUBRIC_HIDDEN_REQUIREMENT",
-                "major",
-                "A rubric requires a response form that the learner-visible task does not request.",
+                "minor",
+                "Keyword mismatch suggests checking rubric/task alignment; it does not prove "
+                "a hidden requirement and cannot block import.",
                 requirements=hidden_requirements,
             )
         )

@@ -24,6 +24,7 @@ from learning_authoring.artifacts import read_json, sha256_file, write_json, wri
 from learning_authoring.authoring_context import load_bundle_authoring_context
 from learning_authoring.contracts import ExtractedSource
 from learning_authoring.quiz_contracts import QuizBatch
+from learning_authoring.quiz_media import QUIZ_STIMULUS_RENDERER, render_quiz_images
 from learning_authoring.quiz_review_state import load_quiz_semantic_state
 from learning_authoring.source_bundle import (
     SourceBundle,
@@ -290,6 +291,7 @@ def _quiz_html(
     quiz: dict[str, Any] | None,
     status: dict[str, Any],
     initial_check: dict[str, Any],
+    stimulus_images: list[dict[str, Any]] | None = None,
 ) -> str:
     if quiz is None:
         body = '<div class="card empty">No Quiz candidate is connected to this bundle yet.</div>'
@@ -316,7 +318,25 @@ def _quiz_html(
     return f"""<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shared Quiz review</title><style>{_base_style()}
 .check{{padding:12px 14px;margin-bottom:16px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}}.check p{{width:100%;margin:0}}.layout{{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px}}.list,.question{{padding:14px}}.list button{{width:100%;border:0;background:#fff;text-align:left;padding:10px;border-radius:8px}}.list button.active{{background:var(--bluefill);color:var(--blue)}}.question h1{{font-size:24px;margin:5px 0 14px}}.prompt{{font-size:18px;font-weight:650}}.panel{{padding:12px;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;margin-top:12px}}.answer{{border-left:3px solid #4d88c6}}.hint{{border-left:3px solid #d29a46}}pre{{white-space:pre-wrap;word-break:break-word}}@media(max-width:800px){{.layout{{grid-template-columns:1fr}}}}
 </style></head><body><header class="top"><div><div class="brand">Shared Quiz review</div><div class="sub">Generated candidate is unchanged; status is not human approval</div></div><span class="spacer"></span><span class="pill review">{html.escape(status["label"])}</span></header><main class="wrap">{check_panel}{body}</main><script id="data" type="application/json">{data}</script><script>
-const Q=JSON.parse(document.getElementById('data').textContent);if(Q){{const list=document.getElementById('list'),box=document.getElementById('question');let selected=0;function n(tag,cls,text){{const x=document.createElement(tag);if(cls)x.className=cls;if(text!==undefined)x.textContent=text;return x}}function render(){{list.replaceChildren();Q.questions.forEach((q,i)=>{{const b=n('button',i===selected?'active':'',`${{q.question_id}} · ${{q.title}}`);b.onclick=()=>{{selected=i;render()}};list.append(b)}});const q=Q.questions[selected];box.replaceChildren();box.append(n('div','muted',`${{q.kc_id}} · ${{q.interaction}} · variant ${{q.variant_index}}`),n('h1','',q.title));if(q.stimulus.kind!=='none')box.append(n('div','panel',q.stimulus.text||q.stimulus.formula||JSON.stringify(q.stimulus.table_rows)));box.append(n('p','prompt',q.prompt));const answer=n('div','panel answer');answer.append(n('b','',`Answer / rubric`),n('pre','',JSON.stringify({{correct_answer:q.correct_answer,rubric:q.rubric,explanation:q.answer_explanation}},null,2)));box.append(answer);const hint=n('div','panel hint');hint.append(n('b','',`Hints`),n('pre','',q.hints&&q.hints.length?JSON.stringify(q.hints,null,2):(q.hint_absence_reason||'No explicit hint decision.')));box.append(hint)}}render()}}
+{QUIZ_STIMULUS_RENDERER}
+const Q=JSON.parse(document.getElementById('data').textContent),images={_json_script(stimulus_images or [])};
+if(Q){{
+  const list=document.getElementById('list'),box=document.getElementById('question');let selected=0;
+  function n(tag,cls,text){{const x=document.createElement(tag);if(cls)x.className=cls;if(text!==undefined)x.textContent=text;return x}}
+  function render(){{
+    list.replaceChildren();Q.questions.forEach((q,i)=>{{const b=n('button',i===selected?'active':'',`${{q.question_id}} · ${{q.title}}`);b.onclick=()=>{{selected=i;render()}};list.append(b)}});
+    const q=Q.questions[selected];box.replaceChildren();
+    box.append(n('div','muted',`${{q.kc_id}} · ${{q.interaction}} · variant ${{q.variant_index}}`),n('h1','',q.title));
+    const stimulus=n('div','panel');stimulus.innerHTML=renderQuizStimulus(q.stimulus,images);if(stimulus.innerHTML)box.append(stimulus);
+    box.append(n('p','prompt',q.prompt));
+    for(const [label,options] of [['Choices',q.choice_options],['Match',q.matching_left],['With',q.matching_right],['Order',q.ordering_options]]){{
+      if(options&&options.length){{const ul=n('ul','');options.forEach(o=>ul.append(n('li','',o.text)));box.append(n('b','',label),ul)}}
+    }}
+    const answer=n('details','panel answer');answer.append(n('summary','','Answer / rubric'),n('pre','',JSON.stringify({{correct_answer:q.correct_answer,rubric:q.rubric,explanation:q.answer_explanation}},null,2)));box.append(answer);
+    const hint=n('details','panel hint');hint.append(n('summary','','Hints'),n('pre','',q.hints&&q.hints.length?JSON.stringify(q.hints,null,2):(q.hint_absence_reason||'No explicit hint decision.')));box.append(hint);
+  }}
+  render();
+}}
 </script></body></html>"""
 
 
@@ -381,6 +401,11 @@ def build_bundle_portal(
     if not resolved_quiz.is_relative_to(root):
         raise BundlePortalError("Quiz directory must remain inside the bundle root")
     quiz, quiz_status = _load_quiz(root, resolved_quiz, bundle, kc_raw, parsed, kc_sha)
+    stimulus_images = (
+        render_quiz_images(root, read_json(resolved_quiz / "quiz-input.json"),
+                           QuizBatch.model_validate(quiz))
+        if quiz is not None else []
+    )
     initial_check = _initial_check_projection(
         load_quiz_semantic_state(root, candidate_dir=resolved_quiz)
     )
@@ -457,7 +482,7 @@ def build_bundle_portal(
         write_text(temporary / "kc.html", _kc_html(parsed, source_keys))
         write_text(
             temporary / "quiz.html",
-            _quiz_html(quiz, quiz_status, initial_check),
+            _quiz_html(quiz, quiz_status, initial_check, stimulus_images),
         )
         write_text(temporary / "index.html", _index_html(manifest))
         manifest["files"] = _inventory(temporary)

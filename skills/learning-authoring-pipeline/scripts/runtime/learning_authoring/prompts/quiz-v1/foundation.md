@@ -12,6 +12,22 @@ Structured response is not the same as selected-response recognition. Matching c
 
 The visible task and its scoring must agree. Assess the requested evidence, not an unstated ideal answer: accept valid alternative explanations, criteria, methods, and equivalent numerical answers when they satisfy the task. Recall and ordinary calculation can be useful evidence without pretending to be analysis or transfer.
 
+The KC is author context, not material the learner can see. A task that depends on a particular
+diagram, convention, formula, table, or case must supply it in the stimulus unless recalling that
+specific taught content is deliberately the target. Do not label a missing-formula memory test
+as application. Define which quantity each symbol weights; make scope such as "any valid subset"
+versus "the complete valid set" explicit. Neither hints nor the source reference supplies missing
+initial data to the learner.
+
+Keep a simple stimulus when sufficient. For mixed material use `kind: composite` with ordered
+`blocks` of `text`, `table`, `formula`, or `image`; leave the outer legacy text/table/formula fields
+empty. Image blocks use only `asset_id` from the task's `media_assets`, a descriptive `alt`, and
+optional normalized top-left `crop: {x,y,w,h}` (null means the full page). Inspect that source image
+before choosing a crop. Retain relevant labels, arrows, axes, legends and units without the slide's
+worked answer; do not redraw unseen relationships or put the answer in alt text. An image is not
+required when a faithful text/table/formula representation suffices. Verify the actual rendered
+learner view after import; an incorrect or unreadable crop is not solved by a valid file hash.
+
 A decisive answer requires decisive facts. When a scenario leaves a material
 factor unknown, either provide a bounded value or ask for a conditional judgment
 that identifies what follows and what remains unresolved. Never force one

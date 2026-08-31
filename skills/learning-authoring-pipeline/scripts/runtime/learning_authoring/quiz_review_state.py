@@ -21,6 +21,7 @@ from learning_authoring.contracts import ExtractedSource, SourceDescriptor
 from learning_authoring.kc import load_approved_extraction
 from learning_authoring.kc_contracts import ProposedKCSet
 from learning_authoring.quiz_contracts import QuizBatch
+from learning_authoring.quiz_media import render_quiz_images
 from learning_authoring.source_bundle import (
     SOURCE_BUNDLE_MANIFEST,
     SourceBundle,
@@ -88,6 +89,7 @@ def quiz_review_material(
     batch = QuizBatch.model_validate(batch_raw)
     quiz_input = read_json(quiz_files.quiz_input)
     batch.validate_against_input(quiz_input)
+    render_quiz_images(root, quiz_input, batch)
     if metadata.get("candidate_raw_sha256") and (
         sha256_file(quiz_files.quiz_proposed) != metadata["candidate_raw_sha256"]
     ):
@@ -283,6 +285,9 @@ def quiz_review_material(
         "context_attachments": _context_locators(root, context, context_ids),
         "policy": "Inspect cited source as needed, one page at a time; never bulk-load all PNGs.",
     }
+    if quiz_input.get("media_assets"):
+        locators["quiz_media_assets"] = quiz_input["media_assets"]
+        locators["quiz_preview"] = str(root / "quiz-review.html")
     snapshot = {"artifacts": review_artifacts, "bindings": bindings, "source_locators": locators}
     source_ref = {
         "quiz_sha256": bindings["quiz"]["sha256"],

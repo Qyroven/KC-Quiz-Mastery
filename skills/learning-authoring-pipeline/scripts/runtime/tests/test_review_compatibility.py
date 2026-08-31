@@ -196,6 +196,24 @@ def test_legacy_kc_script_renders_without_context_fields(source) -> None:
 
 
 @pytest.mark.parametrize("scroll_mode", [False, True])
+@pytest.mark.parametrize("pages", [None, [], [2]])
+def test_kc_warning_without_page_scope_does_not_crash(source, scroll_mode, pages) -> None:
+    item = candidate("local-test", source)
+    warning = {"code": "UNCERTAIN", "message": "Check source meaning"}
+    if pages is not None:
+        warning["pages"] = pages
+    item["proposed"]["generation_warnings"] = [warning]
+    html = _recall_html(payload().with_source(source), item, scroll_mode=scroll_mode)
+    run_js(inline_script(html), f"""
+      assert.equal(pageRows.length,2);
+      assert.equal((warningsByPage[1]||[]).length,{0 if pages else 1});
+      assert.equal(warningsByPage[2].length,1);
+      selectPage(2);
+      assert.equal(view('position').textContent,'Slide 2 of 2');
+    """)
+
+
+@pytest.mark.parametrize("scroll_mode", [False, True])
 def test_context_only_kc_is_reviewable_without_inventing_a_slide(source, scroll_mode) -> None:
     html = _recall_html(
         payload().with_source(source), context_candidate(source), scroll_mode=scroll_mode

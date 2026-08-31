@@ -32,7 +32,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_PROMPT_DIR = PACKAGE_DIR / "prompts" / "quiz-v1"
 DEFAULT_EXAMPLES_DIR = DEFAULT_PROMPT_DIR / "examples-v3"
 BUNDLE_EXAMPLES_DIR = DEFAULT_PROMPT_DIR / "examples-bundle-v1"
-STAGE_VERSION = "quiz-agent-session.v4"
+STAGE_VERSION = "quiz-agent-session.v5"
 PROMPT_COMPONENTS = ("foundation", "rulebook", "task")
 ALLOWED_INTERACTIONS = (
     "single_select",

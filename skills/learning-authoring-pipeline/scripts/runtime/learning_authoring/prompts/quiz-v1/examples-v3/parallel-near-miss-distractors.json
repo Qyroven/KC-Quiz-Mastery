@@ -5,6 +5,9 @@
     "Build complex near-miss distractors that preserve the case facts but misapply exactly one threshold, condition, or exception.",
     "Keep every option parallel in grammar, tone, qualification, and approximate length so the key is not visually privileged.",
     "Label the slot apply rather than analyze because the learner uses a supplied rule; medium is honest because several conditions and an exception must be checked.",
+    "Before: asking which label follows 'the rule' while keeping the rule only in the hidden KC made the claimed application task depend on unannounced recall. After: the learner receives the rule and observations in separate stimulus blocks, but still has to count failures and test the exception.",
+    "Before: a title calling this a 'one-failure record' did part of the assessed work. After: the neutral title leaves classification to the learner. Supplying a rule is legitimate here because applying, not recalling, that rule is the declared target.",
+    "Contrast: asking for any valid selection while keying only the complete valid set can reject a valid subset. State the scope in the task; never use an explanation to change it after submission.",
     "Treat every name, identifier, option position, count, and rule in this example as illustrative; derive fresh values from the current KC and evidence."
   ],
   "illustrative_values_only": true,
@@ -110,14 +113,41 @@
         "variant_index": 1,
         "kc_id": "KC-001",
         "group_id": "KCG-001",
-        "title": "Classify a one-failure record",
+        "title": "Label this record",
         "interaction": "single_select",
         "stimulus": {
-          "kind": "text",
-          "text": "The seal is present and valid. The checksum check fails. The date check passes.",
+          "kind": "composite",
+          "text": "",
           "table_columns": [],
           "table_rows": [],
-          "formula": ""
+          "formula": "",
+          "blocks": [
+            {
+              "kind": "text",
+              "text": "Apply this rule: use Tier Blue if all three required checks pass, Tier Amber if exactly one fails, and Tier Gray if two or more fail. Use Review Hold instead only when the seal state cannot be determined."
+            },
+            {
+              "kind": "table",
+              "table_columns": [
+                "Required check",
+                "Observed result"
+              ],
+              "table_rows": [
+                [
+                  "Seal",
+                  "Present and valid"
+                ],
+                [
+                  "Checksum",
+                  "Fails"
+                ],
+                [
+                  "Date",
+                  "Passes"
+                ]
+              ]
+            }
+          ]
         },
         "prompt": "Which label-and-reason pair follows the rule?",
         "choice_options": [

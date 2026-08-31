@@ -68,6 +68,10 @@ Optional context joins at KC with separate provenance; it never becomes slide ge
 derived from source-supported capabilities and assessment needs rather than fixed page, KC, Bloom,
 or question quotas. Candidates stay immutable and review states remain honest.
 
+Quiz stimuli can combine text, tables, formulas and source-bound page images/crops. The local portal
+embeds the selected PNGs, so a source citation is not mistaken for a figure the learner can see.
+File/contract checks do not establish visual meaning, question quality or learner mastery.
+
 ## Develop and verify
 
 ```bash

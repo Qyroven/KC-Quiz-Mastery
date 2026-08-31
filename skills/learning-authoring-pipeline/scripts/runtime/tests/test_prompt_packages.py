@@ -322,18 +322,18 @@ def test_quiz_prompt_package_requires_post_draft_consistency_and_cue_checks() ->
         "vector or matrix shapes",
         "normalization constraints",
         "supplied intermediate values",
-        "every point-bearing requirement",
+        "every point-bearing deliverable",
         "answer_explanation",
         "correct-option positions",
         "independently re-solve every item",
         "strongest plausible competing answer",
-        "criterion-to-prompt matrix",
+        "compare rubric requirements with the requested work in meaning",
     ):
         assert required.casefold() in combined
 
     assert "update option ids, keys, and explanations together" in task
     assert "compare the resulting semantic answer" in task
-    assert "criterion-to-prompt matrix" in task
+    assert "not keyword overlap" in task
 
 
 def test_bundle_quiz_worked_example_is_source_qualified_and_contract_valid() -> None:

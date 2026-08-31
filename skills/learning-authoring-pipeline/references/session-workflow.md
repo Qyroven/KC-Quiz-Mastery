@@ -60,6 +60,13 @@ assessment slots and variants follow the evidence required by each KC. Process `
 by KC Group and maintain one ledger for evidence intent, interaction, key position, misconception,
 variant justification, and hint progression.
 
+The task's `media_assets` lists the selected KCs' cited PDF pages. Inspect `image_ref` relative to
+the run root when visual content is needed. A quiz may combine text, table, formula and image blocks
+in one stimulus; image blocks reference a catalog `asset_id`, not an invented path. The runtime
+checks source hashes and embeds selected PNGs/crops in the portal. Verify that essential context
+and labels survive the crop and that the learner can solve the question before opening hints.
+Existing simple stimuli remain valid. This adds no planning stage or fixed media/question quota.
+
 Import performs schema, lineage, and deterministic form checks. These checks may recommend a fresh
 candidate for mechanical defects; they never assert that a question is correct or pedagogically
 valuable. The default semantic state is `NOT_REVIEWED`, not a self-issued PASS.

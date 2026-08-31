@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Turn one or more PDFs plus optional lecturer context into deterministic Extraction, reviewable shared Knowledge Components, Quiz with hints and scoring, and a connected local portal using the active coding-agent subscription. Use for end-to-end authoring or review; never call a model-provider API.
 metadata:
   author: Qyroven
-  version: "3.0.0"
+  version: "3.1.0"
 ---
 
 # Learning Authoring Pipeline
@@ -52,6 +52,13 @@ what learner evidence each KC needs; then choose the simplest interaction that c
 evidence and decide whether independent variants are useful. Hints guide a next step without giving
 the answer. Objective keys, explanations, and short-text rubrics must agree with the exact visible
 question.
+
+The learner does not see the KC's source evidence automatically. Supply necessary case data,
+conventions and visuals in the question. Use the task's source-bound media catalog for images,
+with a crop only after inspecting the original. Check the rendered learner view, not just JSON.
+Keep authoring/review policy out of the question; a rubric should assess the requested work in
+meaning, not force its keywords into the prompt. Do not confuse honest recall with missing-context
+application, or repair ambiguity by giving away the solution.
 
 Before import, solve every question from the learner view, construct the strongest plausible
 alternative answer, and remove ambiguity, answer-length cues, key-pattern cues, matching by

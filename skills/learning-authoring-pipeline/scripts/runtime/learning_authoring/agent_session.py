@@ -62,6 +62,7 @@ from learning_authoring.quiz_contracts import (
     QuizBatchV3,
     quiz_output_schema,
 )
+from learning_authoring.quiz_media import build_media_catalog, render_quiz_images
 from learning_authoring.quiz_quality import build_quiz_form_audit
 from learning_authoring.quiz_review import build_quiz_review
 from learning_authoring.quiz_review_state import (
@@ -1346,6 +1347,7 @@ def prepare_agent_task(
             config=config,
             raw_kc_set=raw_kc_set,
         )
+        quiz_input["media_assets"] = build_media_catalog(root, quiz_input)
         prompt = load_quiz_prompt_package(
             schema_version=quiz_input["runtime"]["expected_schema_version"],
             examples_dir=(
@@ -1359,7 +1361,7 @@ def prepare_agent_task(
             "instructions": prompt.instructions,
             **_prompt_task_fields(prompt),
             "input_boundary": {
-                "delivery": "selected_leaf_kcs_groups_and_runtime_only",
+                "delivery": "selected_leaf_kcs_groups_runtime_and_source_media",
                 "kc_set": {"path": str(resolved_kc), "sha256": sha256_file(resolved_kc)},
                 "payload": quiz_input,
             },
@@ -1817,6 +1819,8 @@ def import_quiz(
             config=config,
             raw_kc_set=raw_kc_set,
         )
+        if "media_assets" in boundary["payload"]:
+            quiz_input["media_assets"] = build_media_catalog(root, quiz_input)
         if (
             task["input_boundary"]["kc_set"]["sha256"] != kc_sha256
             or task["input_boundary"]["payload"] != quiz_input
@@ -1828,6 +1832,7 @@ def import_quiz(
             else QuizBatch.model_validate_json(raw)
         )
         proposed.validate_against_input(quiz_input)
+        render_quiz_images(root, quiz_input, proposed)
     except (KeyError, OSError, ValidationError, ValueError, RuntimeError) as exc:
         _contract_error(artifacts.quiz_contract_errors, exc, raw_path)
         _write_import_record(

@@ -1,6 +1,6 @@
 [project]
 name = "learning-authoring-tool"
-version = "3.0.0"
+version = "3.1.0"
 description = "Deterministic runtime bundled with the portable Learning Authoring Agent Skill"
 readme = {text = "Bundled deterministic runtime for the Learning Authoring Pipeline Agent Skill.", content-type = "text/markdown"}
 requires-python = ">=3.12,<3.13"

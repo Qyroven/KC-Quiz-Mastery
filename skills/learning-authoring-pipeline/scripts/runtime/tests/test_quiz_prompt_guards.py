@@ -78,7 +78,7 @@ def normalized(text: str) -> str:
             "Compare every scored requirement with the visible task",
         ),
         (
-            "identify the exact learner-visible phrase that requests the scored work",
+            "Judge this semantically",
             "Compare every scored requirement with the visible task",
         ),
     ],

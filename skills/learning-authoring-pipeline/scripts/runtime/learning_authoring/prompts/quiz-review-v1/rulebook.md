@@ -44,6 +44,10 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   omitted operation. Flag an ambiguous placeholder only when it changes the
   assessed behavior or leaves the answer underdetermined, not merely because an
   ellipsis appears in otherwise sufficient pseudocode or irrelevant context.
+  The KC and source citations are not automatically visible to the learner. Check mixed stimulus
+  blocks and the rendered image/crop, including essential legends, units, arrows and labels.
+  Distinguish a deliberate recall question from an application task missing its formula/convention.
+  File existence or a matching hash does not prove the figure supplies the needed information.
   Construct the strongest plausible competing answer from the learner-visible
   facts. When material factors have no supplied magnitude or condition, flag a
   categorical key that rejects a defensible conditional or uncertain answer;

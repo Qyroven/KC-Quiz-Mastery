@@ -7,6 +7,7 @@
     "Keep every option parallel in grammar, tone, qualification, and approximate length so the key is not visually privileged.",
     "Label the slot apply rather than analyze because the rule is supplied; medium is honest because several conditions and a separately sourced exception must be checked.",
     "The selected-response form is illustrative for this decision rule; choose another allowed interaction when the current KC requires learner-produced evidence.",
+    "The supplied rule must actually be learner-visible, not just in the hidden shared KC. Distinct source citations prove provenance but do not replace the question stimulus.",
     "Treat every name, identifier, option position, count, source, and hash as illustrative; derive fresh values from the current bundle KC and evidence."
   ],
   "illustrative_values_only": true,
@@ -120,16 +121,16 @@
         "variant_index": 1,
         "kc_id": "KC-001",
         "group_id": "KCG-001",
-        "title": "Classify a one-failure record",
+        "title": "Label this record",
         "interaction": "single_select",
         "stimulus": {
           "kind": "text",
-          "text": "The seal is present and valid. The checksum check fails. The date check passes.",
+          "text": "Apply this rule: use Tier Blue if all three required checks pass, Tier Amber if exactly one fails, and Tier Gray if two or more fail. Use Review Hold instead only when the seal state cannot be determined.\nRecord: the seal is present and valid; the checksum check fails; the date check passes.",
           "table_columns": [],
           "table_rows": [],
           "formula": ""
         },
-        "prompt": "Which label-and-reason pair follows the bundled rule?",
+        "prompt": "Which label-and-reason pair follows the rule?",
         "choice_options": [
           {
             "option_id": "A",

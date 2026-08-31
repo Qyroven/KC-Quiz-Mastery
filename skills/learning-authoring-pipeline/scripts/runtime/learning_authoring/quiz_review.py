@@ -8,6 +8,7 @@ from typing import Any
 
 from learning_authoring.artifacts import read_json, write_text
 from learning_authoring.quiz_contracts import QuizBatch
+from learning_authoring.quiz_media import QUIZ_STIMULUS_RENDERER, render_quiz_images
 from learning_authoring.quiz_review_state import load_quiz_semantic_state
 
 
@@ -47,6 +48,7 @@ def build_quiz_review(
     payload = {
         # Optional v2 reader defaults must not rewrite a legacy review baseline.
         "quiz": raw_batch,
+        "stimulus_images": render_quiz_images(root, quiz_input, batch),
         "input": quiz_input,
         "metrics": metrics,
         "metadata": metadata,
@@ -220,7 +222,8 @@ function renderNav(){
   $("#navList").innerHTML=html||'<p style="padding:20px;color:#777">Không có kết quả</p>';
   document.querySelectorAll(".qrow").forEach(b=>{b.onclick=()=>select(+b.dataset.index)});
 }
-function stimulusHTML(s){if(s.kind==="none")return"";let html='<div class="stimulus">'+esc(s.text);if(s.kind==="table")html+='<table class="data-table"><thead><tr>'+s.table_columns.map(function(c){return"<th>"+esc(c)+"</th>"}).join("")+"</tr></thead><tbody>"+s.table_rows.map(function(r){return"<tr>"+r.map(function(c){return"<td>"+esc(c)+"</td>"}).join("")+"</tr>"}).join("")+"</tbody></table>";if(s.kind==="formula")html+='<div class="code">'+esc(s.formula)+"</div>";return html+"</div>"}
+__QUIZ_STIMULUS_RENDERER__
+function stimulusHTML(s){return renderQuizStimulus(s,DATA.stimulus_images||[])}
 function optionHTML(q){return'<div class="options">'+stableShuffle(q.choice_options,q.question_id+"-choice").map(function(o,i){return'<button class="option" data-option="'+o.option_id+'"><span class="option-key">'+String.fromCharCode(65+i)+"</span><span>"+esc(o.text)+"</span></button>"}).join("")+"</div>"}
 function orderHTML(q){return order.map(function(id,i){const o=q.ordering_options.find(function(x){return x.option_id===id});return'<div class="order-row"><strong>'+(i+1)+"</strong><span>"+esc(o?o.text:id)+'</span><span class="order-actions"><button data-move="-1" data-pos="'+i+'">↑</button><button data-move="1" data-pos="'+i+'">↓</button></span></div>'}).join("")}
 function responseHTML(q){if(q.interaction==="single_select"||q.interaction==="multi_select")return optionHTML(q);if(q.interaction==="short_text")return'<textarea class="answer-box" placeholder="Nhập câu trả lời…"></textarea>';if(q.interaction==="matching"){const right=stableShuffle(q.matching_right,q.question_id+"-match");return q.matching_left.map(function(o){return'<div class="match"><span><b>'+esc(o.text)+'</b></span><select><option>Chọn đáp án</option>'+right.map(function(r){return'<option value="'+esc(r.option_id)+'">'+esc(r.text)+"</option>"}).join("")+"</select></div>"}).join("")}order=stableShuffle(q.ordering_options,q.question_id+"-order").map(function(o){return o.option_id});return'<div id="order">'+orderHTML(q)+"</div>"}
@@ -328,3 +331,5 @@ renderMetrics();const initial=questions.findIndex(function(q){return q.question_
 </script>
 </body>
 </html>"""
+
+_TEMPLATE = _TEMPLATE.replace("__QUIZ_STIMULUS_RENDERER__", QUIZ_STIMULUS_RENDERER)

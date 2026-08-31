@@ -143,7 +143,7 @@ def quiz_output(source, *, variants: int = 1) -> dict:
 
 def test_quiz_prompt_package_is_subscription_native() -> None:
     package = load_quiz_prompt_package()
-    assert package.manifest["package_version"] == "quiz-agent-session.v4"
+    assert package.manifest["package_version"] == "quiz-agent-session.v5"
     assert package.manifest["instruction_order"] == ["foundation", "rulebook", "task"]
     assert "portfolio ledger" in package.instructions
 

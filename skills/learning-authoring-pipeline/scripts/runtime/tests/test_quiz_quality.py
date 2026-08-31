@@ -378,6 +378,18 @@ def test_hidden_rubric_response_form_is_flagged() -> None:
     audit = build_quiz_form_audit(batch)
 
     assert "RUBRIC_HIDDEN_REQUIREMENT" in _question_codes(audit)
+    assert "RUBRIC_HIDDEN_REQUIREMENT" not in audit["fresh_candidate_guidance"]["trigger_codes"]
+
+
+def test_rubric_keyword_mismatch_does_not_block_a_requested_comparison() -> None:
+    batch = _batch(_short_text_question(
+        "Q-001", stimulus="A has value 5. B has value 8.",
+        prompt="Calculate both adjusted values and compare them.",
+        answer="A is 5, B is 8; B is larger.",
+        rubric=["Gives both values and explains which is larger."],
+    ))
+    audit = build_quiz_form_audit(batch)
+    assert not audit["fresh_candidate_guidance"]["recommended"]
 
 
 def test_any_n_of_m_exemplar_cannot_have_mostly_fixed_rubric() -> None:
