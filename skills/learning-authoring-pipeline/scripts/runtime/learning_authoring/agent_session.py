@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shlex
 import time
 from copy import deepcopy
 from datetime import UTC, datetime
@@ -344,6 +345,14 @@ def _render_agent_task(task: dict[str, Any], package_path: Path) -> str:
         for value in next_command["argv"]
     ]
     input_keys = ", ".join(f"`{key}`" for key in task["input_boundary"])
+    reader = (
+        f"Run `learning-authoring agent-read {shlex.quote(str(package_path))}` for the "
+        "source/context index, then repeat with `--batch <read_id>` or "
+        "`--context-id <context_id>` for the material you are reading. These read-only views "
+        "retain frozen identities and do not summarize or drop source content. "
+        "You may repeat --batch for a cross-group task.\n\n"
+        if task["stage"] in {"kc", "quiz"} else ""
+    )
     return (
         f"# Subscription-native {task['stage']} task\n\n"
         "Read this artifact before authoring the candidate. Worked-example values are "
@@ -359,7 +368,8 @@ def _render_agent_task(task: dict[str, Any], package_path: Path) -> str:
         "## Candidate JSON schema\n\n"
         f"{_markdown_json(task['candidate_contract']['schema'])}\n\n"
         "## Frozen input boundary\n\n"
-        f"Read JSON pointer `/input_boundary` from `{package_path}`. Its top-level fields "
+        f"{reader}"
+        f"The complete JSON pointer `/input_boundary` remains in `{package_path}`. Its fields "
         f"are: {input_keys}. The input is not repeated here so large source payloads remain "
         "available for targeted inspection without diluting this prompt.\n\n"
         "## Output policy\n\n"
@@ -367,6 +377,106 @@ def _render_agent_task(task: dict[str, Any], package_path: Path) -> str:
         "## Import command\n\n"
         f"{_markdown_json(next_command)}\n"
     )
+
+
+def read_agent_task_input(
+    task_package: Path,
+    *,
+    batch_ids: tuple[str, ...] = (),
+    context_ids: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Read a frozen input index or exact selected portions, without new run artifacts."""
+
+    path = task_package.expanduser().resolve()
+    header = read_json(path)
+    stage = header["stage"]
+    if stage not in {"kc", "quiz"}:
+        raise ValueError("agent-read supports KC and Quiz task inputs")
+    task = _load_task_package(
+        stage, Path(header["run_dir"]), path, require_official_prompt=False
+    )
+    boundary = task["input_boundary"]
+    payload = boundary["payload"]
+    context = boundary.get("authoring_context") or {}
+    contexts = {item["context_id"]: item for item in context.get("items", [])}
+    batches = (
+        boundary["inspection_batches"] if stage == "kc" else payload["authoring_batches"]
+    )
+
+    def read_id(batch: dict[str, Any]) -> str:
+        source = batch.get("source_id")
+        return f"{source}::{batch['batch_id']}" if source else batch["batch_id"]
+
+    by_id = {read_id(batch): batch for batch in batches}
+    if len(by_id) != len(batches):
+        raise ValueError("frozen input contains ambiguous batch identities")
+    unknown = set(batch_ids) - set(by_id)
+    if unknown or set(context_ids) - set(contexts):
+        raise ValueError("unknown batch/context ID; use agent-read without selectors for the index")
+    result: dict[str, Any] = {
+        "stage": stage,
+        "task_fingerprint": task["task_fingerprint"],
+        "source_ref": boundary.get("expected_source_ref", payload.get("source_ref")
+                                   if isinstance(payload, dict) else None),
+        "context_base_dir": boundary.get("context_base_dir"),
+        "authoring_context_ref": {key: value for key, value in context.items() if key != "items"},
+    }
+    if not batch_ids and not context_ids:
+        result["batches"] = [
+            {
+                "read_id": read_id(batch),
+                **{key: value for key, value in batch.items() if key != "pages"},
+                **({"pages": [page["page"] for page in batch["pages"]]}
+                   if "pages" in batch else {}),
+            }
+            for batch in batches
+        ]
+        result["context_items"] = [
+            {key: value for key, value in item.items() if key not in {"text", "content"}}
+            for item in contexts.values()
+        ]
+        if stage == "kc":
+            sources = payload if isinstance(payload, list) else [payload]
+            result["sources"] = [source["source"] for source in sources]
+        else:
+            result["runtime"] = payload["runtime"]
+        return result
+    if context_ids:
+        result["context_items"] = [contexts[key] for key in dict.fromkeys(context_ids)]
+    chosen = [by_id[key] for key in dict.fromkeys(batch_ids)]
+    result["batches"] = chosen
+    if stage == "kc":
+        sources = payload if isinstance(payload, list) else [payload]
+        result["sources"] = []
+        for source in sources:
+            pages = {
+                page["page"] for batch in chosen
+                if batch.get("source_id") in {None, source["source"]["source_id"]}
+                for page in batch["pages"]
+            }
+            if pages:
+                result["sources"].append({
+                    **source,
+                    "pages": [page for page in source["pages"] if page["page_number"] in pages],
+                })
+    else:
+        kc_ids = {kc_id for batch in chosen for kc_id in batch["kc_ids"]}
+        group_ids = {batch["group_id"] for batch in chosen}
+        selected = [kc for kc in payload["leaf_kcs"] if kc["kc_id"] in kc_ids]
+        source_pages = {
+            (evidence.get("source_id"), evidence["page"])
+            for kc in selected for evidence in kc["source_evidence"]
+        }
+        result["payload"] = {
+            **payload,
+            "leaf_kcs": selected,
+            "kc_groups": [group for group in payload["kc_groups"]
+                          if group["group_id"] in group_ids],
+            "authoring_batches": chosen,
+            "media_assets": [asset for asset in payload.get("media_assets", [])
+                             if (asset.get("source_id"), asset["page"]) in source_pages],
+        }
+    return result
 
 
 def _task_audit_fields(task: dict[str, Any] | None) -> dict[str, Any]:
@@ -1010,7 +1120,9 @@ def _inspection_batches(
                     source_root / "pages" / f"page-{page.page_number:04d}.png"
                 ),
                 "visual_review_recommended": any(
-                    warning.code in {"NO_NATIVE_TEXT", "TEXT_GEOMETRY_UNRESOLVED"}
+                    warning.code in {
+                        "NO_NATIVE_TEXT", "TEXT_GEOMETRY_UNRESOLVED", "GRAPHICS_PRESENT"
+                    }
                     for warning in page.warnings
                 ),
             }
@@ -1900,7 +2012,9 @@ def import_quiz(
         "question_count": len(proposed.questions),
         "assessment_slot_count": len(proposed.assessment_slots),
         "question_counts_by_kc": {
-            kc_id: sum(question.kc_id == kc_id for question in proposed.questions)
+            kc_id: sum(
+                kc_id in proposed.question_kc_ids(question) for question in proposed.questions
+            )
             for kc_id in quiz_input["runtime"]["selected_kc_ids"]
         },
         "interaction_counts": {

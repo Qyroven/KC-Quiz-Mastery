@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 import pypdfium2 as pdfium
@@ -28,7 +29,7 @@ from learning_authoring.contracts import (
 )
 from learning_authoring.review import build_review
 
-NATIVE_EXTRACTION_VERSION = "native-text-geometry.v1"
+NATIVE_EXTRACTION_VERSION = "native-text-geometry.v2"
 
 
 @dataclass(frozen=True)
@@ -113,6 +114,57 @@ def _line_glyphs(glyphs: list[_Glyph]) -> list[list[_Glyph]]:
     return lines
 
 
+def _layout_text(glyphs: list[_Glyph]) -> str:
+    """Preserve physical rows/gaps without changing the source-ordered raw blocks.
+
+    PDF text runs can split punctuation into separate logical lines. Group by geometry instead,
+    anchoring on taller glyphs so an underscore does not become its own row. Spacing is approximate;
+    columns, scripts and diagrams still need visual interpretation, never inferred table edges.
+    """
+
+    visible = [glyph for glyph in glyphs if glyph.text.strip() and glyph.box is not None]
+    if not visible or any(glyph.text.strip() and glyph.box is None for glyph in glyphs):
+        return "".join(glyph.text for glyph in glyphs).replace("\x00", "")
+    # Proportional-font spaces can be narrower than half the median glyph. Keep explicit
+    # horizontal whitespace even when geometric rounding alone would join two words.
+    separated: set[tuple[int, int]] = set()
+    previous: _Glyph | None = None
+    space = False
+    for glyph in glyphs:
+        if glyph.text.strip():
+            if previous is not None and space:
+                separated.add((id(previous), id(glyph)))
+            previous, space = glyph, False
+        elif glyph.text and glyph.text not in {"\r", "\n"}:
+            space = True
+    unit = median((g.box[2] - g.box[0]) / max(len(g.text), 1) for g in visible)
+    origin = min(g.box[0] for g in visible)
+    rows: list[tuple[_Glyph, list[_Glyph]]] = []
+    for glyph in sorted(visible, key=lambda g: -(g.box[3] - g.box[1])):
+        matches = [(anchor, row) for anchor, row in rows if not _vertical_break(anchor, glyph)]
+        if matches:
+            _, row = min(matches, key=lambda pair: abs(
+                sum(pair[0].box[1::2]) - sum(glyph.box[1::2])
+            ))
+            row.append(glyph)
+        else:
+            rows.append((glyph, [glyph]))
+    output: list[str] = []
+    for _, row in sorted(rows, key=lambda pair: -sum(pair[0].box[1::2])):
+        cursor = origin
+        pieces: list[str] = []
+        previous = None
+        for glyph in sorted(row, key=lambda g: g.box[0]):
+            gap = max(0, round((glyph.box[0] - cursor) / unit))
+            if previous is not None and (id(previous), id(glyph)) in separated:
+                gap = max(1, gap)
+            pieces.append(" " * gap + glyph.text)
+            cursor = max(cursor, glyph.box[2])
+            previous = glyph
+        output.append("".join(pieces).rstrip())
+    return "\n".join(output)
+
+
 def _normalized_region(
     page_number: int,
     line: list[_Glyph],
@@ -183,6 +235,16 @@ def _page_from_text_layer(page: Any, page_number: int) -> ExtractedPage:
         block.block_id for block in blocks if block.region.localization_status == "unresolved"
     ]
     warnings: list[WarningRecord] = []
+    # Graphics are a triage signal, not a classifier for meaningful/decorative figures.
+    graphics = list(page.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_IMAGE,
+                                            pdfium.raw.FPDF_PAGEOBJ_PATH]))
+    if graphics:
+        warnings.append(WarningRecord(
+            code="GRAPHICS_PRESENT",
+            message="PDF graphics coexist with text; inspect the page if layout carries meaning.",
+            page=page_number,
+            details={"next_action": "visual_triage", "object_count": len(graphics)},
+        ))
     if not blocks:
         warnings.append(
             WarningRecord(
@@ -224,6 +286,7 @@ def _page_from_text_layer(page: Any, page_number: int) -> ExtractedPage:
             ),
         ),
         warnings=warnings,
+        layout_text=_layout_text(glyphs),
     )
 
 
@@ -310,7 +373,7 @@ def build_native_extraction(run_dir: Path) -> dict[str, Any]:
         "source_page_count": source.page_count,
         "block_count": sum(len(page.blocks) for page in pages),
         "native_text_page_count": sum(bool(page.blocks) for page in pages),
-        "targeted_visual_review_page_count": sum(not page.blocks for page in pages),
+        "targeted_visual_review_page_count": sum(bool(page.warnings) for page in pages),
         "total_elapsed_seconds": elapsed,
         "human_review_required": True,
         "approved": False,

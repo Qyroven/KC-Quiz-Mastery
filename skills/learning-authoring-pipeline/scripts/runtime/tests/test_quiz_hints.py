@@ -6,7 +6,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from learning_authoring.quiz import QuizConfig, build_quiz_input, load_quiz_prompt_package
+from learning_authoring.quiz import QuizConfig, build_quiz_input
 from learning_authoring.quiz_contracts import (
     CURRENT_QUIZ_INPUT_VERSION,
     CURRENT_QUIZ_SCHEMA_VERSION,
@@ -222,8 +222,3 @@ def test_form_contract_does_not_masquerade_as_semantic_hint_validation(source) -
     # This deliberately bad hint is structurally valid. Independent semantic review
     # must reject leakage; keyword/length heuristics cannot establish its quality.
     QuizBatchV3.model_validate(raw)
-    instructions = load_quiz_prompt_package().instructions
-    assert "cumulative effect" in instructions
-    assert "Do not equate help-seeking with lack of mastery" in instructions
-    assert "or generation call when a learner requests a hint" in instructions
-    assert "no safe helpful hint" in instructions

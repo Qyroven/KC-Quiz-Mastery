@@ -203,7 +203,7 @@ def test_quiz_slot_counts_are_validated_without_repair_or_overwrite(tmp_path) ->
     candidate["questions"].pop()
     path = run / "invalid-quiz.json"
     raw = _write_raw(path, candidate)
-    with pytest.raises(ValidationError, match="require 3 questions"):
+    with pytest.raises(ValidationError, match="require 3 item occurrences"):
         agent_import("quiz", run, path, task_package=Path(task["task_package"]))
     assert not (run / "quiz/quiz-proposed.json").exists()
     archives = list((run / "agent-session/candidates").glob("quiz-*.json"))
@@ -262,7 +262,7 @@ def test_explicit_infeasible_budget_is_not_silently_truncated(tmp_path) -> None:
             include_all_kcs=True,
             min_slots_per_kc=2,
             variants_per_slot=2,
-            total_question_budget=3,
+            total_question_budget=1,
         )
     assert not list((run / "agent-session/tasks").glob("quiz-*.json"))
 

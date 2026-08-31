@@ -145,7 +145,7 @@ def test_quiz_prompt_package_is_subscription_native() -> None:
     package = load_quiz_prompt_package()
     assert package.manifest["package_version"] == "quiz-agent-session.v5"
     assert package.manifest["instruction_order"] == ["foundation", "rulebook", "task"]
-    assert "portfolio ledger" in package.instructions
+    assert package.output_schema["properties"]["schema_version"]["const"] == "quiz-batch.v3"
 
 
 def test_quiz_input_contains_selected_kcs_and_runtime(source) -> None:

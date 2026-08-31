@@ -10,7 +10,6 @@ from learning_authoring.kc_contracts import ProposedKCSet
 from learning_authoring.quiz import (
     QuizConfig,
     build_quiz_input,
-    load_quiz_prompt_package,
 )
 from learning_authoring.quiz_contracts import (
     AssessmentSlot,
@@ -115,7 +114,7 @@ def test_adaptive_defaults_have_no_per_kc_multiplier_or_implicit_budget(source) 
     assert runtime["expected_schema_version"] == "quiz-batch.v3"
     assert runtime["selected_kc_ids"] == ["KC-001", "KC-002"]
     assert runtime["min_slots_per_kc"] == 1
-    assert runtime["minimum_question_count"] == 2
+    assert runtime["minimum_question_count"] == 1
     for name in (
         "variants_per_kc",
         "max_slots_per_kc",
@@ -260,8 +259,7 @@ def test_invalid_count_policy_fails_before_generation(overrides) -> None:
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"total_question_budget": 1},
-        {"min_slots_per_kc": 2, "variants_per_slot": 2, "total_question_budget": 7},
+        {"variants_per_slot": 2, "total_question_budget": 1},
         {"variants_per_kc": 3, "total_question_budget": 5},
     ],
 )
@@ -467,23 +465,3 @@ def test_multi_select_keys_are_distinct_and_leave_a_distractor(source, keys) -> 
     raw["questions"][0]["correct_answer"]["selection_ids"] = keys
     with pytest.raises(ValidationError):
         QuizBatch.model_validate(raw)
-
-
-def test_prompt_distinguishes_slot_intent_from_variants_and_quality_proof() -> None:
-    instructions = load_quiz_prompt_package().instructions
-    assert "same slot" in instructions
-    assert "one response" in instructions
-    assert "not from a fixed per-KC multiplier" in instructions
-    assert "no universal question count, Bloom ladder" in instructions
-    assert "does not establish pedagogical validity" in instructions
-    assert "Variants must differ in the learner reasoning required" not in instructions
-
-
-def test_prompt_labels_the_remaining_task_not_scaffolding_or_response_format() -> None:
-    instructions = load_quiz_prompt_package().instructions
-    assert "actual unhinted work" in instructions
-    assert "not independent diagnosis" in instructions
-    assert "not independent planning" in instructions
-    assert "do not default every slot to either selected response or short text" in instructions
-    assert "Numeric variants are useful" in instructions
-    assert "not by editing saved output afterwards" in instructions

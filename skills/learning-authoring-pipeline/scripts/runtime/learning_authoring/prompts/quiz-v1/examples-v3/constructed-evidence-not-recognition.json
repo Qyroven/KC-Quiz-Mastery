@@ -5,6 +5,8 @@
     "Choose interaction from the evidence the learner must produce; short text is justified here only because the two visible normalization setups are themselves scored evidence, not because prose is a generic safe default.",
     "Before using short text elsewhere, test matching, ordering, and bounded selection; prefer them when they capture the complete evidence without requiring learner-authored reasoning or construction.",
     "Make every point-bearing requirement visible and accept equivalent units, equations, and rounding that satisfy the stated tolerance.",
+    "Counterexample check — valid alternative: 'A: 180/30 = 6 mg/g = 600 mg/100 g; B: 250/50 = 5 mg/g = 500 mg/100 g, so B' earns all three criteria even though the equations differ from the exemplar.",
+    "Counterexample check — near miss: 'A has 180 mg, B has 250 mg, so A is lower' earns none of the three criteria: it compares unequal servings without normalization. A response with both correct setups but choosing A earns the two calculation criteria, not the comparison criterion.",
     "Use no hint when a useful hint would provide the exact setup being assessed; explain that decision instead of forcing scaffolding.",
     "Treat every name, identifier, option position, count, and value in this example as illustrative; derive fresh values from the current KC and evidence."
   ],

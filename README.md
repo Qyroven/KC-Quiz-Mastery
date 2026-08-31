@@ -72,6 +72,17 @@ Quiz stimuli can combine text, tables, formulas and source-bound page images/cro
 embeds the selected PNGs, so a source citation is not mistaken for a figure the learner can see.
 File/contract checks do not establish visual meaning, question quality or learner mastery.
 
+Long inputs stay in a frozen task package. `agent-read` lists its reading batches, then returns
+only the selected source pages, lecturer context, or KC batches without rewriting them. Extraction
+also supplies geometry-derived `layout_text` alongside the original blocks; neither native text nor
+a graphics flag proves that a diagram, table, or code example has been understood.
+
+Choice counts follow the question rather than a four-option template. An integrated constructed
+response may cover related assessment slots when each slot has its own cited evidence and rubric
+criteria. These items are available for authoring/review; the optional Learning export rejects them
+until it can record per-slot results, rather than treating one whole-question score as evidence for
+every KC. Ordinary single-slot items keep their existing export path.
+
 ## Develop and verify
 
 ```bash

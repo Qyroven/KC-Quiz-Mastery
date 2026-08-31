@@ -1,24 +1,30 @@
-# Quiz — Task
+# Task
 
-On successful generation, return only JSON matching the supplied schema. If missing source content or an unsupported representation makes a valid fully covered batch impossible, report that specific blocker to the coordinating agent instead of fabricating a successful Quiz artifact. This exception is for actual missing capability or evidence, not a request to stop at a routine review gate.
+Read the frozen input index, then the relevant KC-group batches with `agent-read`. Read adjacent
+batches together when a case integrates their capabilities; a batch is a reading aid, not a quota.
+Keep concise evidence intents across batches so reconciliation does not collapse distinct targets
+or repeat the same question. Use worked examples for the decision they illustrate, not their topic,
+counts, IDs, option positions or vocabulary.
 
-In this single generation stage, author in natural KC-group/source-order batches, then assemble one
-contract-valid output. A batch boundary is a working-memory aid, not a question quota. Carry a
-portfolio ledger across batches containing used evidence intents, interaction choices, keyed-option
-positions, misconception families, and hint strategies so later questions do not repeat earlier
-wording or answer patterns.
+For each target, draft the learner task and a defensible answer together. Decide the response type
+from the work required, then record the slot and useful variants. Assign Bloom and difficulty after
+checking what the learner must actually do. Do not fill a prescribed ladder or interaction mix.
 
-1. Read every selected KC and inventory the distinct learner evidence it actually supports, within its assessment boundary. Separate targets only when they can be scored and remediated independently; keep paraphrases and inseparable substeps together. In adaptive mode, encode those choices as justified assessment slots, respecting only the supplied bounds. For each slot, write a one-line private design test before authoring: what must the learner produce or decide, and what observable response would prove it? Compare at least the eligible structured interactions with `short_text`. Choose prose only when learner-authored reasoning or construction is indispensable; a relationship set, classification, sequence, or bounded decision should use its direct structured representation when that captures the whole evidence. Select cognitive operations and difficulty honestly; do not fill a prescribed ladder.
-2. Choose the useful variant count for each slot unless the runtime provides an exact override. Draft the slot's questions as alternate items for that same evidence intent and operation, not as different reasoning targets disguised as variants. A one-variant justification must say why a second instance would not add independent evidence; a multi-variant justification must say what meaningful boundary, representation, misconception, or transfer instance changes. If all slots converge on one count, re-open each justification and keep the uniform result only when those independent reasons genuinely converge; never add filler to create artificial variation. For current v3, author each item's useful hints at the same time, or explain why no safe helpful hint exists. Return the slots, all their questions, and their hint decisions together. For explicit legacy mode, follow the v1 per-KC count instead.
-3. Read every final learner view without its key or hints. What must the learner actually work out, and what did the title or stem already do for them? Keep necessary facts, remove answer-bearing scaffolds and generator-facing language, then set the slot's Bloom and intended difficulty to the remaining work. In particular, do not announce every missing evidence category and then ask the learner to repeat those labels. For selected response, name the misconception behind every distractor and compare it with the key: each option should remain credible until the learner applies the decisive distinction, and no option should be a multi-error strawman. If the key merely repeats a checklist already named in the stem, redesign the stem or downgrade the cognitive label. If three credible alternatives cannot be written, change to a permitted interaction that directly captures the evidence. Check that the key cannot be guessed from tone, detail, length, qualification, position, or being the sole professionally safe answer. Across the complete batch and sibling variants, check for concentrated correct-option positions and redistribute options without creating a mechanical pattern; update option IDs, keys, and explanations together. For matching that claims independent evidence for every pair, prevent a final-pair elimination shortcut with a plausible unused right option or narrow the evidence claim. Verify that code is clearly executable, pseudocode, or a labeled excerpt, with no ambiguous ellipsis on the assessed path. Compare sibling variants for useful practice, not superficial variation. Replace padding with useful work or an honestly smaller adaptive plan within the supplied constraints. Do this before submitting the candidate, not by editing saved output afterwards.
-4. Independently re-solve every item using only its learner-visible facts. Also construct the strongest plausible competing answer. If missing magnitudes, conditions, visual facts, or scope make that competing answer defensible, supply coherent bounded facts or ask for a conditional conclusion and accept the uncertainty; do not force a categorical key. For quantitative or formula tasks, recompute the result from the original givens and verify dimensions, shapes, indices, units, signs, domains, normalization, and any supplied intermediate value; do not validate only the final arithmetic. Compare the resulting semantic answer with the ID-based key, `correct_answer.text`, `answer_explanation`, and rubric so a negation error, stale option ID, contradictory explanation, or inconsistent partial-credit policy cannot survive.
-5. For `short_text`, compare rubric requirements with the requested work in meaning, not keyword overlap. Do not demand an unrequested deliverable or reveal the solution by turning the prompt into a completed rubric. Ordinary correctness requirements of a requested operation are not extra hidden tasks. Check that a different valid answer would receive credit, and that the exemplar and rubric accept the same answer space. For every other interaction, verify its ID-based key and keep `rubric: []` and `correct_answer.text: ""`; use `answer_explanation` for the explanation. Then test the complete ordered hint sequence: after any prefix, does meaningful work remain, including unresolved matching pairs or ordering relationships? Keep necessary facts visible before hints. Revise leaking or redundant hints before the first submission; never move a completed key or post-answer explanation into a hint.
-6. Check complete selected-KC coverage, slot identities and counts, contiguous variant indexes in the correct scope, total-budget compliance, interaction serialization, exact scoring keys, concise explanations, explicit v3 hint decisions with unique local IDs, and PDF/context references against the owning KC. Inspect the final interaction distribution: concentration is not automatically wrong, but every dominant interaction must still be the best evidence-preserving choice for its own slot. Convert eligible prose items to direct structured evidence; do not manufacture diversity or change a valid constructed response just to balance counts. Report unsupported or missing source content as a blocker instead of fabricating successful output.
-7. Run the final portfolio gate on the assembled batch, not only question by question. Re-solve every
-   key after option serialization; inspect answer-position concentration, repeated multi-select key
-   sets, correct-option length/detail cues, repeated stem templates, sibling variants that differ
-   only in numbers or names, and cumulative hint leakage. A detected portfolio shortcut is a failed
-   first candidate: return a genuinely fresh candidate from the same frozen task rather than
-   explaining the defect or patching saved output.
+Before serializing a candidate, try concrete answers against each question:
 
-Do not rewrite the KC, repair an earlier Quiz, or claim that any question passed review.
+- Solve from the learner view alone, without source-only context, hints or the key. Recompute
+  quantitative givens and verify the final keyed IDs after options are serialized.
+- Try a valid answer unlike the exemplar and a plausible near miss. Apply each rubric criterion:
+  the former must receive its deserved credit and the latter must lose credit for its actual defect.
+- Try to answer without the target knowledge using length, tone, position, repeated wording or
+  elimination. If that succeeds, change the item, not merely its explanation.
+- Follow hints in order and check that they help without completing the target work.
+
+Resolve failures in the draft. A statement that these checks passed is not evidence that they did;
+retain the concrete counterexample when a defect remains and report the limitation. No separate
+self-issued semantic score or PASS artifact is required.
+
+Reconcile the assembled bank with the selected KC boundaries: distinguish targets tested by the
+items from knowledge still unmeasured. Check sibling variants and portfolio-wide shortcuts, then
+return the contract-valid JSON. Code checks references, shapes and counts; it cannot decide whether
+the intended capability is actually elicited. Verify the rendered learner view after import.

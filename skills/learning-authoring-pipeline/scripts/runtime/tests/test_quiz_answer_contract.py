@@ -7,14 +7,12 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from learning_authoring.quiz import load_quiz_prompt_package
 from learning_authoring.quiz_contracts import (
     QuizBatchV1,
     QuizBatchV2,
     QuizBatchV3,
     quiz_output_schema,
 )
-from learning_authoring.quiz_semantics import load_semantic_review_prompt
 from tests.test_quiz_hints import hinted_output
 
 CONTRACTS = {
@@ -93,14 +91,3 @@ def test_native_and_strict_schema_describe_answer_field_ownership(version, stric
     assert "required for every interaction" in question["answer_explanation"]["description"]
     for field in (*answer.values(), question["rubric"], question["answer_explanation"]):
         assert "default" not in field
-
-
-def test_prompt_does_not_request_rubrics_for_objective_interactions() -> None:
-    package = load_quiz_prompt_package()
-    for component in ("rulebook", "task"):
-        text = package.manifest["components"][component]["content"]
-        assert '`rubric: []` and `correct_answer.text: ""`' in text
-        assert "`short_text`" in text
-        assert "`answer_explanation`" in text
-    review = " ".join(load_semantic_review_prompt()["rulebook"].split())
-    assert "these empty fields are required, not missing scoring" in review

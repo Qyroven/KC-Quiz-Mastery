@@ -176,7 +176,7 @@ function semanticMetrics(){
 }
 function renderMetrics(){
   const flagged=(DATA.form_audit.questions||[]).filter(x=>x.status==="FORM_REVIEW").length;
-  const rows=[["Câu hỏi",questions.length,""],["Leaf KC",new Set(questions.map(q=>q.kc_id)).size,""],["Dạng tương tác",new Set(questions.map(q=>q.interaction)).size,""]];
+  const rows=[["Câu hỏi",questions.length,""],["Leaf KC",new Set(questions.flatMap(questionKCIds)).size,""],["Dạng tương tác",new Set(questions.map(q=>q.interaction)).size,""]];
   if(assessmentSlots.size)rows.splice(1,0,["Assessment slots",assessmentSlots.size,""]);
   if(flagged)rows.push(["Có cờ hình thức",flagged,"warn"]);
   $("#metrics").innerHTML=rows.map(x=>'<span class="metric '+x[2]+'"><i></i>'+x[1]+" "+x[0]+"</span>").join("")+semanticMetrics();
@@ -203,11 +203,12 @@ function renderAssessmentBadges(q){
   difficulty.title=assessment.difficulty?'Độ khó dự kiến: '+assessment.difficulty+'. Chưa hiệu chuẩn bằng dữ liệu người học.':'';
   difficulty.setAttribute('aria-label',difficulty.title);
 }
-function slotHTML(q){const slot=assessmentSlots.get(q.slot_id);if(!slot)return'';return'<section class="review-card wide"><h3>Assessment slot · '+esc(slot.slot_id)+'</h3><p><b>'+esc(slot.evidence_intent)+'</b></p><p>'+esc(slot.cognitive_operation)+' · '+esc(slot.intended_difficulty)+' · variant '+esc(q.variant_index)+' / '+esc(slot.variant_count)+'</p><p style="margin-top:8px">'+esc(slot.justification)+'</p></section>'}
+function questionKCIds(q){return [...new Set([q.kc_id,...(q.additional_slot_ids||[]).map(id=>(assessmentSlots.get(id)||{}).kc_id)].filter(Boolean))]}
+function slotHTML(q){return [q.slot_id,...(q.additional_slot_ids||[])].map(id=>{const slot=assessmentSlots.get(id);if(!slot)return'';return'<section class="review-card wide"><h3>Assessment slot · '+esc(slot.slot_id)+' · '+esc(slot.kc_id)+'</h3><p><b>'+esc(slot.evidence_intent)+'</b></p><p>'+esc(slot.cognitive_operation)+' · '+esc(slot.intended_difficulty)+' · variant '+esc(q.variant_index)+' / '+esc(slot.variant_count)+'</p><p style="margin-top:8px">'+esc(slot.justification)+'</p></section>'}).join('')}
 function contextEvidenceHTML(q){const rows=q.context_evidence_refs||[];if(!rows.length)return'';return'<section class="review-card wide"><h3>Ngữ cảnh giảng viên · tách biệt với Extraction</h3>'+rows.map(function(e){return'<p><b>'+esc(e.context_id)+'</b> · '+(e.pages&&e.pages.length?'Liên hệ trang PDF: '+e.pages.map(esc).join(', '):'Ngữ cảnh toàn tài liệu · không gán trang PDF')+'</p><div class="code">'+esc(e.excerpt||e.description||'')+'</div>'}).join('')+'</section>'}
 function grouped(rows){const map=new Map;rows.forEach(function(q){if(!map.has(q.group_id))map.set(q.group_id,[]);map.get(q.group_id).push(q)});return map}
 function renderNav(){
-  const term=$("#search").value.trim().toLowerCase(),rows=questions.filter(q=>[q.question_id,q.title,q.prompt,q.kc_id,q.slot_id,(assessmentSlots.get(q.slot_id)||{}).evidence_intent,(kcs.get(q.kc_id)||{}).name].join(" ").toLowerCase().includes(term));
+  const term=$("#search").value.trim().toLowerCase(),rows=questions.filter(q=>[q.question_id,q.title,q.prompt,questionKCIds(q).join(" "),q.slot_id,(assessmentSlots.get(q.slot_id)||{}).evidence_intent,(kcs.get(q.kc_id)||{}).name].join(" ").toLowerCase().includes(term));
   let html="";
   for(const [gid,list] of grouped(rows)){
     html+='<section class="group"><div class="group-name">'+esc((groups.get(gid)||{}).name||gid)+"</div>";
@@ -244,7 +245,7 @@ function renderReviewer(q){
   const kc=kcs.get(q.kc_id)||{},audit=audits.get(q.question_id);
   const issues=(audit&&audit.issues||[]).map(x=>'<div class="issue '+(x.severity==="major"?"major":"")+'"><b>'+esc(x.code)+"</b><br>"+esc(x.note)+"</div>").join("");
   const formNote=currentQuizHasRevision()?"Cảnh báo hình thức dưới đây thuộc snapshot gốc; chưa kiểm tra lại revision.":"Không có cờ hình thức không có nghĩa câu hỏi đúng, hay, không mơ hồ hoặc đã được duyệt.";
-  return '<div class="review-grid">'+semanticReviewHTML(q)+'<section class="review-card wide"><h3>KC được đo</h3><p><b>'+esc(kc.name||q.kc_id)+'</b></p><p style="margin-top:8px">'+esc(kc.observable_claim||kc.knowledge_description||"")+'</p></section>'+slotHTML(q)+'<section class="review-card"><h3>Đáp án</h3><div class="code">'+esc(answerText(q))+'</div></section><section class="review-card"><h3>Rubric</h3><ul>'+(q.rubric.map(r=>"<li>"+esc(r.criterion)+" ("+r.points+")</li>").join("")||"<li>Chấm theo đáp án cấu trúc</li>")+'</ul></section><section class="review-card"><h3>Giải thích</h3><p>'+esc(q.answer_explanation)+'</p></section><section class="review-card"><h3>Nguồn PDF từ KC</h3><p>'+(q.evidence_refs.map(e=>"Trang "+esc(e.page)+" · "+e.block_ids.map(esc).join(", ")).join("<br>")||'Không có nguồn PDF · xem ngữ cảnh giảng viên')+'</p></section>'+contextEvidenceHTML(q)+reviewHintsHTML(q)+'<section class="review-card wide"><h3>Cảnh báo hình thức</h3><div class="audit-note">'+esc(formNote)+'</div>'+(issues||'<p style="margin-top:10px">'+(audit?'Heuristic không phát hiện cue hình thức trong snapshot.':'Chưa có form audit cho câu này.')+'</p>')+"</section></div>";
+  return '<div class="review-grid">'+semanticReviewHTML(q)+'<section class="review-card wide"><h3>KC chính · xem các mục tiêu được đo ở từng slot</h3><p><b>'+esc(kc.name||q.kc_id)+'</b></p><p style="margin-top:8px">'+esc(kc.observable_claim||kc.knowledge_description||"")+'</p></section>'+slotHTML(q)+'<section class="review-card"><h3>Đáp án</h3><div class="code">'+esc(answerText(q))+'</div></section><section class="review-card"><h3>Rubric</h3><ul>'+(q.rubric.map(r=>"<li>"+(r.slot_id?"["+esc(r.slot_id)+"] ":"")+esc(r.criterion)+" ("+r.points+")</li>").join("")||"<li>Chấm theo đáp án cấu trúc</li>")+'</ul></section><section class="review-card"><h3>Giải thích</h3><p>'+esc(q.answer_explanation)+'</p></section><section class="review-card"><h3>Nguồn PDF từ KC</h3><p>'+(q.evidence_refs.map(e=>"Trang "+esc(e.page)+" · "+e.block_ids.map(esc).join(", ")).join("<br>")||'Không có nguồn PDF · xem ngữ cảnh giảng viên')+'</p></section>'+contextEvidenceHTML(q)+reviewHintsHTML(q)+'<section class="review-card wide"><h3>Cảnh báo hình thức</h3><div class="audit-note">'+esc(formNote)+'</div>'+(issues||'<p style="margin-top:10px">'+(audit?'Heuristic không phát hiện cue hình thức trong snapshot.':'Chưa có form audit cho câu này.')+'</p>')+"</section></div>";
 }
 function bindStudent(q){
   document.querySelectorAll("[data-option]").forEach(b=>{b.onclick=()=>{

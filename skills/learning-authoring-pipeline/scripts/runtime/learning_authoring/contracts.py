@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 EXTRACTED_SOURCE_SCHEMA_VERSION = "extracted-source.v2"
 LocalizationStatus = Literal["located", "unresolved"]
@@ -159,6 +166,17 @@ class ExtractedPage(BaseModel):
     reading_order: list[str] = Field(default_factory=list)
     page_note: PageNote
     warnings: list[WarningRecord] = Field(default_factory=list)
+    layout_text: str | None = Field(
+        default=None,
+        description="Geometry-derived reading aid, not semantic structure; cite original blocks.",
+    )
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if "layout_text" not in self.model_fields_set:
+            result.pop("layout_text", None)
+        return result
 
     @model_validator(mode="after")
     def validate_page_references(self) -> ExtractedPage:

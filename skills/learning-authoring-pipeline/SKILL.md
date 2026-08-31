@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Turn one or more PDFs plus optional lecturer context into deterministic Extraction, reviewable shared Knowledge Components, Quiz with hints and scoring, and a connected local portal using the active coding-agent subscription. Use for end-to-end authoring or review; never call a model-provider API.
 metadata:
   author: Qyroven
-  version: "3.1.0"
+  version: "3.2.0"
 ---
 
 # Learning Authoring Pipeline
@@ -36,14 +36,15 @@ only when the user explicitly asks about publishing, Teacher/Student apps, or le
 
 ## KC quality
 
-Work through the runtime-provided inspection batches in source order. Build a capability inventory
-inside each batch, then reconcile across batches and PDFs. One Leaf KC has one coherent observable
+Use `agent-read` to inspect the frozen input index and read source batches in order, rather than
+dumping a complete document into context. Retain each batch's capabilities and evidence before
+reconciling across batches and PDFs. One Leaf KC has one coherent observable
 learner response and one coherent remediation path. Split independent capabilities; merge only
 paraphrases, examples, or inseparable parts.
 
-Every positive KC statement must be entailed by evidence cited on that same KC. Inspect a rendered
-page only when its chart, diagram, or spatial relationship is necessary and native text is
-insufficient. Keep ambiguity unresolved rather than completing a familiar pattern from memory.
+Every positive KC statement must be entailed by evidence cited on that same KC. Review source
+layout when a chart, diagram, code or table matters; available native text is not evidence that
+visual meaning has been read. Keep ambiguity unresolved rather than completing a familiar pattern.
 
 ## Quiz quality
 
@@ -60,10 +61,10 @@ Keep authoring/review policy out of the question; a rubric should assess the req
 meaning, not force its keywords into the prompt. Do not confuse honest recall with missing-context
 application, or repair ambiguity by giving away the solution.
 
-Before import, solve every question from the learner view, construct the strongest plausible
-alternative answer, and remove ambiguity, answer-length cues, key-pattern cues, matching by
-elimination, hidden rubric requirements, and unsupported facts. Deterministic form checks are only
-findings; they do not establish semantic quality.
+Follow the task package for concrete answer/counterexample checks before import. A KC having a
+question does not prove that every capability in its boundary was tested. Deterministic form checks
+are findings, not semantic approval. Integrated tasks must attribute scored evidence to their slots;
+they do not authorize copying one result into several learner-mastery records.
 
 ## Honest status
 

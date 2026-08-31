@@ -174,7 +174,6 @@ def test_bundle_kc_task_and_import_bind_every_source_and_context(tmp_path) -> No
     assert task["worked_examples"][0]["example_id"] == "qualified-independent-capabilities"
     assert "supplies one canonical `extracted-source.v2` JSON document" not in task["instructions"]
     assert "ordered source bundle" in task["instructions"]
-    assert "independently for each source" in task["instructions"]
     assert {
         component["filename"]
         for name, component in task["prompt_lineage"]["components"].items()

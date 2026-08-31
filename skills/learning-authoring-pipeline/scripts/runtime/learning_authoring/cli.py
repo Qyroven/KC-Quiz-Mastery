@@ -20,6 +20,7 @@ from learning_authoring.agent_session import (
     agent_init,
     agent_schema,
     prepare_agent_task,
+    read_agent_task_input,
 )
 from learning_authoring.approval import approve_extraction
 from learning_authoring.artifacts import RunArtifacts, read_json, sha256_file, write_json
@@ -46,6 +47,7 @@ NATIVE_COMMANDS = (
     "agent-context",
     "agent-schema",
     "agent-task",
+    "agent-read",
     "agent-import",
     "review",
     "approve",
@@ -235,6 +237,13 @@ def _parser() -> argparse.ArgumentParser:
     agent_task_parser.add_argument("stage", choices=("extraction", "kc", "quiz", "quiz-review"))
     agent_task_parser.add_argument("run_dir", type=_path)
     _add_agent_runtime_options(agent_task_parser)
+
+    agent_read_parser = subcommands.add_parser(
+        "agent-read", help="read the frozen input index or selected batches without creating files"
+    )
+    agent_read_parser.add_argument("task_package", type=_path)
+    agent_read_parser.add_argument("--batch", action="append", default=[])
+    agent_read_parser.add_argument("--context-id", action="append", default=[])
 
     agent_import_parser = subcommands.add_parser(
         "agent-import",
@@ -558,6 +567,12 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
         )
+        return 0
+    if args.command == "agent-read":
+        result = read_agent_task_input(
+            args.task_package, batch_ids=tuple(args.batch), context_ids=tuple(args.context_id)
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command == "agent-task":
         result = prepare_agent_task(

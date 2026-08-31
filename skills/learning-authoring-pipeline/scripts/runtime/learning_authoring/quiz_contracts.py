@@ -292,6 +292,14 @@ class QuizRubricPoint(BaseModel):
 
     criterion: str = Field(min_length=1)
     points: int = Field(ge=1)
+    slot_id: str | None = Field(default=None, min_length=1)
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        result = handler(self)
+        if "slot_id" not in self.model_fields_set:
+            result.pop("slot_id", None)
+        return result
 
 
 class QuizHint(BaseModel):
@@ -313,12 +321,13 @@ class QuizHint(BaseModel):
 
 
 class QuizQuestion(BaseModel):
-    """One unapproved learner-facing question generated from one Leaf KC."""
+    """One item, with a primary slot and optional separately scored integrated slots."""
 
     model_config = ConfigDict(extra="forbid")
 
     question_id: str = Field(pattern=r"^Q-[0-9]+$")
     slot_id: str | None = Field(default=None, min_length=1)
+    additional_slot_ids: list[str] = Field(default_factory=list)
     variant_index: int = Field(ge=1)
     kc_id: str = Field(pattern=r"^KC-[0-9]+$")
     group_id: str = Field(pattern=r"^KCG-[0-9]+$")
@@ -354,10 +363,17 @@ class QuizQuestion(BaseModel):
     @model_serializer(mode="wrap")
     def preserve_legacy_shape(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         result = handler(self)
-        for name in ("slot_id", "context_evidence_refs", "hints", "hint_absence_reason"):
+        for name in (
+            "slot_id", "additional_slot_ids", "context_evidence_refs", "hints",
+            "hint_absence_reason",
+        ):
             if name not in self.model_fields_set and not getattr(self, name):
                 result.pop(name, None)
         return result
+
+    @property
+    def assessment_slot_ids(self) -> list[str]:
+        return ([self.slot_id] if self.slot_id else []) + self.additional_slot_ids
 
     @staticmethod
     def _ids(options: list[QuizOption], label: str) -> set[str]:
@@ -377,10 +393,20 @@ class QuizQuestion(BaseModel):
         right_ids = self._ids(self.matching_right, "matching-right")
         ordering_ids = self._ids(self.ordering_options, "ordering")
         answer = self.correct_answer
+        linked = self.assessment_slot_ids
+        if len(linked) != len(set(linked)):
+            raise ValueError("question repeats an assessment slot")
+        if self.additional_slot_ids:
+            if not self.slot_id or self.interaction != "short_text":
+                raise ValueError("integrated slots require short_text and a primary slot")
+            if {point.slot_id for point in self.rubric} != set(linked):
+                raise ValueError("integrated rubric must score every linked slot separately")
+        elif any(point.slot_id not in {None, self.slot_id} for point in self.rubric):
+            raise ValueError("rubric cites a slot outside its question")
 
         if self.interaction == "single_select":
-            if len(choice_ids) != 4 or len(answer.selection_ids) != 1:
-                raise ValueError("single_select requires 4 choices and exactly 1 answer")
+            if len(choice_ids) < 2 or len(answer.selection_ids) != 1:
+                raise ValueError("single_select requires at least 2 choices and exactly 1 answer")
             if set(answer.selection_ids) - choice_ids:
                 raise ValueError("single_select answer references an unknown choice")
             if left_ids or right_ids or ordering_ids or answer.ordering or answer.mappings:
@@ -388,8 +414,8 @@ class QuizQuestion(BaseModel):
             if answer.text or self.rubric:
                 raise ValueError("single_select must not contain text-answer fields")
         elif self.interaction == "multi_select":
-            if len(choice_ids) < 4 or len(answer.selection_ids) < 2:
-                raise ValueError("multi_select requires at least 4 choices and 2 answers")
+            if len(choice_ids) < 3 or len(answer.selection_ids) < 2:
+                raise ValueError("multi_select requires at least 3 choices and 2 answers")
             if set(answer.selection_ids) - choice_ids:
                 raise ValueError("multi_select answer references an unknown choice")
             if left_ids or right_ids or ordering_ids or answer.ordering or answer.mappings:
@@ -498,6 +524,8 @@ class QuizBatch(BaseModel):
                         f"{question.question_id} single-source context must not add source_id"
                     )
         if self.schema_version == "quiz-batch.v1":
+            if any(question.additional_slot_ids for question in self.questions):
+                raise ValueError("integrated slots require adaptive mode")
             if self.assessment_slots:
                 raise ValueError("assessment slots require quiz-batch.v2 or quiz-batch.v3")
             return self
@@ -524,11 +552,15 @@ class QuizBatch(BaseModel):
                 question.choice_options
             ):
                 raise ValueError("multi_select requires at least one incorrect choice")
-            questions_by_slot[question.slot_id].append(question)
+            for slot_id in question.assessment_slot_ids:
+                if slot_id not in slots:
+                    raise ValueError(f"{question.question_id} references unknown slot {slot_id}")
+                questions_by_slot[slot_id].append(question)
         expected_count = sum(slot.variant_count for slot in self.assessment_slots)
-        if len(self.questions) != expected_count:
+        occurrences = sum(len(question.assessment_slot_ids) for question in self.questions)
+        if occurrences != expected_count:
             raise ValueError(
-                f"assessment slots require {expected_count} questions, got {len(self.questions)}"
+                f"assessment slots require {expected_count} item occurrences, got {occurrences}"
             )
         for slot_id, questions in questions_by_slot.items():
             count = slots[slot_id].variant_count
@@ -537,6 +569,12 @@ class QuizBatch(BaseModel):
             if {question.variant_index for question in questions} != set(range(1, count + 1)):
                 raise ValueError(f"{slot_id} variant indexes are not contiguous")
         return self
+
+    def question_kc_ids(self, question: QuizQuestion) -> list[str]:
+        slots = {slot.slot_id: slot.kc_id for slot in self.assessment_slots}
+        return list(dict.fromkeys(
+            [question.kc_id] + [slots[slot_id] for slot_id in question.additional_slot_ids]
+        ))
 
     def validate_against_input(self, payload: dict[str, Any]) -> None:
         if self.source_ref != QuizSourceRef.model_validate(payload["source_ref"]):
@@ -581,7 +619,8 @@ class QuizBatch(BaseModel):
         allowed_interactions = set(runtime["allowed_interactions"])
         questions_by_kc: dict[str, list[QuizQuestion]] = {}
         for question in self.questions:
-            questions_by_kc.setdefault(question.kc_id, []).append(question)
+            for kc_id in self.question_kc_ids(question):
+                questions_by_kc.setdefault(kc_id, []).append(question)
         if set(questions_by_kc) != set(selected):
             raise ValueError("questions must cover exactly the selected KCs")
 
@@ -645,7 +684,7 @@ class QuizBatch(BaseModel):
                 for evidence in kc.get("context_evidence", [])
             }
             for question in questions:
-                if question.group_id != kc["group_id"]:
+                if question.group_id != kc_by_id[question.kc_id]["group_id"]:
                     raise ValueError(f"{question.question_id} group does not match its KC")
                 if question.interaction not in allowed_interactions:
                     raise ValueError(f"{question.question_id} uses a disabled interaction")
@@ -654,7 +693,13 @@ class QuizBatch(BaseModel):
                     for reference in question.evidence_refs
                     for block_id in reference.block_ids
                 }
-                if not cited <= allowed_evidence:
+                targets = [kc_by_id[target] for target in self.question_kc_ids(question)]
+                target_evidence = {
+                    (e.get("source_id"), e["page"], block_id)
+                    for target in targets for e in target["source_evidence"]
+                    for block_id in e["block_ids"]
+                }
+                if not cited <= target_evidence:
                     raise ValueError(f"{question.question_id} cites evidence outside its KC")
                 media = {asset["asset_id"]: asset for asset in payload.get("media_assets", [])}
                 for block in question.stimulus.parts():
@@ -684,10 +729,19 @@ class QuizBatch(BaseModel):
                     raise ValueError(
                         "Quiz context evidence requires a bound authoring context hash"
                     )
-                if not cited_context <= allowed_context:
+                target_context = {
+                    (e["context_id"], e.get("excerpt"), e.get("description"),
+                     e.get("source_id"), tuple(e.get("pages", [])))
+                    for target in targets for e in target.get("context_evidence", [])
+                }
+                if not cited_context <= target_context:
                     raise ValueError(
                         f"{question.question_id} cites context evidence outside its KC"
                     )
+                if question.additional_slot_ids and not (
+                    cited & allowed_evidence or cited_context & allowed_context
+                ):
+                    raise ValueError(f"{question.question_id} lacks evidence for {kc_id}")
 
 
 class QuizBatchV1(QuizBatch):
@@ -736,6 +790,8 @@ def quiz_output_schema(
         schema["properties"].pop("assessment_slots", None)
         schema.get("$defs", {}).pop("AssessmentSlot", None)
         schema["$defs"]["QuizQuestion"]["properties"].pop("slot_id", None)
+        schema["$defs"]["QuizQuestion"]["properties"].pop("additional_slot_ids", None)
+        schema["$defs"]["QuizRubricPoint"]["properties"].pop("slot_id", None)
 
     def make_required(node: Any) -> None:
         if isinstance(node, dict):

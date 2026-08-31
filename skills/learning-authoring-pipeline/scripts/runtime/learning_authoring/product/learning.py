@@ -65,6 +65,11 @@ def build_learning_package(
     )
     material = quiz_review_material(root)
     quiz = material["artifacts"]["quiz"]  # The original parsed candidate, not model_dump.
+    if any(question.get("additional_slot_ids") for question in quiz["questions"]):
+        raise RegistrationSafetyError(
+            "Integrated items are authoring/review only until Learning supports per-slot rubric "
+            "evidence; refusing to copy a whole-question result to multiple KCs."
+        )
     kc_set = _read_json_object(root / "kc-proposed.json", "KC")
     quiz_input = _read_json_object(root / "quiz" / "quiz-input.json", "Quiz input")
     selected = quiz_input["runtime"]["selected_kc_ids"]

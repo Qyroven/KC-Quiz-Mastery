@@ -312,30 +312,6 @@ def test_quiz_constructed_example_measures_produced_work_without_domain_leakage(
         assert leaked_term not in serialized
 
 
-def test_quiz_prompt_package_requires_post_draft_consistency_and_cue_checks() -> None:
-    package = load_quiz_prompt_package()
-    rulebook = package.manifest["components"]["rulebook"]["content"].casefold()
-    task = package.manifest["components"]["task"]["content"].casefold()
-    combined = f"{rulebook}\n{task}"
-
-    for required in (
-        "vector or matrix shapes",
-        "normalization constraints",
-        "supplied intermediate values",
-        "every point-bearing deliverable",
-        "answer_explanation",
-        "correct-option positions",
-        "independently re-solve every item",
-        "strongest plausible competing answer",
-        "compare rubric requirements with the requested work in meaning",
-    ):
-        assert required.casefold() in combined
-
-    assert "update option ids, keys, and explanations together" in task
-    assert "compare the resulting semantic answer" in task
-    assert "not keyword overlap" in task
-
-
 def test_bundle_quiz_worked_example_is_source_qualified_and_contract_valid() -> None:
     package = load_quiz_prompt_package(examples_dir=BUNDLE_QUIZ_EXAMPLES_DIR)
     example = next(

@@ -199,9 +199,12 @@ def build_quiz_input(
         raise ValueError("Quiz requires at least one selected Leaf KC")
 
     adaptive = config.variants_per_kc is None
+    can_integrate = adaptive and "short_text" in config.allowed_interactions
     expected_question_count = None if adaptive else len(selected_kc_ids) * config.variants_per_kc
     minimum_question_count = (
-        len(selected_kc_ids) * config.min_slots_per_kc * (config.variants_per_slot or 1)
+        (config.variants_per_slot or 1) * (
+            1 if can_integrate else len(selected_kc_ids) * config.min_slots_per_kc
+        )
         if adaptive
         else expected_question_count
     )
@@ -210,7 +213,7 @@ def build_quiz_input(
     ):
         raise ValueError(
             f"infeasible total_question_budget {config.total_question_budget}: "
-            f"covering all {len(selected_kc_ids)} selected KCs with the configured minimum "
+            "the configured coverage and interaction constraints "
             f"requires at least {minimum_question_count} questions; no KCs will be truncated"
         )
 
@@ -267,6 +270,7 @@ def build_quiz_input(
             "total_question_budget": config.total_question_budget,
             "expected_question_count": expected_question_count,
             "minimum_question_count": minimum_question_count,
+            "integrated_constructed_responses": can_integrate,
             "allowed_interactions": list(config.allowed_interactions),
             "language": config.language,
         },
