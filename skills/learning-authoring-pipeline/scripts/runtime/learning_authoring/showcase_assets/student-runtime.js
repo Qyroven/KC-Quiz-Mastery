@@ -33,7 +33,7 @@
   const submitted = (row) => row && ["graded", "pending_grade"].includes(row.status);
   const types = { single_select: "Chọn một", multi_select: "Chọn nhiều", matching: "Ghép cặp", ordering: "Sắp xếp", short_text: "Trả lời ngắn" };
   const operations = { remember: "Nhớ", understand: "Hiểu", apply: "Vận dụng", analyze: "Phân tích", evaluate: "Đánh giá", create: "Sáng tạo" };
-  const difficulties = { easy: "Dễ", medium: "Vừa", hard: "Khó" };
+  const difficulties = { easy: "Dễ", medium: "Vừa", hard: "Khó", unknown: "Chưa ước lượng" };
   const labels = { no_evidence: "Chưa đo", needs_practice: "Cần ôn", demonstrated: "Đã có bằng chứng độc lập", pending_grade: "Chờ chấm", assisted: "Có bằng chứng khi dùng gợi ý", developing: "Mới đo một phần" };
   function latest(rows, questionId) {
     return rows.filter((row) => row.question_id === questionId).slice().sort((a, b) =>

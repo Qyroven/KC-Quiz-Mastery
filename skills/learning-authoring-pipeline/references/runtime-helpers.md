@@ -1,12 +1,37 @@
 # Optional runtime helpers
 
-Use these only when their existing JSON contracts and review surfaces fit the requested delivery.
-They are not required to read, author, or revise a lesson. Do not discard content to satisfy them;
-preserve the authored output and use an appropriate adapter/view instead.
+The review layout below is the default for a requested local portal. The executable helpers are
+optional: use them when their contracts fit the authored data. They are not a prerequisite to read,
+author or revise a lesson. Do not discard content to satisfy them; adapt the view instead.
+
+## Reuse the existing review layout
+
+Keep the connected Extraction → KC → Quiz navigation. Do not replace the review with summary cards
+or redesign it on each run unless the user asks. The maintained views are:
+
+- [Extraction](../scripts/runtime/learning_authoring/review.py): page list, zoomable source image,
+  and the actual page JSON side by side, including detailed blocks, page note and uncertainty.
+- [KC](../scripts/runtime/learning_authoring/kc_review.py): source-linked Recall/Scroll views with
+  Group/Leaf content and scope, not an editor for Extraction masquerading as KC editing.
+- [Quiz](../scripts/runtime/learning_authoring/quiz_review.py): question list, learner/reviewer modes,
+  item-specific cognitive level/difficulty, actual stimuli, hints, answers and scoring.
+- [Connected shell](../scripts/runtime/learning_authoring/showcase_assets/index.html): navigation
+  across those views. Its product/publishing backend is not required for a read-only local review.
+
+Reuse these layouts/assets directly where compatible. For another schema or interaction, change
+the data binding or necessary response widget while retaining the review layout and original JSON.
+Do not rename an authored figure into a source screenshot or force a numeric/visual task into prose
+to fit a contract. A local view is not a lesson rewrite, an approval action or a new product deployment.
+Check that displayed/copied JSON equals the delivered record; a model's schema defaults are not raw
+authored fields. Keep source-qualified navigation for multiple PDFs and separately attributed context.
+
+## Optional commands
 
 Resolve learning-authoring from an existing matching installation or with
 uv run --project <skill>/scripts/runtime learning-authoring (Python 3.12 and uv).
 Below, <la> denotes that launcher. No provider credentials are needed.
+The separate product launcher is `uv run --project <skill>/scripts/runtime learning-authoring-product`;
+use it only for requested product exports or Teacher/Student work, not ordinary authoring.
 
 ## Source assets and agent-authored Extraction
 
@@ -25,6 +50,8 @@ To retain the exact context used before authoring, optionally create agent-task 
 and pass its path as --task-package on import. Without it, import records a delivery-time binding
 to current inputs, not evidence that the agent read a generated prompt. agent-read can display
 that package or reading subsets; its batches are suggestions, not mandatory working units.
+`agent-schema` prints a serialization contract only; it does not load worked examples or perform
+authoring/review. The worked contrasts in session-workflow.md apply whether or not helpers are used.
 
 ## KC and Quiz
 
@@ -34,7 +61,10 @@ Attach optional context with agent-context <run> --context-file <file> or --cont
 see --help for multiple files. Context remains separate from Extraction.
 
 Use agent-schema kc (or --source-bundle) and agent-schema quiz for the optional renderer's
-contracts. Import the agent-authored candidates with:
+contracts. `intended_difficulty` is explicit per slot: easy, medium, hard, or unknown when an estimate
+cannot be supported. Unknown is not a medium-difficulty default; no label is empirical calibration.
+
+Import the agent-authored candidates with:
 
     <la> agent-import kc <run> <kc.json> --allow-proposed-extraction-demo
     <la> agent-import quiz <run> <quiz.json> --include-all-kcs

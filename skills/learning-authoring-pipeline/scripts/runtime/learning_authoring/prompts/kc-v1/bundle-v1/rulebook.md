@@ -18,3 +18,7 @@
 
 Before returning, run coverage, claim-to-reference grounding, source qualification, and granularity
 checks. Contract validity is not semantic approval.
+
+Compare descriptions with observable scope: content mentioned in background is not automatically
+an assessment target. Preserve independent capabilities or account for them specifically; a
+source-qualified page reference alone does not establish full capability coverage.

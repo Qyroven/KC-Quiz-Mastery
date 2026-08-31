@@ -188,7 +188,7 @@ function questionAssessment(q){
   // reference with a guess from interaction type, variant index or old metadata.
   const assessment=q.slot_id?(slot&&slot.kc_id===q.kc_id?slot:{}):q;
   const blooms={remember:'Remember',understand:'Understand',apply:'Apply',analyze:'Analyze',evaluate:'Evaluate',create:'Create'};
-  const difficulties={easy:'Dễ',medium:'Trung bình',hard:'Khó'};
+  const difficulties={easy:'Dễ',medium:'Trung bình',hard:'Khó',unknown:'Chưa ước lượng'};
   const label=(labels,value)=>typeof value==='string'&&Object.hasOwn(labels,value)?labels[value]:'';
   return {bloom:label(blooms,assessment.cognitive_operation),difficulty:label(difficulties,assessment.intended_difficulty)};
 }

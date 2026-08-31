@@ -28,6 +28,10 @@ Before returning, perform three checks:
 - **Grounding:** every positive sentence is supported by its own cited evidence.
 - **Granularity:** each Leaf KC has one coherent learner response and one coherent remediation path.
 
+Compare each description with its observable claim and scope. Naming a capability in background
+text does not make it assessed. Preserve independently learnable capabilities or account for them
+specifically; do not mark a page's whole knowledge covered merely because one KC cites that page.
+
 Apply claim-level closure: every positive sentence must resolve to an evidence record cited on that
 same KC. Run a final claim-to-reference pass; never import a useful conclusion from an uncited
 summary page.

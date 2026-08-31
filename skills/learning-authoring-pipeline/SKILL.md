@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Read one or more course PDFs and optional lecturer context into faithful multimodal Extraction, shared Knowledge Components, and answerable Quiz with hints and scoring. Use the active coding agent for authoring or review; deliver separate JSON and a connected local portal when requested.
 metadata:
   author: Qyroven
-  version: "4.1.0"
+  version: "4.2.0"
 ---
 
 # Learning Authoring Pipeline
@@ -18,8 +18,10 @@ Use the tools available in the host. Choose how to inspect sources, divide long 
 scripts, and revise drafts. No particular model, PDF reader, batch size, task-package protocol,
 or bundled runtime is required. Do not call a model-provider API.
 
-Read [session-workflow.md](references/session-workflow.md) for the deliverable and quality
-criteria. It describes outcomes, not a mandatory sequence of tool calls.
+Read [session-workflow.md](references/session-workflow.md) before authoring or reviewing.
+It includes compact worked contrasts for Extraction, KC and Quiz, not just definitions.
+Apply the decisions they illustrate; do not copy their subjects, counts or output shapes.
+The workflow describes outcomes, not a mandatory sequence of tool calls.
 
 ## Essential boundaries
 
@@ -49,9 +51,13 @@ Deliver separate stage JSON and a short account of coverage, checks actually per
 remaining gaps. When a portal is requested, link the stages and verify the learner-visible data.
 Do not weaken content to fit a renderer or serialize it through a schema that drops information.
 
-The bundled helpers are optional: read [runtime-helpers.md](references/runtime-helpers.md) only
-when using their existing schema/review format. They prepare raw assets, preserve revisions,
-check contracts, and render supported interactions; they do not perform semantic authoring.
+For a requested portal, read [runtime-helpers.md](references/runtime-helpers.md) and reuse the
+existing review layout: source pages beside actual Extraction JSON, connected to KC/Quiz views.
+Adapt the presentation to the authored data, not the knowledge to a display contract.
+
+The bundled helpers are optional; the same reference explains their schema/review format.
+They prepare raw assets, preserve revisions, check contracts, and render supported interactions;
+they do not perform semantic authoring.
 Agent-written scripts for the current input are allowed. Do not copy lesson-specific data or
 generators into this reusable skill.
 

@@ -122,6 +122,23 @@ def test_legacy_direct_fields_are_supported_without_inventing_missing_metadata(s
     )
 
 
+def test_unknown_difficulty_is_explicit_without_changing_the_question(source) -> None:
+    run_js(
+        inline_script(_TEMPLATE),
+        """
+        const q=questions[0];
+        const slot=assessmentSlots.get(q.slot_id);
+        slot.intended_difficulty='unknown';
+        const before=JSON.stringify(q);
+        render();
+        assert.equal(view('difficultyTag').hidden, false);
+        assert.equal(view('difficultyTag').textContent, 'Chưa ước lượng');
+        assert.equal(JSON.stringify(q), before);
+        """,
+        data=quiz_review_data(source, adaptive=True),
+    )
+
+
 def test_toolbar_does_not_infer_or_coerce_bloom_and_difficulty(source) -> None:
     run_js(
         inline_script(_TEMPLATE),

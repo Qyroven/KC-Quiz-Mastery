@@ -26,7 +26,7 @@ from learning_authoring.product.showcase import (
     build_showcase,
 )
 from learning_authoring.quiz_review import _TEMPLATE, build_quiz_review
-from learning_authoring.review import _REVIEW_TEMPLATE
+from learning_authoring.review import _REVIEW_TEMPLATE, build_review
 from tests.conftest import payload
 from tests.test_agent_context_slots import _adaptive_candidate, _import_kcs, _init
 from tests.test_agent_session import _forbid_provider_use, _quiz_candidate, _write_raw
@@ -99,6 +99,66 @@ def run_js(script: str, assertions: str, *, data: dict | None = None) -> None:
 
 def inline_script(html: str) -> str:
     return re.findall(r"<script>(.*?)</script>", html, re.DOTALL)[0]
+
+
+def test_extraction_review_preserves_authored_fields_and_source_bytes(tmp_path, source) -> None:
+    raw = payload().with_source(source).model_dump(mode="json", exclude_defaults=True)
+    # Optional omitted fields must not silently appear in the displayed/copied raw JSON.
+    raw["pages"][0]["page_note"]["summary"] = "Source <example> </script><script>not code</script>"
+    # A non-teaching page may have no blocks; the navigation still works without adding fields.
+    raw["pages"][1].pop("blocks", None)
+    raw["pages"][1].pop("reading_order", None)
+    raw["pages"][1]["page_note"] = {"summary": "Blank source page."}
+    path = tmp_path / "extracted-source.proposed.json"
+    path.write_text(json.dumps(raw, ensure_ascii=False, indent=3), encoding="utf-8")
+    before = path.read_bytes()
+
+    html = build_review(tmp_path).read_text(encoding="utf-8")
+    embedded, _ = json.JSONDecoder().raw_decode(html.split("const source=", 1)[1])
+
+    assert embedded == raw
+    assert "warnings" not in embedded["pages"][0]
+    assert "explanation" not in embedded["pages"][0]["page_note"]
+    assert "blocks" not in embedded["pages"][1]
+    assert path.read_bytes() == before
+    assert "</script><script>not code" not in html
+    assert embedded["pages"][0]["page_note"]["summary"] == raw["pages"][0]["page_note"]["summary"]
+
+
+def test_extraction_ui_handles_omitted_warnings_and_searches_page_note() -> None:
+    warnings = _REVIEW_TEMPLATE.split("function warningRows", 1)[1].split(
+        "function formatNumber", 1
+    )[0]
+    search = _REVIEW_TEMPLATE.split("function searchableText", 1)[1].split(
+        "function renderPageList", 1
+    )[0]
+    run_js(
+        "const warningScope={by_page:{'1':[{code:'SOURCE_GAP'}]}};\n"
+        + "function warningRows" + warnings
+        + "function searchableText" + search,
+        """
+        const page={page_number:1,role:'blank',page_note:{summary:'Uncertain edge direction'}};
+        const before=JSON.stringify(page);
+        assert.equal(warningRows(page)[0].code, 'SOURCE_GAP');
+        assert.match(searchableText(page), /uncertain edge/);
+        assert.equal(JSON.stringify(page), before);
+        """,
+    )
+
+
+def test_extraction_stats_do_not_invent_usage_for_missing_metrics() -> None:
+    stats = "function formatNumber" + _REVIEW_TEMPLATE.split("function formatNumber", 1)[1].split(
+        "function searchableText", 1
+    )[0]
+    run_js(
+        "const metrics={}, source={pages:[{}],source:{page_count:1}},audit={},"
+        "warningScope={record_count:0},sourceManifest={},el=view,escapeHtml=String;\n" + stats,
+        """
+        renderStats();
+        assert.match(view('stats').innerHTML, /usage unavailable/);
+        assert.doesNotMatch(view('stats').innerHTML, />0 tokens<|>0s</);
+        """,
+    )
 
 
 @pytest.mark.parametrize("native", [True, False])

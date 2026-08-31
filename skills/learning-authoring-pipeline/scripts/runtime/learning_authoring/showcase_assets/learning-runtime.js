@@ -85,7 +85,7 @@
     evaluate: "Đánh giá",
     create: "Sáng tạo",
   };
-  const difficultyNames = { easy: "Dễ", medium: "Vừa", hard: "Khó" };
+  const difficultyNames = { easy: "Dễ", medium: "Vừa", hard: "Khó", unknown: "Chưa ước lượng" };
   const interactionNames = {
     single_select: "Chọn một",
     multi_select: "Chọn nhiều",

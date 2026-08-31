@@ -22,6 +22,22 @@ from tests.test_quiz import KC_SHA256, kc_set, quiz_output
 CONTEXT_SHA256 = "c" * 64
 
 
+def test_difficulty_can_be_unknown_but_is_never_defaulted() -> None:
+    row = {
+        "slot_id": "slot-uncalibrated",
+        "kc_id": "KC-001",
+        "evidence_intent": "Interpret supplied evidence under its stated assumptions.",
+        "cognitive_operation": "analyze",
+        "intended_difficulty": "unknown",
+        "variant_count": 1,
+        "justification": "Target is defined; intended audience knowledge is unspecified.",
+    }
+    assert AssessmentSlot.model_validate(row).intended_difficulty == "unknown"
+    del row["intended_difficulty"]
+    with pytest.raises(ValidationError):
+        AssessmentSlot.model_validate(row)
+
+
 def adaptive_output(
     source,
     slots: tuple[tuple[str, int], ...] = (("KC-001", 2), ("KC-001", 1), ("KC-002", 1)),

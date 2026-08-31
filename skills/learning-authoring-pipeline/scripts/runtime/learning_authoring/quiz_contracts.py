@@ -120,7 +120,7 @@ class AssessmentSlot(BaseModel):
     kc_id: str = Field(pattern=r"^KC-[0-9]+$")
     evidence_intent: str = Field(min_length=1)
     cognitive_operation: CognitiveOperation
-    intended_difficulty: Literal["easy", "medium", "hard"]
+    intended_difficulty: Literal["easy", "medium", "hard", "unknown"]
     variant_count: int = Field(ge=1, strict=True)
     justification: str = Field(min_length=1)
 

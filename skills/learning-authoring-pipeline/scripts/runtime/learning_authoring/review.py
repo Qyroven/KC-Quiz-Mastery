@@ -65,7 +65,8 @@ def build_review(run_dir: Path) -> Path:
     """Build a dependency-free HTML reviewer beside the extraction artifacts."""
 
     artifacts = RunArtifacts(run_dir.expanduser().resolve())
-    extracted = ExtractedSource.model_validate(read_json(artifacts.proposed))
+    raw_extraction = read_json(artifacts.proposed)
+    extracted = ExtractedSource.model_validate(raw_extraction)
     document_title = html.escape(extracted.source.filename)
     replacements = {
         "__DOCUMENT_TITLE__": document_title,
@@ -74,7 +75,9 @@ def build_review(run_dir: Path) -> Path:
             if (artifacts.run_dir / "kc-recall.html").is_file()
             else ""
         ),
-        "__SOURCE_JSON__": _json_for_script(extracted.model_dump(mode="json")),
+        # Validate navigation/identity, but display the delivered fields unchanged.
+        # Dumping the model here inserts defaults that were never authored.
+        "__SOURCE_JSON__": _json_for_script(raw_extraction),
         "__AUDIT_JSON__": _json_for_script(_optional_json(artifacts.audit)),
         "__METRICS_JSON__": _json_for_script(_optional_json(artifacts.metrics)),
         "__MANIFEST_JSON__": _json_for_script(_optional_json(artifacts.source_manifest)),
@@ -152,19 +155,19 @@ let selected=Math.max(0,Math.min(source.pages.length-1,Number(location.hash.slic
 let zoom=100;
 let toastTimer;
 
-function warningRows(page){return [...page.warnings,...(warningScope.by_page[String(page.page_number)]||[])]}
+function warningRows(page){return [...(page.warnings||[]),...(warningScope.by_page[String(page.page_number)]||[])]}
 function formatNumber(value){return Number(value||0).toLocaleString('en-US')}
 function formatDuration(seconds){if(!Number.isFinite(Number(seconds)))return null;const total=Math.round(Number(seconds));return total>=60?`${Math.floor(total/60)}m ${total%60}s`:`${total}s`}
 function renderStats(){
   const repaired=(metrics.repair?.applied_pages||[]).length;
   const warnings=warningScope.record_count;
-  const elapsed=metrics.execution_mode==='agent_subscription_session'?'model time unavailable':formatDuration(Number(metrics.total_elapsed_seconds||0)+Number(sourceManifest.elapsed_seconds||0));
+  const elapsed=metrics.execution_mode==='agent_subscription_session'?'model time unavailable':metrics.total_elapsed_seconds==null?null:formatDuration(Number(metrics.total_elapsed_seconds)+Number(sourceManifest.elapsed_seconds||0));
   const missingGeometry=Number(audit.missing_geometry_block_count||0);
-  const usage=metrics.usage_available===false?'usage unavailable':`${formatNumber(metrics.usage?.total_tokens)} tokens`;
+  const usage=metrics.usage_available===false||metrics.usage?.total_tokens==null?'usage unavailable':`${formatNumber(metrics.usage.total_tokens)} tokens`;
   const rows=[`${source.pages.length}/${source.source.page_count} pages`,usage,elapsed,`${repaired} repaired`,`${missingGeometry} missing regions`,`${warnings} review warnings`].filter(Boolean);
   el('stats').innerHTML=rows.map(value=>`<span class="stat">${escapeHtml(value)}</span>`).join('');
 }
-function searchableText(page){return [page.page_number,page.role,...page.blocks.flatMap(block=>[block.block_id,block.kind,JSON.stringify(block.content)])].join(' ').toLocaleLowerCase()}
+function searchableText(page){return JSON.stringify(page).toLocaleLowerCase()}
 function renderPageList(){
   const query=el('search').value.trim().toLocaleLowerCase();
   const matches=source.pages.map((page,index)=>({page,index})).filter(({page})=>!query||searchableText(page).includes(query));
@@ -175,7 +178,8 @@ function renderPageList(){
     const missingGeometry=(auditByPage.get(page.page_number)?.missing_geometry_block_ids||[]).length;
     const needsReview=warnings||missingGeometry;
     const signal=missingGeometry?`⌖ ${missingGeometry}`:warnings?`⚠ ${warnings}`:overlap==null?'—':`${Math.round(overlap*100)}%`;
-    return `<button class="page-button${index===selected?' active':''}" data-page-index="${index}"><span class="page-number">${page.page_number}</span><span class="page-role">${escapeHtml(page.role)}<small>${page.blocks.length} block${page.blocks.length===1?'':'s'}</small></span><span class="page-signal${needsReview?' warning':''}">${signal}</span></button>`;
+    const blockCount=(page.blocks||[]).length;
+    return `<button class="page-button${index===selected?' active':''}" data-page-index="${index}"><span class="page-number">${page.page_number}</span><span class="page-role">${escapeHtml(page.role)}<small>${blockCount} block${blockCount===1?'':'s'}</small></span><span class="page-signal${needsReview?' warning':''}">${signal}</span></button>`;
   }).join('')||'<div class="empty">No matching pages</div>';
   el('page-list').querySelectorAll('[data-page-index]').forEach(button=>button.onclick=()=>selectPage(Number(button.dataset.pageIndex)));
 }

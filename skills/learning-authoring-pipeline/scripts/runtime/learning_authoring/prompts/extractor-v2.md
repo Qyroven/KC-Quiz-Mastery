@@ -21,6 +21,10 @@ infer hidden values, resolve an unclear arrow by proximity, or replace a difficu
 background knowledge. Preserve legible content and name the specific unreadable or uncertain part.
 A similar passage in another source does not recover a missing detail in this PDF.
 
+Reconcile the structured content with its transcription and page note: retain the same material
+conditions, qualifiers, units and associations in all representations. A derived formula or newly
+calculated example is an authored addition, not a source transcription, even when it is correct.
+
 Compare the completed Extraction against each source page. Page counts and block counts only check
 accountability, not completeness. Do not impose a uniform number or shape of blocks per page, or
 summarize content away to fit an output limit. Choose reading/writing units that retain the content.

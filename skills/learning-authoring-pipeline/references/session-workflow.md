@@ -1,135 +1,172 @@
 # Authoring outcomes
 
-Use the active agent's reading, visual reasoning, coding, and editing capabilities. The stages
-below describe what must survive into the deliverables, not a fixed execution protocol. Work in
-sections when useful; section size and tool choice follow source complexity and host capacity.
+The active agent reads, authors and revises. Choose tools and working units for source complexity
+and host capacity; the following outcomes do not impose a tool sequence, model or runtime.
+The fictional worked contrasts are decision examples, not lesson templates, gold benchmarks,
+required fields, counts or question-type distributions. Apply their principles to the actual input.
 
 ## Extraction: preserve the source before organizing learning
 
-Read every page of every supplied document. Inspect visual representations at sufficient
-resolution to read meaningful labels and relationships, even on pages with abundant native text.
-Use PDF reading, text extraction, rendering, zooming, OCR, or scripts as appropriate. A thumbnail
-may help navigation but does not prove its fine details were read.
+Read every page of every supplied PDF, including informative visuals at readable resolution.
+Native text, OCR and thumbnails help inspection; none proves that visual meaning was understood.
+Retain wording, language, terms, numbers, units, signs, qualifications and code whitespace, plus
+table associations, diagram directions/endpoints, chart axes/legends and cross-page continuation.
+Keep the source image/region reference when text alone would lose information. Do not guess hidden
+values, arrows or precision. State exactly what remains unreadable, including on otherwise clear pages.
 
-Retain the source's language, terms, numbers, units, signs, conditions, code indentation, and
-meaningful structure: table cell associations, diagram direction/endpoints, chart axes/legends,
-formula structure, grouping and continuation. Preserve visible content instead of replacing it
-with a lesson summary. Keep a source image or region reference where a text representation alone
-would lose information. Do not invent precision, hidden values, or spatial relationships.
+Keep raw sources and machine readings separate from agent-authored Extraction. Each source keeps
+its own identity and page numbering. Account for blank/non-teaching pages without inventing lessons.
+Compare each page's detailed blocks back to the source, not just its page number or text overlap.
 
-Keep raw files and machine readings separate from agent-authored Extraction. Identify each source
-and its own page numbers. Each page must be accounted for, including blank or non-teaching pages;
-each unresolved region must say what could not be read. A page list is navigation/accountability,
-not proof of semantic completeness. Compare the extracted content back to the actual source.
+Alongside detailed blocks, provide an agent-authored `page_note` explaining what the page communicates
+and how its meaningful components connect. Ground it in the source; a layout inventory or "inspected"
+flag is not an explanation. Keep uncertainty separate. A note never compensates for omitted blocks.
+An existing user contract may name these fields differently; preserve their meaning, not these names.
 
-Alongside the detailed content, give each page an agent-authored `page_note`: what this page
-communicates and how its text, visuals, conditions, or examples connect. Ground it in the extracted
-content and source page, not prior knowledge. A list of objects on the page or a statement that
-it was inspected is not this explanation. Keep reading problems and uncertainty distinct from
-the meaning recovered. For a title, blank, or non-teaching page, state that role without inventing
-a lesson. No fixed length or number of takeaways is needed. An existing user contract may name
-this field differently, but the semantic explanation must remain identifiable.
+Check structured blocks against the transcription and page note. A qualification retained in text
+must not vanish from a formula/table that downstream work uses. Preserve apparent source errors and
+record concerns separately. Derivations, corrections and new examples are authored additions, not
+source transcription, even when correct. Authorized external checks need separate attribution.
 
-The page note is neither a substitute for detailed blocks nor a lecturer annotation. Preserve
-the details needed to verify it; do not hide source content only inside the note. A complete list
-of pages or notes must not be reported as proof that no information was lost.
+Lecturer notes/context may be sparse, unstructured or spread across files and the user's prompt.
+Keep them separately attributed at KC; they are not PDF blocks or agent-authored page notes.
+Infer mapping only when supported; retain ambiguous or unmapped context rather than forcing a page.
 
-If the source appears wrong, preserve its statement and record the issue separately. Do not
-replace it with background knowledge. External checking, if authorized, stays separately cited.
-Sparse or unstructured notes are accepted as additional context at KC, not injected into PDF
-blocks. Infer note-to-source mapping only when supported; otherwise retain unmapped context.
+### Worked contrast: preserve conditions and relationships
+
+Fictional source A, page 3 says: "q = V/t, measured with the valve fully open. Repeat the
+measurement if readings fluctuate." Its diagram is Tank → Meter → Outlet. A table's headers
+V (L), t (min) are readable, but the time in one row is not.
+
+Wrong: retain only `q = V/t`, guess the time, or claim a newly computed rate was printed on the slide.
+An image attachment does not fix these claims. A suitable excerpt is:
+
+```json
+{
+  "source": {"id": "A", "page": 3},
+  "formula": {"expression": "q = V/t", "condition": "valve fully open"},
+  "diagram": {"edges": [["Tank", "Meter"], ["Meter", "Outlet"]]},
+  "page_note": "Volume and duration determine the measured flow rate. The meter is before the outlet; unstable measurements must be repeated.",
+  "uncertainty": "The time in the second table row is unreadable; no rate is calculated for that row."
+}
+```
+
+This excerpt supplements, not replaces, the source wording, table and image. Check the condition,
+units and edge directions against the page. Another PDF or note cannot make the unreadable cell
+a recovered fact from this source. Any new example belongs in separately marked authored material.
 
 ## Shared KC: organize independently learnable capabilities
 
 A Leaf KC is the smallest coherent capability with its own observable learner evidence and
-remediation. Split independent capabilities, not every noun, number, or sentence. Merge paraphrases
-and inseparable parts; repeated subject matter alone does not justify merging. A Group organizes
-related Leaf KCs and is not itself a separate mastery claim.
+remediation. A Group organizes related leaves; it is not a separate mastery claim. Split independent
+capabilities, not every noun or step. Merge paraphrases and inseparable parts, not merely shared topics.
 
-Use both detailed Extraction and page notes, with source inspection wherever needed; do not build
-KCs from summaries alone. Check boundaries by asking whether a learner could demonstrate one part
-but fail another and need different feedback or practice. If so, preserve those separately
-diagnosable capabilities. More leaves are not automatically better: necessary steps of one task
-and examples supporting one principle need not become separate KCs.
+Use detailed Extraction with page notes, revisiting source visuals as needed. For each leaf retain
+its name, concrete knowledge, observable claim, included/excluded scope, group and supporting source
+references. Cite actual supporting blocks, not nearby text. Separate pedagogical design (objectives,
+misconceptions, assessment intent) from source claims. Conditions and exceptions survive grouping.
 
-For each Leaf KC retain its name, concrete knowledge description, observable claim, included and
-excluded scope, group, and source-qualified evidence. Distinguish pedagogical design (objectives,
-misconceptions, assessment intent) from claims actually made by the sources. Every content claim
-needs supporting evidence, including material conditions and exceptions.
+Keep the description and observable scope consistent. Material named in a description but outside
+its claim is supporting context or an unmeasured capability; say which. Do not hide lost capabilities
+under a broad heading. Check whether a learner could succeed at one part, fail another, and need
+different practice. Preserve that diagnosable distinction without fragmenting inseparable work.
 
-Across PDFs, keep the distinct source identities, contexts, and disagreements. Another source may
-support a shared KC but does not repair an unreadable figure in the first source. Account for
-meaningful source and lecturer-context content as represented, excluded with a reason, or unresolved.
-If KC work exposes an Extraction omission, return to that source and revise Extraction; do not hide
-the missing source meaning only inside a KC. Do not compress the inventory to fit a schema or count.
+Across PDFs, merge only equivalent capabilities with source-qualified evidence. Preserve differences,
+conflicts and assumptions; one source does not repair an unreadable region in another. Account for
+meaningful source and lecturer-context capabilities as represented, specifically excluded or unresolved.
+If KC work discovers missing source meaning, revise Extraction and recheck downstream dependencies;
+do not hide the omission only in KC. Counts follow content, not pages, batches or an output-size target.
+
+### Worked contrast: one topic does not mean one capability
+
+Suppose supplied materials teach calculating a weighted mean and judging whether a sample supports
+a population claim. A learner can calculate correctly but ignore a biased sample. The errors need
+different feedback, so preserve the two capabilities rather than "Understand averages" with only a
+calculation question. In contrast, multiplying by weights, summing and dividing can be inseparable
+steps of the calculation; they do not automatically need separate leaves.
+
+Another instructor's equivalent calculation example supports the same KC with a separate citation.
+Different sampling assumptions stay qualified. If only calculation is asked, report "calculation
+sampled; population inference unmeasured". Merely linking both KC IDs does not measure both.
 
 ## Quiz: elicit the target work
 
-Choose the evidence target first, then an appropriate response and useful variants. An assessment
-slot describes that target; it need not be produced by a separate planning step. No default total
-question budget, per-KC multiplier, Bloom ladder, or interaction mix is required. Respect quantities
-only when the user supplies them, and disclose any resulting unmeasured targets.
+Choose the evidence target, then a task/response exposing it. An assessment slot names that bounded
+target; it needs no separate planning call. Multiple targets may belong to a KC. Variants are useful
+alternate instances of the same target, not new capabilities or cosmetic rewrites. Do not derive
+coverage solely by iterating over KC IDs after writing questions. Compare actual scored work with
+the KC capabilities and disclose what remains unmeasured.
 
-Provide a clear task, all necessary givens, the answer or rubric, an explanation, and helpful hints
-when possible. Include the actual figure/table/code/formula when the task depends on it. A source
-reference is not learner-visible content. Invented scenarios must supply their assumptions and must
-not masquerade as source observations. State what the learner must decide, produce, or explain in
-ordinary language. Supply conditions that determine the answer, or accept an appropriately
-conditional answer. Keep the inference being tested out of the givens.
+No default question budget, per-KC multiplier, Bloom ladder or type mix applies. Respect quantities
+the user supplies and explain resulting coverage tradeoffs. Do not suppress useful calculation,
+visual, selection or programming tasks because a renderer makes prose easier.
 
-Choose stimuli for the assessment target, not for convenience of extraction. A source image may
-already contain the answer. Reuse it when appropriate; otherwise adapt/redraw its presentation or
-create a clearly identified hypothetical figure, table, code sample, or dataset. An adaptation
-keeps source facts and relationships faithful; a new scenario states its own assumptions and is
-not claimed as an observation from the slide. Do not invent missing source content to redraw it.
-Retain needed labels, units, arrows and conditions; leave only the intended unknown for the learner.
-There is no required tool or asset format. Deliver the actual stimulus and its provenance, and
-verify that it renders legibly in the learner view. A filename or citation alone is insufficient.
+Supply a clear task, all necessary givens, an answer/key or rubric, explanation and useful hints.
+Provide the actual table, formula, figure or code needed; a source citation or hint cannot substitute.
+Specify decisive assumptions or accept conditional answers. Source reproductions retain meaning;
+adaptations and hypothetical stimuli are identified as such and must not invent missing source facts.
+Retain required labels, units, arrows and conditions; verify legibility in the actual learner view.
 
-Judge leakage against the target: giving a formula can support applying it, but cannot test its
-recall; asking learners to copy a labeled relationship does not demonstrate independently inferring
-it. Check titles, captions and accessible descriptions too, while preserving equivalent necessary
-information for learners using them. Do not fix leakage by removing facts needed to solve the task.
+Check leakage relative to the target, including titles, captions and accessible descriptions.
+A supplied formula may support application but cannot test its recall. A source screenshot may
+already contain the solution; adapt/redraw or author appropriate stimuli without removing needed
+givens. Selected options need plausible near misses without length, tone, position or wording cues.
+Matching/ordering must not expose the intended solution through presentation unless reading that
+representation is itself the honestly stated target.
 
-Selected responses need plausible alternatives without length, tone, position or wording giveaways.
-Constructed responses need criteria that accept valid equivalent answers and reject consequential
-errors, not mandatory keywords or extra deliverables absent from the question. Integrated tasks
-may cover related targets only when their scored evidence is separable. Do not force calculation,
-visual identification, or programming into prose just because a renderer supports prose.
+Rubrics score what the visible task requests and what its correctness requires, not extra deliverables
+or preferred keywords. Accept equivalent solutions; reject consequential errors. Define concrete
+partial credit where useful; binary criteria are fine for indivisible evidence. Integrated tasks
+may measure related targets only if their scored evidence is separable; do not copy one score to all KCs.
 
-For each scored criterion, make clear which observable work earns credit and which consequential
-error does not. Where partial credit is useful, describe the actual incomplete work that earns it;
-generic "partly correct" or "right direction" labels alone cannot guide scoring. Binary criteria
-are valid when no meaningful partial evidence exists. Keep the rubric proportional to the task.
+Assign Bloom and estimated difficulty to each final **unhinted** item, not through constructor defaults.
+Equal labels are fine when warranted; forced variety is not. If unsupported, mark the estimate unknown.
+Difficulty is uncalibrated without learner data. Hints are optional: every cumulative prefix should
+help while leaving target work. Necessary facts belong in the stem; completed solutions in the answer.
 
-Bloom and estimated difficulty describe work left in the **unhinted** question, not its format.
-Difficulty is not calibrated without learner data. Hints are optional: each should enable a next
-step while leaving target work to do, including when earlier hints have already been seen. Required
-facts belong in the question; completed solutions belong in the answer explanation.
+### Worked contrast: visible task, scoring and hint must agree
 
-Before delivery, actually try the questions from the learner-visible material without hints or
-source-only context. This is an author self-check, not a claim of blinded independence. Recompute
-arithmetic, test code safely where applicable, try competing answers and different valid solutions,
-and check rubric/hint alignment. Also try bypassing the target work by copying supplied material
-or using option cues. Record concrete remaining defects, not a self-awarded PASS. Compare the bank
-with the actual KC capabilities: a referenced KC ID does not mean its whole scope was tested.
-Distinguish scored targets from unmeasured knowledge; check that variants add useful evidence
-rather than cosmetic rewording. Do not add another agent or mandatory judge stage for these checks.
+Fictional target: decide which jobs may start from dependencies and completion state. The learner
+sees an authored diagram `A → C`, `B → C`, `C → D`, legend "all incoming dependencies must be
+complete", and state "A complete; B, C and D not started". Ask: "Which job can start now? Explain."
 
-## Revisions and delivery
+- Answer: B. C still needs B; D still needs C. "Only B; C is waiting on B" is a valid concise
+  alternative. Do not demand code or an optimization algorithm absent from the task.
+- Near miss: "C, because A finished" ignores another prerequisite. It must lose credit for
+  dependency reasoning. Actually apply the criterion to this response; do not just label it checked.
+- Hint: "Check every incoming dependency against the completed set" supports a method. "Choose B"
+  supplies the answer. The diagram and state belong in the initial task, not only in a hint/citation.
+- Shortcut: copying A,B,C,D does not answer this state-dependent question. Asking instead to recall
+  a workflow order while showing its complete ordered list would bypass that different target.
+- Scope: this tests readiness, not failure recovery or resource optimization. Renaming the jobs
+  cannot establish those other capabilities. Verify actual arrowheads/labels when rendered.
 
-Drafts can be edited. Once delivered/imported, preserve their bytes and make a new revision with
-the reason for change. Track which source/KC version each downstream output uses; changed upstream
-material makes affected outputs need rechecking, not silent reuse. Correcting a schema error is
-not the only reason a revision is legitimate. Stop revising when checks are satisfied or when no
-further supported progress can be made; disclose unresolved defects instead of looping or guessing.
+The check result is the valid response, rejected near miss and stated limitation, not a self-issued
+PASS. This remains an author check, not independent learner validation.
 
-Deliver separate JSON for Extraction, KC, and Quiz plus a concise run report. Use an existing user
-contract when provided; otherwise choose a clear structure retaining the content above. Logical
-links and source identity are required; the optional runtime's serialization is not universal.
-Keep originals and actual dependencies, not an additional report for every procedural step.
+## Check the final work and deliver
 
-If requested, provide a connected local portal: source → Extraction → KC → Quiz. Verify its actual
-learner view, media, hint/answer separation, and navigation. An unsupported interaction must remain
-explicit or get a suitable view, not be dropped or converted to a weaker task. Report technical
-checks separately from author self-checks, human approval, and empirical learner validation.
+Try the final questions from learner-visible material without hints or source-only context.
+Recompute arithmetic; test code safely where appropriate. Try a different valid response, a plausible
+near miss, and a shortcut that avoids the target work. Check key/rubric alignment and cumulative hints.
+When an error is found, revise the item and recheck affected content rather than merely its explanation.
+
+Keep brief observable check results or counterexamples against final item IDs in existing check fields
+or the run report: what was tested, what happened and the remaining limit. Do not expose private
+reasoning, duplicate the answer key as proof, or assert self-assigned `checked`/`self_contained` flags
+as semantic tests. Unperformed checks remain unverified. Schema, page counts and ID coverage do not
+upgrade semantic confidence. No extra agent, mandatory judge, new report per step or self-issued score
+is needed. Match confidence to actual checks, not the size of the generated bank.
+
+Drafts may be edited. Preserve previously delivered/imported versions, with reasons and dependencies
+for revisions. Checks apply to the version inspected: changed source, KC, stem, key, hint or media
+requires affected checks again. Stop when resolved or when no supported progress remains; disclose
+specific unresolved defects instead of looping, guessing or silently dropping content.
+
+Deliver separate stage JSON and a concise report with coverage, actual checks and remaining gaps.
+Follow a supplied user contract; otherwise choose a clear structure preserving these outcomes, not
+necessarily the runtime schema. Keep originals and actual dependencies, not redundant artifacts.
+For a requested portal, follow [runtime-helpers.md](runtime-helpers.md): reuse the existing review
+layout, keeping source and actual Extraction JSON together, connected to KC and Quiz. Adapt the view
+without rewriting authored content. Verify navigation, media and hint/answer separation. Technical
+checks, author checks, independent review, human approval and learner validation are distinct.

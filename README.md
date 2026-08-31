@@ -4,10 +4,11 @@ Read one or more PDFs, including their informative visuals, into faithful Extrac
 Knowledge Components, and Quiz with hints and scoring. Optional lecturer notes/context join at KC
 with separate provenance. The active coding agent authors all three stages; tools support its work.
 
-Version **4.1.0** keeps detailed per-page content alongside a source-grounded `page_note`, separates
-independently assessable KC capabilities, and requires answerable tasks with target-aligned stimuli,
-hints and scoring. The agent may reuse, adapt or create quiz stimuli; authored scenarios are not
-presented as original slide evidence. A KC reference alone does not demonstrate full quiz coverage.
+Version **4.2.0** keeps detailed per-page content alongside a source-grounded `page_note` and separates
+source claims from authored derivations. Its main workflow includes worked contrasts for faithful
+Extraction, KC scope, and answerable Quiz with hints/scoring. Check results describe actual attempts
+and remaining limits, not self-assigned flags or KC-link counts. Examples guide decisions; they do
+not prescribe lesson topics, counts, schemas or response types.
 
 The skill sets learning and delivery criteria, not a fixed tool sequence. It does not prescribe a
 model, native-text-only reading, page/KC/question quota, or a candidate-attempt cap. It never calls a
@@ -39,15 +40,23 @@ Invoke the skill and supply the PDFs plus optional notes and the requested outpu
 
 ## Package
 
-One canonical skill lives in skills/learning-authoring-pipeline. SKILL.md and
-references/session-workflow.md contain the authoring criteria. Other references are loaded only
-for the optional helpers, publishing, or learning applications.
+One canonical skill lives in skills/learning-authoring-pipeline:
+
+- SKILL.md routes the task; references/session-workflow.md contains the authoring criteria and
+  worked contrasts, read by the agent before authoring or reviewing.
+- references/runtime-helpers.md describes the existing connected review UI and optional commands.
+  Requested portals reuse the source-image/Extraction-JSON, KC and Quiz views. Data binding may be
+  adapted without dropping authored fields or weakening the task to fit a renderer.
+- Publishing and Teacher/Student references apply only to those requested tasks. They are not extra
+  steps that every authoring run must perform.
 
 scripts/runtime contains optional existing source/contract/review helpers, their assets and
 technical tests. Using them requires Python 3.12 and uv; using the skill's instructions does not.
 They prepare raw readings, not semantic Extraction, and preserve authored revisions. Their renderer
 contracts are not a universal limit on question types or source content. Do not drop information
 to fit a helper. Generated runs, credentials, local environments and caches are excluded.
+The authoring entry point is `learning-authoring`; separate product exports use
+`learning-authoring-product`. Both are installed by the optional runtime, not required by the skill.
 
 ## Verify helpers
 
@@ -59,3 +68,6 @@ to fit a helper. Generated runs, credentials, local environments and caches are 
 These tests check software behavior, not pedagogical quality. Author self-checks, independent review,
 human approval, and learner validation are distinct. No claim that the skill beats a baseline
 follows from installation, schema validity, provenance, or passing technical tests.
+For a with/without-skill comparison, isolate the baseline from this skill and verify actual session
+tool logs. Not typing the skill name does not prove it was unused: hosts may select it automatically.
+Keep input, model/settings and requested deliverables comparable; do not treat folder names as proof.
