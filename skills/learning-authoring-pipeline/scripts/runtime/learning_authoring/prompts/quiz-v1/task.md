@@ -12,6 +12,11 @@ from the work required, then record the slot and useful variants. Assign Bloom a
 checking what the learner must actually do. Do not fill a prescribed ladder or interaction mix.
 Do not assign type, variant count, Bloom or difficulty through unexamined constructor defaults, or
 derive assessment coverage from a loop over KC IDs. Equal choices are acceptable when warranted.
+For new items, write `assessment` with the final item's `cognitive_operation`, `intended_difficulty`
+and a concrete `rationale`; the slot's labels are planning context, not inherited item labels.
+When a demanding goal needs preparation, author a useful practice sequence without forcing every
+KC into it. Identify preparatory versus independent items and recommended relationships/order in
+existing report notes. This is content authoring, not a new scheduler or mandatory generation stage.
 
 Before delivering a candidate, try concrete answers against each question. These are author
 self-checks, not a claim of independent or blinded review, and they apply to the final revision:
@@ -27,6 +32,9 @@ self-checks, not a claim of independent or blinded review, and they apply to the
   bypasses the intended work, change the item, not merely its explanation; necessary givens and
   honestly scoped recognition tasks are not defects by themselves.
 - Follow hints in order; identify the concrete work still unresolved after each prefix.
+- Inspect earlier questions and explanations in any proposed practice sequence. If they supply
+  the same case's answer, treat the later item as supported practice or replace it with a fresh
+  self-contained instance before claiming an independent check.
 
 Resolve failures in the draft. A statement that these checks passed is not evidence that they did;
 retain the concrete counterexample when a defect remains and report the limitation. No separate
@@ -45,3 +53,7 @@ items from knowledge still unmeasured; a cited KC ID does not mean its full scop
 Check sibling variants and portfolio-wide shortcuts, then
 return the contract-valid JSON. Code checks references, shapes and counts; it cannot decide whether
 the intended capability is actually elicited. Verify the rendered learner view after import.
+Reconcile any exact requested total and distribution against unique final question IDs and their
+item-level labels. The runtime's `total_question_budget` checks only an upper limit; it does not
+prove an exact total was met. Report shortages/conflicts instead of padding or silently lowering
+the request. Hints and rubric criteria do not count as separate questions.

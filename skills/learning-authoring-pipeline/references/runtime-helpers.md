@@ -60,9 +60,16 @@ For multiple PDFs, import Extraction for each source, then use
 Attach optional context with agent-context <run> --context-file <file> or --context-text <text>;
 see --help for multiple files. Context remains separate from Extraction.
 
-Use agent-schema kc (or --source-bundle) and agent-schema quiz for the optional renderer's
-contracts. `intended_difficulty` is explicit per slot: easy, medium, hard, or unknown when an estimate
-cannot be supported. Unknown is not a medium-difficulty default; no label is empirical calibration.
+Use agent-schema kc (or --source-bundle) and agent-schema quiz for the optional renderer's contracts.
+For newly authored items, `questions[].assessment` records `cognitive_operation`, `intended_difficulty`
+and `rationale` for that final unhinted item. Its labels override the slot's planning labels in the
+authoring review; variants need not share difficulty. Old records without this object retain their
+slot-level labels, explicitly identified as such, and no fields are written into their raw JSON.
+The three difficulty levels are easy, medium and hard; unknown records an unsupported estimate.
+Explain it in the rationale. No label is empirical calibration. Put an optional practice sequence's
+roles/order and relationships in existing report notes; this helper does not run a learner scheduler.
+`--total-question-budget` remains an upper limit. An exact requested total or distribution also
+requires a final count check by the agent; a successful import alone does not establish compliance.
 
 The adapter supports `numeric_input` with an explicit `correct_answer.numeric` object: `value`,
 nonnegative `absolute_tolerance`, and `unit` (empty for dimensionless answers). Its other answer

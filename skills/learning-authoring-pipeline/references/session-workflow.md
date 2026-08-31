@@ -110,6 +110,13 @@ working or reasoning only when that evidence matters. Selection, construction, v
 tasks are options, not quotas. Do not expand a simple task merely to justify an open response or
 constrain it to a renderer. Check that serialized choices still reflect the intended task.
 
+Distinguish a requested exact total from an upper limit: "100 questions" requests 100 finished
+items; "at most 100" permits fewer. Count unique delivered questions, including preparatory items
+and variants, not slot links, hints or rubric criteria. Verify any requested difficulty distribution
+against the final item labels. Without a requested distribution, choose it from the learning needs.
+If scope and quantity conflict, report the actual count and unmet constraint; do not silently treat
+an exact target as a cap, omit capabilities, or pad the bank with cosmetic duplicates.
+
 Supply a clear task, all necessary givens, an answer/key or rubric, explanation and useful hints.
 Provide the actual table, formula, figure or code needed; a source citation or hint cannot substitute.
 Specify decisive assumptions or accept conditional answers. Source reproductions retain meaning;
@@ -130,10 +137,65 @@ or preferred keywords. Accept equivalent solutions; reject consequential errors.
 partial credit where useful; binary criteria are fine for indivisible evidence. Integrated tasks
 may measure related targets only if their scored evidence is separable; do not copy one score to all KCs.
 
-Assign Bloom and estimated difficulty to each final **unhinted** item, not through constructor defaults.
-Equal labels are fine when warranted; forced variety is not. If unsupported, mark the estimate unknown.
-Difficulty is uncalibrated without learner data. Hints are optional: every cumulative prefix should
-help while leaving target work. Necessary facts belong in the stem; completed solutions in the answer.
+### Two axes: cognitive operation and estimated difficulty
+
+Assign both to each final **unhinted** item, including any support already visible in its stem.
+Bloom describes the work actually elicited, not a verb in the prompt or the lesson's final ambition:
+
+| Operation | Evidence to look for |
+| --- | --- |
+| Remember | Retrieve or recognize previously learned knowledge. |
+| Understand | Interpret, explain, classify or compare to show meaning. |
+| Apply | Execute or use knowledge or a procedure in the supplied situation. |
+| Analyze | Separate relevant parts and establish their relationships or organization. |
+| Evaluate | Judge alternatives or claims against criteria and evidence. |
+| Create | Generate and organize a coherent new solution or product under constraints. |
+
+Copying an explanation is not explaining; executing a supplied decision rule is not automatically
+evaluating; writing prose is not automatically creating. Choose the operation supported by the
+scored work, not the highest verb mentioned. Integrated tasks may include distinct operations;
+keep their evidence separable instead of inflating every part to the final goal's level.
+
+Estimate difficulty relative to the intended learners and taught prerequisites. State the audience
+or a reasonable explicit assumption once in the report; do not invent learner performance data.
+Use these qualitative anchors, not numeric thresholds or a Bloom-to-difficulty mapping:
+
+- Easy: familiar application/knowledge with few interacting decisions and direct relevant givens.
+- Medium: meaningful selection, coordination or interpretation of several relevant conditions.
+- Hard: demanding transfer, interacting constraints or substantial integration/judgment for that
+  audience, while remaining answerable from supplied material and taught knowledge.
+
+These are three difficulty levels; `unknown` means no supported estimate, not a fourth level or a
+default medium. Explain that limitation. No learner data means uncalibrated, not necessarily unknown.
+One Bloom operation can occur at different difficulties; neither a long stem, missing facts, obscure
+wording nor being last in a sequence makes a question hard. Reassess each variant individually;
+do not inherit difficulty from its KC, slot or a sibling. If the actual evidence target changes,
+use the appropriate slot/KC rather than hiding the change as a surface variant.
+
+### Practice around demanding goals
+
+When a goal is demanding, do not assume one hard item provides enough learning or evidence.
+Consider what learners need to practice before tackling it independently. Depending on the source
+and requested use, provide preparatory questions for prerequisites, guided practice, useful variants
+with reduced support or more demanding conditions, and a fresh independent application. Choose the
+parts and quantity that have a purpose; no mandatory easy-medium-hard trio, six-level Bloom ladder,
+question-type mix, or multiplier for hard items applies. A standalone diagnostic may need no lead-in.
+
+Keep distinctions explicit: a prerequisite question measures its own capability; a variant measures
+the same bounded target in another instance; a hint supports the current question. A sequence may
+span several slots/KCs without merging them into a broad leaf. Identify preparatory versus independent
+items and any recommended order/relationships by question ID in existing report/design notes.
+This is authored guidance, not a runtime lock, learner scheduler or new mastery calculation.
+
+Check cross-question leakage as well as cumulative hints. Solving pieces of the very same case can
+teach its answer: finishing it afterward is supported practice, not a fresh independent demonstration.
+Use a genuinely new self-contained instance for the independent check; removing the hint button is
+not enough if the preceding question already supplied its solution. Do not count related attempts
+as independent mastery evidence merely because they have different question IDs.
+
+Hints remain optional: every cumulative prefix should help while leaving target work. Necessary
+facts belong in the stem; completed solutions in the answer. Explanations may teach the full method
+after responding; do not force all that teaching into the hints or add unrequested rubric demands.
 
 ### Worked contrast: visible task, scoring and hint must agree
 
@@ -163,6 +225,14 @@ preference for the exemplar's wording. The original no-E case must still have it
 
 The check result is the competing answer, applied criterion and remaining limitation, not a
 self-issued PASS. This remains an author check, not independent learner validation.
+
+To prepare for a demanding readiness task, the earlier simple graph can provide practice. A separate
+instance could give edges `A→C, B→C, C→D, B→E, E→F, D→G, F→G`, completed `{A,B,E}`, and all others
+not started: the ready set is `{C,F}`. Checking several prerequisites is still Apply, not automatically
+Analyze, even if harder for the intended learners. Showing which incoming edges are satisfied can
+support a preparatory version, but changes what work remains. After that practice, asking again for
+`{C,F}` is not independent evidence. Use a fresh graph/state, supply all its givens, and solve its new
+key. Add further steps only for an identified learning need; the final item need not be labeled hard.
 
 ## Check the final work and deliver
 

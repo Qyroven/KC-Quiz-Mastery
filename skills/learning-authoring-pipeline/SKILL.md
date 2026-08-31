@@ -3,7 +3,7 @@ name: learning-authoring-pipeline
 description: Read one or more course PDFs and optional lecturer context into faithful multimodal Extraction, shared Knowledge Components, and answerable Quiz with hints and scoring. Use the active coding agent for authoring or review; deliver separate JSON and a connected local portal when requested.
 metadata:
   author: Qyroven
-  version: "4.3.0"
+  version: "4.4.0"
 ---
 
 # Learning Authoring Pipeline
@@ -39,6 +39,9 @@ The workflow describes outcomes, not a mandatory sequence of tool calls.
   practice. Groups organize capabilities; counts do not follow pages, quotas, or topic names.
 - Quiz format and variants follow the evidence needed. Supply every necessary initial datum;
   a source citation or hint cannot substitute for a missing figure or condition.
+  For demanding goals, consider preparatory and progressively less-supported practice, then a fresh
+  independent check. These are authored learning opportunities, not a fixed ladder or extra workflow.
+  Keep each item's actual Bloom, difficulty and support distinct; hard does not dictate a count.
   Reuse, adapt, or author suitable stimuli without giving away the assessed work. Distinguish
   source reproductions from authored scenarios, and actually solve/check the delivered questions.
   Agent-written helpers must serialize these decisions, not supply unexamined pedagogical defaults

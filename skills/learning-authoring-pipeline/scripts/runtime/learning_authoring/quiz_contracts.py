@@ -27,6 +27,7 @@ QuizSchemaVersion = Literal["quiz-batch.v1", "quiz-batch.v2", "quiz-batch.v3"]
 CURRENT_QUIZ_SCHEMA_VERSION: QuizSchemaVersion = "quiz-batch.v3"
 CURRENT_QUIZ_INPUT_VERSION = "quiz-input.v3"
 CognitiveOperation = Literal["remember", "understand", "apply", "analyze", "evaluate", "create"]
+IntendedDifficulty = Literal["easy", "medium", "hard", "unknown"]
 
 
 class QuizSourceRef(BaseModel):
@@ -121,8 +122,12 @@ class AssessmentSlot(BaseModel):
     slot_id: str = Field(min_length=1)
     kc_id: str = Field(pattern=r"^KC-[0-9]+$")
     evidence_intent: str = Field(min_length=1)
-    cognitive_operation: CognitiveOperation
-    intended_difficulty: Literal["easy", "medium", "hard", "unknown"]
+    cognitive_operation: CognitiveOperation = Field(
+        description="Slot planning label, not an item override."
+    )
+    intended_difficulty: IntendedDifficulty = Field(
+        description="Slot planning estimate, not every variant's difficulty."
+    )
     variant_count: int = Field(ge=1, strict=True)
     justification: str = Field(min_length=1)
 
@@ -358,6 +363,28 @@ class QuizHint(BaseModel):
         return self
 
 
+class QuizItemAssessment(BaseModel):
+    """Authored labels for one final task, not a semantic validation result."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cognitive_operation: CognitiveOperation
+    intended_difficulty: IntendedDifficulty
+    rationale: StrictStr = Field(
+        min_length=1,
+        description=(
+            "Explain the actual unhinted work and estimated challenge for the intended audience. "
+            "If difficulty is unknown, explain why no supported estimate can be made."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def rationale_is_nonblank(self) -> QuizItemAssessment:
+        if not self.rationale.strip():
+            raise ValueError("item assessment rationale must be nonblank")
+        return self
+
+
 class QuizQuestion(BaseModel):
     """One item, with a primary slot and optional separately scored integrated slots."""
 
@@ -371,6 +398,13 @@ class QuizQuestion(BaseModel):
     group_id: str = Field(pattern=r"^KCG-[0-9]+$")
     title: str = Field(min_length=1)
     interaction: Interaction
+    assessment: QuizItemAssessment | None = Field(
+        default=None,
+        description=(
+            "For new authoring, assess this final item individually. Overrides slot planning "
+            "labels in authoring review; optional/null only for backward-compatible reading."
+        ),
+    )
     stimulus: QuizStimulus
     prompt: str = Field(min_length=1)
     choice_options: list[QuizOption]
@@ -403,7 +437,7 @@ class QuizQuestion(BaseModel):
         result = handler(self)
         for name in (
             "slot_id", "additional_slot_ids", "context_evidence_refs", "hints",
-            "hint_absence_reason",
+            "hint_absence_reason", "assessment",
         ):
             if name not in self.model_fields_set and not getattr(self, name):
                 result.pop(name, None)

@@ -14,6 +14,13 @@ not necessarily fully assessed: narrow the stated evidence intent or add a genui
 slot where needed. Use another variant only when the new instance adds useful practice for the
 same target. Respect explicit user bounds; absent bounds do not imply a quota.
 
+New items include their own `assessment` labels and rationale for the work left before hints.
+Use an explicit audience or an assumption stated in the report. Variants can differ in difficulty;
+if the evidence target changes, assign the appropriate slot rather than only changing its label.
+An optional practice sequence can span slots/KCs. Keep its role/order in existing report notes,
+and distinguish same-case supported practice from a fresh independent check. Do not create extra
+questions merely because one item is hard, or make every later item harder by label alone.
+
 ## Learner task and scoring
 
 Give a clear, bounded task and coherent givens. Label pseudocode or incomplete excerpts; supply

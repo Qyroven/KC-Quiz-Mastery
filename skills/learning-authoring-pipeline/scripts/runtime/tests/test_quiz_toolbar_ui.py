@@ -139,6 +139,66 @@ def test_unknown_difficulty_is_explicit_without_changing_the_question(source) ->
     )
 
 
+def test_item_levels_override_planning_labels_and_remain_separate_from_hints(source) -> None:
+    data = quiz_review_data(source, adaptive=True)
+    first, second = data["quiz"]["questions"][:2]
+    assert first["slot_id"] == second["slot_id"]
+    for q, difficulty in zip((first, second), ("easy", "hard"), strict=True):
+        q["assessment"] = {
+            "cognitive_operation": "apply",
+            "intended_difficulty": difficulty,
+            "rationale": "Reviewer-only reasoning <check>; not a learner hint.",
+        }
+        q["hints"] = [{"hint_id": "cue", "kind": "cue", "text": "Check applicable conditions."}]
+        q["hint_absence_reason"] = None
+    run_js(
+        inline_script(_TEMPLATE),
+        """
+        const original=JSON.stringify(DATA.quiz);
+        assert.equal(view('bloomTag').textContent, 'Apply');
+        assert.equal(view('difficultyTag').textContent, 'Dễ');
+        assert.match(view('difficultyTag').title, /Đánh giá riêng của câu/);
+        assert.doesNotMatch(renderStudent(questions[0]), /Reviewer-only/);
+        assert.match(renderReviewer(questions[0]), /Reviewer-only reasoning &lt;check&gt;/);
+        view('hintButton').onclick();
+        assert.equal(questionPreview(questions[0]).hint_ids_shown.length, 1);
+        assert.equal(view('difficultyTag').textContent, 'Dễ');
+        assert.equal(view('bloomTag').textContent, 'Apply');
+        view('check').onclick();
+        assert.equal(view('difficultyTag').textContent, 'Dễ');
+        view('next').onclick();
+        assert.equal(view('difficultyTag').textContent, 'Khó');
+        assert.equal(view('bloomTag').textContent, 'Apply');
+        view('reviewMode').onclick();
+        assert.match(view('content').innerHTML, /Mức mục tiêu chung/);
+        assert.equal(JSON.stringify(DATA.quiz), original);
+        questions[1].assessment.intended_difficulty='unknown';
+        markQuestionRevision(questions[1].question_id);render();
+        assert.equal(view('difficultyTag').textContent, 'Chưa ước lượng');
+        questions[1].assessment.cognitive_operation='analyze';render();
+        assert.equal(view('bloomTag').textContent, 'Analyze');
+        questions[1].slot_id='missing-slot';render();
+        assert.equal(view('bloomTag').hidden, true);
+        assert.equal(view('difficultyTag').hidden, true);
+    """,
+        data=data,
+    )
+
+
+def test_legacy_slot_labels_disclose_their_scope_without_writing_item_fields(source) -> None:
+    run_js(
+        inline_script(_TEMPLATE),
+        """
+        const original=JSON.stringify(DATA.quiz);
+        assert.match(view('difficultyTag').title, /Mức chung của slot/);
+        assert.match(view('bloomTag').title, /chưa có đánh giá riêng cho câu/);
+        assert.equal(Object.hasOwn(questions[0], 'assessment'), false);
+        assert.equal(JSON.stringify(DATA.quiz), original);
+    """,
+        data=quiz_review_data(source, adaptive=True),
+    )
+
+
 def test_toolbar_does_not_infer_or_coerce_bloom_and_difficulty(source) -> None:
     run_js(
         inline_script(_TEMPLATE),

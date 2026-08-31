@@ -61,7 +61,9 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   intent and the KC's observable claim? Does the actual cognitive work support
   the Bloom label and intended difficulty? Bloom, format, and difficulty are
   different axes. Judge intended difficulty qualitatively; it is not calibrated
-  mastery and must not be reported as empirical learner performance. State what
+  mastery. Use the item's `assessment` when supplied, not a slot's inherited planning labels;
+  old records without it have only slot-level estimates. Consider the stated learner audience.
+  Estimates must not be reported as empirical learner performance. State what
   work remains without hints after accounting for the title, stimulus, and
   scaffolding. Naming an error for the learner does not test locating that error;
   supplying a procedure does not test independently choosing it. Record material
@@ -108,14 +110,19 @@ or unknown, with a concrete limitation. Such a review cannot obtain overall PASS
   unrelated, or obviously careless strawmen can expose the only sensible option
   even when all options have equal length. Do not reject an option merely for
   being incorrect; explain why the distractor bypasses the target knowledge.
-  Compare siblings within the same slot: they should target the same evidence,
-  cognitive operation, and intended difficulty while adding a meaningful
-  alternative instance. Different slots may legitimately assess different work.
+  Compare siblings within the same slot: they should target the same bounded evidence while adding
+  meaningful alternative instances. Difficulty may vary; inspect each item's actual work and labels.
+  If a change in cognitive operation changes the evidence target, it needs the appropriate slot.
+  Preparatory questions can legitimately assess different work in other slots/KCs.
   Do not confuse one slot's variants with all questions belonging to a KC.
   State the actual decision-relevant difference between siblings. Changed
   numbers may provide useful fresh calculation or a boundary case, but alone
   do not prove broader evidence coverage. Conversely, do not reject a numerical
   practice item solely because its wording resembles another item.
+  Where a practice sequence is proposed, check earlier prompts, hints and explanations for disclosure
+  of a later item's answer. Completing the same solved case is supported practice, not an independent
+  demonstration. A new question ID alone does not establish independence. Do not require a fixed
+  sequence or a fixed number of variants because an item is hard.
   For matching, an equal number of left and right options makes the final pair
   derivable by elimination. Flag this when the item or scoring treats every pair
   as independent evidence; an intrinsically closed-set task may instead narrow

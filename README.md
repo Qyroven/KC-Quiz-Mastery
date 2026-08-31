@@ -4,12 +4,13 @@ Read one or more PDFs, including their informative visuals, into faithful Extrac
 Knowledge Components, and Quiz with hints and scoring. Optional lecturer notes/context join at KC
 with separate provenance. The active coding agent authors all three stages; tools support its work.
 
-Version **4.3.0** retains multimodal Extraction and its source-grounded `page_note`. It sharpens
-Leaf KC boundaries using contrasting learner needs, tests defensible alternative answers and
-partial-credit cases, and keeps intent, scoring, hints and level aligned after revisions. Agent-written
-helpers must not choose pedagogical defaults or manufacture semantic-check success. The optional
-review adapter also supports numeric responses and slot-bound matching parts. Examples guide
-decisions; they do not prescribe lesson topics, counts, schemas or response types.
+Version **4.4.0** keeps faithful Extraction and bounded KCs, and distinguishes cognitive operation
+from estimated difficulty for each question. Demanding goals may receive preparatory practice,
+useful variants and a fresh independent check, without fixed ladders or hard-item multipliers.
+The authoring review supports per-item labels while preserving old raw records and slot estimates.
+The instructions distinguish exact quantity requests from upper limits. These are authoring
+improvements, not a learner scheduler, mastery change or product deployment. Examples guide decisions;
+they do not prescribe lesson topics, counts, schemas or response types.
 
 The skill sets learning and delivery criteria, not a fixed tool sequence. It does not prescribe a
 model, native-text-only reading, page/KC/question quota, or a candidate-attempt cap. It never calls a

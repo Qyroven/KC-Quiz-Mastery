@@ -184,9 +184,10 @@ function renderMetrics(){
 function variantLabel(q){const slot=assessmentSlots.get(q.slot_id);return slot?slot.slot_id+" · variant "+q.variant_index+" / "+slot.variant_count:"variant "+q.variant_index+" · legacy KC numbering"}
 function questionAssessment(q){
   const slot=assessmentSlots.get(q.slot_id);
-  // A slot reference is authoritative. Never replace an unresolved/wrong-KC
-  // reference with a guess from interaction type, variant index or old metadata.
-  const assessment=q.slot_id?(slot&&slot.kc_id===q.kc_id?slot:{}):q;
+  // An item's own assessment overrides planning labels, never a broken source binding.
+  // Legacy records keep their slot labels without writing synthetic fields into raw JSON.
+  const bound=!q.slot_id||(slot&&slot.kc_id===q.kc_id);
+  const assessment=bound?(q.assessment??(q.slot_id?slot:q)):{};
   const blooms={remember:'Remember',understand:'Understand',apply:'Apply',analyze:'Analyze',evaluate:'Evaluate',create:'Create'};
   const difficulties={easy:'Dễ',medium:'Trung bình',hard:'Khó',unknown:'Chưa ước lượng'};
   const label=(labels,value)=>typeof value==='string'&&Object.hasOwn(labels,value)?labels[value]:'';
@@ -194,17 +195,22 @@ function questionAssessment(q){
 }
 function renderAssessmentBadges(q){
   const assessment=questionAssessment(q),bloom=$('#bloomTag'),difficulty=$('#difficultyTag');
+  const origin=q.slot_id&&q.assessment==null?' Mức chung của slot; chưa có đánh giá riêng cho câu.':' Đánh giá riêng của câu.';
   bloom.hidden=!assessment.bloom;
   bloom.textContent=assessment.bloom;
-  bloom.title=assessment.bloom?'Thao tác nhận thức theo Bloom: '+assessment.bloom+'. Không phải điểm hay độ khó.':'';
+  bloom.title=assessment.bloom?'Thao tác nhận thức theo Bloom: '+assessment.bloom+'. Không phải điểm hay độ khó.'+origin:'';
   bloom.setAttribute('aria-label',bloom.title);
   difficulty.hidden=!assessment.difficulty;
   difficulty.textContent=assessment.difficulty;
-  difficulty.title=assessment.difficulty?'Độ khó dự kiến: '+assessment.difficulty+'. Chưa hiệu chuẩn bằng dữ liệu người học.':'';
+  difficulty.title=assessment.difficulty?'Độ khó dự kiến: '+assessment.difficulty+'. Chưa hiệu chuẩn bằng dữ liệu người học.'+origin:'';
   difficulty.setAttribute('aria-label',difficulty.title);
 }
 function questionKCIds(q){return [...new Set([q.kc_id,...(q.additional_slot_ids||[]).map(id=>(assessmentSlots.get(id)||{}).kc_id)].filter(Boolean))]}
-function slotHTML(q){return [q.slot_id,...(q.additional_slot_ids||[])].map(id=>{const slot=assessmentSlots.get(id);if(!slot)return'';return'<section class="review-card wide"><h3>Assessment slot · '+esc(slot.slot_id)+' · '+esc(slot.kc_id)+'</h3><p><b>'+esc(slot.evidence_intent)+'</b></p><p>'+esc(slot.cognitive_operation)+' · '+esc(slot.intended_difficulty)+' · variant '+esc(q.variant_index)+' / '+esc(slot.variant_count)+'</p><p style="margin-top:8px">'+esc(slot.justification)+'</p></section>'}).join('')}
+function slotHTML(q){
+  const own=q.assessment, labels=questionAssessment(q);
+  const item=own&&(labels.bloom||labels.difficulty)?'<section class="review-card wide"><h3>Mức độ của câu này</h3><p>'+esc(labels.bloom)+' · '+esc(labels.difficulty)+'</p><p>'+esc(own.rationale||'')+'</p></section>':'';
+  return item+[q.slot_id,...(q.additional_slot_ids||[])].map(id=>{const slot=assessmentSlots.get(id);if(!slot)return'';return'<section class="review-card wide"><h3>Assessment slot · '+esc(slot.slot_id)+' · '+esc(slot.kc_id)+'</h3><p><b>'+esc(slot.evidence_intent)+'</b></p><p>Mức mục tiêu chung: '+esc(slot.cognitive_operation)+' · '+esc(slot.intended_difficulty)+' · variant '+esc(q.variant_index)+' / '+esc(slot.variant_count)+'</p><p style="margin-top:8px">'+esc(slot.justification)+'</p></section>'}).join('')
+}
 function contextEvidenceHTML(q){const rows=q.context_evidence_refs||[];if(!rows.length)return'';return'<section class="review-card wide"><h3>Ngữ cảnh giảng viên · tách biệt với Extraction</h3>'+rows.map(function(e){return'<p><b>'+esc(e.context_id)+'</b> · '+(e.pages&&e.pages.length?'Liên hệ trang PDF: '+e.pages.map(esc).join(', '):'Ngữ cảnh toàn tài liệu · không gán trang PDF')+'</p><div class="code">'+esc(e.excerpt||e.description||'')+'</div>'}).join('')+'</section>'}
 function grouped(rows){const map=new Map;rows.forEach(function(q){if(!map.has(q.group_id))map.set(q.group_id,[]);map.get(q.group_id).push(q)});return map}
 function renderNav(){
