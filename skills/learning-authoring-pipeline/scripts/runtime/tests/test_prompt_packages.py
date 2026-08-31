@@ -212,7 +212,7 @@ def test_kc_worked_examples_balance_independent_split_and_qualified_merge() -> N
     }
     assert bundle_counts["qualified-independent-capabilities"] == 2
     assert bundle_counts["qualified-merge-with-context"] == 1
-    assert "capability inventory" in instructions.casefold()
+    assert "smallest source-supported capability" in instructions.casefold()
 
     bundle_split = next(
         example
@@ -227,7 +227,7 @@ def test_kc_worked_examples_balance_independent_split_and_qualified_merge() -> N
     bundle_proposed = SourceBundleKCSet.model_validate(bundle_split["output"])
     bundle_proposed.validate_against_bundle(bundle, extractions)
 
-    assert "capability inventory" in singular.instructions.casefold()
+    assert "smallest source-supported capability" in singular.instructions.casefold()
     teaching_points = " ".join(
         point for example in singular.worked_examples for point in example.teaching_points
     ).casefold()

@@ -15,7 +15,13 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from learning_authoring.artifacts import read_json, sha256_file, write_json
+from learning_authoring.artifacts import (
+    read_json,
+    record_revision_state,
+    sha256_file,
+    write_bytes,
+    write_json,
+)
 from learning_authoring.authoring_context import AuthoringContext
 from learning_authoring.contracts import ExtractedSource, SourceDescriptor
 from learning_authoring.kc_contracts import (
@@ -367,9 +373,7 @@ def _assert_proposed_extraction_is_promoted(run_dir: Path) -> None:
         return
     metadata = read_json(metadata_path)
     if metadata.get("promotion_gate_passed") is False:
-        raise ValueError(
-            f"source run Extraction failed its promotion gate: {run_dir}"
-        )
+        raise ValueError(f"source run Extraction failed its promotion gate: {run_dir}")
 
 
 def _extraction_for_run(run_dir: Path) -> tuple[Path, ExtractedSource, str]:
@@ -438,7 +442,13 @@ def prepare_source_bundle(
     destination = (manifest_path or root / SOURCE_BUNDLE_MANIFEST).expanduser().resolve()
     if not destination.is_relative_to(root) or destination.is_symlink():
         raise ValueError("source bundle manifest must be a regular file inside the bundle root")
+    previous_hash = sha256_file(destination) if destination.exists() else None
+    if previous_hash:
+        snapshot = root / "source-bundle-revisions" / f"{previous_hash}.json"
+        if not snapshot.exists():
+            write_bytes(snapshot, destination.read_bytes())
     write_json(destination, bundle.model_dump(mode="json"))
+    record_revision_state(root, "bundle", previous_hash, destination)
     return load_source_bundle(root, manifest_path=destination)
 
 

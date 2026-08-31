@@ -249,12 +249,13 @@ def test_agent_extraction_uses_no_provider_and_preserves_exact_candidate_bytes(
         "approval_created_by_import": False,
         "preserve_candidate_bytes": True,
         "semantic_candidate_authorship": "direct_host_agent_reasoning",
-        "course_specific_executable_generator_forbidden": True,
-        "fixed_semantic_counts_forbidden_unless_runtime_supplies_them": True,
-        "all_run_specific_values_must_be_derived_from_the_frozen_input": True,
+        "agent_written_scripts_allowed": True,
+        "counts_follow_content_unless_user_constrained": True,
+        "source_claims_must_be_grounded": True,
+        "revisions_allowed_after_contract_validity": True,
     }
     assert task_package["input_boundary"]["delivery"] == "native_pdf_primary"
-    assert task_package["input_boundary"]["page_image_policy"]["bulk_load_forbidden"] is True
+    assert task_package["input_boundary"]["page_image_policy"]["batching"] == "agent_selected"
     assert Path(imported["raw_candidate"]).read_bytes() == raw
     assert read_json(artifacts.proposed)["source"] == read_json(artifacts.source_manifest)["source"]
     metrics = read_json(artifacts.metrics)
@@ -392,7 +393,7 @@ def test_invalid_agent_candidate_is_archived_before_contract_rejection(
     assert read_json(run_dir / "contract-errors.json")["provider_api_calls"] == 0
 
 
-def test_quiz_form_failure_is_archived_but_not_promoted(tmp_path) -> None:
+def test_quiz_form_findings_remain_visible_without_discarding_draft(tmp_path) -> None:
     pdf = tmp_path / "lesson.pdf"
     run_dir = tmp_path / "run"
     write_blank_pdf(pdf)
@@ -430,9 +431,8 @@ def test_quiz_form_failure_is_archived_but_not_promoted(tmp_path) -> None:
         task_package=Path(quiz_task["task_package"]),
     )
 
-    assert result["status"] == "RETRY_REQUIRED"
-    assert result["promotion_gate_passed"] is False
+    assert result["status"] == "REVIEW"
+    assert result["promotion_gate_passed"] is True
     assert "CORRECT_OPTION_LENGTH_CUE" in result["quality_revision_trigger_codes"]
-    assert result["proposed"] is None
-    assert not (run_dir / "quiz" / "quiz-proposed.json").exists()
+    assert Path(result["proposed"]).read_bytes() == raw
     assert (run_dir / "quiz" / "quiz-output.raw.json").read_bytes() == raw

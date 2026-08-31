@@ -56,6 +56,41 @@ def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def record_revision_state(root: Path, stage: str, before: str | None, path: Path) -> None:
+    state_path = root / "revision-state.json"
+    state = read_json(state_path) if state_path.is_file() else {"stages": {}}
+    stages = state["stages"]
+    stages[stage] = {"status": "CURRENT_DRAFT", "sha256": sha256_file(path)}
+    downstream = {
+        "extraction": ("kc", "quiz"),
+        "context": ("kc", "quiz"),
+        "bundle": ("kc", "quiz"),
+        "kc": ("quiz",),
+        "quiz": (),
+    }[stage]
+    paths = {"kc": root / "kc-proposed.json", "quiz": root / "quiz" / "quiz-proposed.json"}
+    if before != stages[stage]["sha256"]:
+        for dependent in downstream:
+            if paths[dependent].is_file():
+                stages[dependent] = {
+                    "status": "NEEDS_RECHECK",
+                    "changed_upstream": stage,
+                    "sha256": sha256_file(paths[dependent]),
+                }
+    write_json(state_path, state)
+
+
+def require_current_revision(root: Path, stage: str) -> None:
+    """Do not present a stale draft as current after a recorded upstream revision."""
+
+    path = root / "revision-state.json"
+    if (
+        path.is_file()
+        and read_json(path).get("stages", {}).get(stage, {}).get("status") == "NEEDS_RECHECK"
+    ):
+        raise ValueError(f"{stage} needs recheck after its upstream source changed")
+
+
 @dataclass(frozen=True)
 class RunArtifacts:
     run_dir: Path

@@ -191,7 +191,7 @@ def test_changed_context_rejects_stale_kc_task_and_existing_kc_for_quiz(tmp_path
             task_package=Path(old_task["task_package"]),
         )
     assert (run / "kc-proposed.json").read_bytes() == old_raw
-    with pytest.raises(ValueError, match="authoring context SHA-256"):
+    with pytest.raises(ValueError, match="needs recheck"):
         prepare_agent_task("quiz", run, include_all_kcs=True)
 
 

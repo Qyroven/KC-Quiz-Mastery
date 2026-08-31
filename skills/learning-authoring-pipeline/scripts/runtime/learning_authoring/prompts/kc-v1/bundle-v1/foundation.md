@@ -13,5 +13,6 @@ limits, and conflicts remain explicit. Resolve instructional visual relationship
 another source may support the shared KC, but cannot clear a missing edge, endpoint,
 label, value association, or warning in the original source.
 
-Extraction is a deterministic inventory, not a semantic summary. Lecturer context is supplementary
+Extraction is an agent-authored faithful representation of source content and visual relationships,
+not merely raw text or a condensed lesson summary. Lecturer context is supplementary
 and separately cited; it never becomes PDF evidence. KC count is an outcome, never a target.

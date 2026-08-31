@@ -22,6 +22,8 @@ from pydantic import BaseModel, ValidationError
 from learning_authoring.artifacts import (
     RunArtifacts,
     read_json,
+    record_revision_state,
+    require_current_revision,
     sha256_bytes,
     sha256_file,
     write_bytes,
@@ -41,7 +43,7 @@ from learning_authoring.kc import load_approved_extraction, load_prompt_package
 from learning_authoring.kc_contracts import ProposedKCSet
 from learning_authoring.kc_diagnostics import kc_review_diagnostics
 from learning_authoring.kc_review import build_kc_demo
-from learning_authoring.native_extraction import build_native_extraction
+from learning_authoring.native_extraction import build_native_reading
 from learning_authoring.prompt_packages import (
     load_worked_example_suite,
     worked_examples_component,
@@ -107,31 +109,11 @@ AGENT_OUTPUT_POLICY = {
     "approval_created_by_import": False,
     "preserve_candidate_bytes": True,
     "semantic_candidate_authorship": "direct_host_agent_reasoning",
-    "course_specific_executable_generator_forbidden": True,
-    "fixed_semantic_counts_forbidden_unless_runtime_supplies_them": True,
-    "all_run_specific_values_must_be_derived_from_the_frozen_input": True,
+    "agent_written_scripts_allowed": True,
+    "counts_follow_content_unless_user_constrained": True,
+    "source_claims_must_be_grounded": True,
+    "revisions_allowed_after_contract_validity": True,
 }
-
-
-class CandidateAttemptPolicyError(ValueError):
-    """A preserved candidate cannot enter the canonical stage under the retry policy."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        status: str,
-        attempt_number: int,
-        distinct_candidate_count_before: int,
-    ) -> None:
-        super().__init__(message)
-        self.status = status
-        self.attempt_number = attempt_number
-        self.distinct_candidate_count_before = distinct_candidate_count_before
-
-
-class TaskPackageRequiredError(ValueError):
-    """The candidate was preserved, but no frozen task was supplied."""
 
 
 def agent_schema(
@@ -234,20 +216,12 @@ def _native_extraction_prompt_fields() -> tuple[str, dict[str, Any]]:
 
 def _extraction_instructions(prompt_instructions: str) -> str:
     return (
-        "HOST DELIVERY POLICY:\n"
-        "- Treat the native PDF as the primary input.\n"
-        "- Do not load or attach all rendered page PNGs.\n"
-        "- Page-image paths are locators only. Inspect at most the specific page image "
-        "needed for targeted visual or geometry clarification.\n"
-        "- Never use local text-audit files as semantic model input.\n\n" + prompt_instructions
-    )
-
-
-def _legacy_extraction_instructions(prompt_instructions: str) -> str:
-    return (
-        "LEGACY ARTIFACT COMPATIBILITY ONLY. The v3 workflow uses the deterministic "
-        "Extraction already written by agent-init. Do not invoke this task for a new run.\n\n"
-        + _extraction_instructions(prompt_instructions)
+        "READING POLICY:\n"
+        "- The agent reads every source page, including informative visuals.\n"
+        "- Choose PDF reading, text, page images, zooming, OCR or scripts as useful.\n"
+        "- Inspect at a resolution that supports the content; no fixed image or batch limit.\n"
+        "- Machine text is a reading aid, not complete semantic Extraction.\n\n"
+        + prompt_instructions
     )
 
 
@@ -351,7 +325,8 @@ def _render_agent_task(task: dict[str, Any], package_path: Path) -> str:
         "`--context-id <context_id>` for the material you are reading. These read-only views "
         "retain frozen identities and do not summarize or drop source content. "
         "You may repeat --batch for a cross-group task.\n\n"
-        if task["stage"] in {"kc", "quiz"} else ""
+        if task["stage"] in {"kc", "quiz"}
+        else ""
     )
     return (
         f"# Subscription-native {task['stage']} task\n\n"
@@ -392,16 +367,12 @@ def read_agent_task_input(
     stage = header["stage"]
     if stage not in {"kc", "quiz"}:
         raise ValueError("agent-read supports KC and Quiz task inputs")
-    task = _load_task_package(
-        stage, Path(header["run_dir"]), path, require_official_prompt=False
-    )
+    task = _load_task_package(stage, Path(header["run_dir"]), path, require_official_prompt=False)
     boundary = task["input_boundary"]
     payload = boundary["payload"]
     context = boundary.get("authoring_context") or {}
     contexts = {item["context_id"]: item for item in context.get("items", [])}
-    batches = (
-        boundary["inspection_batches"] if stage == "kc" else payload["authoring_batches"]
-    )
+    batches = boundary["inspection_batches"] if stage == "kc" else payload["authoring_batches"]
 
     def read_id(batch: dict[str, Any]) -> str:
         source = batch.get("source_id")
@@ -416,8 +387,9 @@ def read_agent_task_input(
     result: dict[str, Any] = {
         "stage": stage,
         "task_fingerprint": task["task_fingerprint"],
-        "source_ref": boundary.get("expected_source_ref", payload.get("source_ref")
-                                   if isinstance(payload, dict) else None),
+        "source_ref": boundary.get(
+            "expected_source_ref", payload.get("source_ref") if isinstance(payload, dict) else None
+        ),
         "context_base_dir": boundary.get("context_base_dir"),
         "authoring_context_ref": {key: value for key, value in context.items() if key != "items"},
     }
@@ -426,8 +398,9 @@ def read_agent_task_input(
             {
                 "read_id": read_id(batch),
                 **{key: value for key, value in batch.items() if key != "pages"},
-                **({"pages": [page["page"] for page in batch["pages"]]}
-                   if "pages" in batch else {}),
+                **(
+                    {"pages": [page["page"] for page in batch["pages"]]} if "pages" in batch else {}
+                ),
             }
             for batch in batches
         ]
@@ -450,31 +423,39 @@ def read_agent_task_input(
         result["sources"] = []
         for source in sources:
             pages = {
-                page["page"] for batch in chosen
+                page["page"]
+                for batch in chosen
                 if batch.get("source_id") in {None, source["source"]["source_id"]}
                 for page in batch["pages"]
             }
             if pages:
-                result["sources"].append({
-                    **source,
-                    "pages": [page for page in source["pages"] if page["page_number"] in pages],
-                })
+                result["sources"].append(
+                    {
+                        **source,
+                        "pages": [page for page in source["pages"] if page["page_number"] in pages],
+                    }
+                )
     else:
         kc_ids = {kc_id for batch in chosen for kc_id in batch["kc_ids"]}
         group_ids = {batch["group_id"] for batch in chosen}
         selected = [kc for kc in payload["leaf_kcs"] if kc["kc_id"] in kc_ids]
         source_pages = {
             (evidence.get("source_id"), evidence["page"])
-            for kc in selected for evidence in kc["source_evidence"]
+            for kc in selected
+            for evidence in kc["source_evidence"]
         }
         result["payload"] = {
             **payload,
             "leaf_kcs": selected,
-            "kc_groups": [group for group in payload["kc_groups"]
-                          if group["group_id"] in group_ids],
+            "kc_groups": [
+                group for group in payload["kc_groups"] if group["group_id"] in group_ids
+            ],
             "authoring_batches": chosen,
-            "media_assets": [asset for asset in payload.get("media_assets", [])
-                             if (asset.get("source_id"), asset["page"]) in source_pages],
+            "media_assets": [
+                asset
+                for asset in payload.get("media_assets", [])
+                if (asset.get("source_id"), asset["page"]) in source_pages
+            ],
         }
     return result
 
@@ -486,7 +467,14 @@ def _task_audit_fields(task: dict[str, Any] | None) -> dict[str, Any]:
             "prompt_package_sha256": None,
         }
     lineage = task.get("prompt_lineage") or {}
+    if task.get("binding_mode") == "delivery_time":
+        return {
+            "task_binding_mode": "delivery_time",
+            "prompt_delivery_sha256": None,
+            "prompt_package_sha256": None,
+        }
     return {
+        "task_binding_mode": "supplied_package",
         "prompt_delivery_sha256": task.get("prompt_delivery_sha256"),
         "prompt_package_sha256": lineage.get("package_sha256"),
     }
@@ -511,6 +499,32 @@ def _preserve_candidate(
     return raw, digest, destination
 
 
+def _archive_revision(root: Path, stage: str, canonical: Path) -> None:
+    """Keep previous delivered bytes and their technical findings before replacement."""
+
+    if not canonical.is_file():
+        return
+    a = RunArtifacts(root if stage != "quiz" else root / "quiz")
+    related = {
+        "extraction": [a.metadata, a.audit, a.metrics],
+        "kc": [a.kc_metadata, a.kc_metrics],
+        "quiz": [
+            a.quiz_metadata,
+            a.quiz_input,
+            a.quiz_form_audit,
+            a.quiz_metrics,
+            root / "quiz" / AUDIT_FILENAME,
+            root / "quiz" / AUDIT_METADATA_FILENAME,
+        ],
+    }
+    folder = _session_dir(root) / "revisions" / stage / sha256_file(canonical)
+    for path in [canonical, *related.get(stage, [])]:
+        if path.is_file():
+            saved = folder / path.name
+            if not saved.exists():
+                write_bytes(saved, path.read_bytes())
+
+
 def _candidate_attempt_records(
     stage: AgentStage,
     run_dir: Path,
@@ -530,141 +544,47 @@ def _candidate_attempt_records(
     return records
 
 
-def _record_allows_fresh_retry(
-    stage: AgentStage,
-    run_dir: Path,
-    record: dict[str, Any],
-) -> bool:
-    explicit = record.get("fresh_retry_authorized")
-    if isinstance(explicit, bool):
-        return explicit
-    if record.get("status") == "CONTRACT_INVALID":
-        return True
-    if stage == "quiz":
-        metadata_path = RunArtifacts(run_dir / "quiz").quiz_metadata
-        if metadata_path.is_file():
-            metadata = read_json(metadata_path)
-            return bool(
-                metadata.get("candidate_raw_sha256") == record.get("candidate_raw_sha256")
-                and metadata.get("quality_revision_recommended") is True
-            )
-    return False
-
-
 def _start_candidate_attempt(
     stage: AgentStage,
     run_dir: Path,
     raw_sha256: str,
     task: dict[str, Any],
 ) -> dict[str, Any]:
-    """Authorize one initial candidate plus at most one justified fresh retry."""
+    """Record revisions without treating schema validity as an editorial stop."""
 
-    task_fingerprint = task["task_fingerprint"]
-    records = _candidate_attempt_records(stage, run_dir, task_fingerprint)
+    records = _candidate_attempt_records(stage, run_dir, task["task_fingerprint"])
     by_hash = {record["candidate_raw_sha256"]: record for record in records}
     prior = by_hash.get(raw_sha256)
-    if prior is not None:
-        if prior.get("status") in {"RETRY_NOT_AUTHORIZED", "RETRY_LIMIT_EXCEEDED"}:
-            raise CandidateAttemptPolicyError(
-                "this candidate was already archived and rejected by the retry policy",
-                status=str(prior["status"]),
-                attempt_number=int(prior.get("candidate_attempt_number") or len(by_hash)),
-                distinct_candidate_count_before=len(by_hash),
-            )
-        return {
-            "candidate_attempt_number": int(prior.get("candidate_attempt_number") or 1),
-            "distinct_candidate_count_before": len(by_hash),
-            "identical_reimport": True,
-            "prior_fresh_retry_authorized": bool(prior.get("fresh_retry_authorized")),
-            "prior_fresh_retry_reason": prior.get("fresh_retry_reason"),
-        }
-
-    distinct_count = len(by_hash)
-    if distinct_count >= 2:
-        raise CandidateAttemptPolicyError(
-            "at most two distinct candidates are permitted for this stage and frozen task",
-            status="RETRY_LIMIT_EXCEEDED",
-            attempt_number=distinct_count + 1,
-            distinct_candidate_count_before=distinct_count,
-        )
-    if distinct_count == 1:
-        first = next(iter(by_hash.values()))
-        if not _record_allows_fresh_retry(stage, run_dir, first):
-            raise CandidateAttemptPolicyError(
-                "a fresh retry is not authorized after the first candidate outcome",
-                status="RETRY_NOT_AUTHORIZED",
-                attempt_number=2,
-                distinct_candidate_count_before=1,
-            )
     return {
-        "candidate_attempt_number": distinct_count + 1,
-        "distinct_candidate_count_before": distinct_count,
-        "identical_reimport": False,
+        "candidate_attempt_number": (
+            int(prior.get("candidate_attempt_number") or len(by_hash))
+            if prior
+            else len(by_hash) + 1
+        ),
+        "distinct_candidate_count_before": len(by_hash),
+        "identical_reimport": prior is not None,
     }
 
 
-def _load_required_import_task(
+def _resolve_import_task(
     stage: AgentStage,
     run_dir: Path,
     task_package: Path | None,
+    **options: Any,
 ) -> dict[str, Any]:
-    if task_package is None:
-        raise TaskPackageRequiredError(
-            f"{stage} import requires the exact frozen --task-package from agent-task"
-        )
+    """Bind current inputs at delivery, or verify a supplied earlier binding."""
+
+    delivery_time = task_package is None
+    if delivery_time:
+        if stage == "quiz-review":
+            options["reviewer_mode"] = "self_review"
+        prepared = prepare_agent_task(stage, run_dir, **options)
+        task_package = Path(prepared["task_package"])
     task = _load_task_package(stage, run_dir, task_package)
     if task.get("task_package_version") != "agent-task.v3":
-        raise ValueError("current agent imports require an official agent-task.v3 package")
+        raise ValueError("this adapter requires an agent-task.v3 binding")
+    task["binding_mode"] = "delivery_time" if delivery_time else "supplied_package"
     return task
-
-
-def _import_error_status(error: Exception) -> str:
-    if isinstance(error, CandidateAttemptPolicyError):
-        return error.status
-    if isinstance(error, TaskPackageRequiredError):
-        return "TASK_PACKAGE_REQUIRED"
-    return "CONTRACT_INVALID"
-
-
-def _error_attempt(
-    error: Exception,
-    attempt: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    if not isinstance(error, CandidateAttemptPolicyError):
-        return attempt
-    return {
-        "candidate_attempt_number": error.attempt_number,
-        "distinct_candidate_count_before": error.distinct_candidate_count_before,
-        "identical_reimport": False,
-    }
-
-
-def _contract_failure_retry_authorized(
-    task: dict[str, Any] | None,
-    attempt: dict[str, Any] | None,
-    error: Exception,
-) -> bool:
-    if attempt and attempt.get("prior_fresh_retry_authorized") is True:
-        return True
-    return bool(
-        task
-        and attempt
-        and attempt["candidate_attempt_number"] == 1
-        and not attempt["identical_reimport"]
-        and _import_error_status(error) == "CONTRACT_INVALID"
-    )
-
-
-def _contract_failure_retry_reason(
-    task: dict[str, Any] | None,
-    attempt: dict[str, Any] | None,
-    error: Exception,
-) -> str | None:
-    if attempt and attempt.get("prior_fresh_retry_authorized") is True:
-        return attempt.get("prior_fresh_retry_reason") or "initial_candidate_contract_failure"
-    if _contract_failure_retry_authorized(task, attempt, error):
-        return "initial_candidate_contract_failure"
-    return None
 
 
 def _unavailable_metrics() -> dict[str, Any]:
@@ -694,15 +614,13 @@ def _write_import_record(
     task_fingerprint: str | None = None,
     task: dict[str, Any] | None = None,
     attempt: dict[str, Any] | None = None,
-    fresh_retry_authorized: bool = False,
-    fresh_retry_reason: str | None = None,
     canonical_write_performed: bool = False,
 ) -> Path:
     task_key = task_fingerprint or "unbound"
     record_path = _session_dir(run_dir) / "imports" / f"{stage}-{task_key}-{raw_sha256}.json"
     errors = None
     if isinstance(error, ValidationError):
-        errors = error.errors(include_url=False, include_context=False)
+        errors = error.errors(include_url=False, include_context=False, include_input=False)
     write_json(
         record_path,
         {
@@ -723,8 +641,7 @@ def _write_import_record(
                 attempt.get("distinct_candidate_count_before") if attempt else None
             ),
             "identical_reimport": attempt.get("identical_reimport") if attempt else False,
-            "fresh_retry_authorized": fresh_retry_authorized,
-            "fresh_retry_reason": fresh_retry_reason,
+            "revisions_allowed": True,
             "canonical_proposed_path": str(canonical_path) if canonical_path else None,
             "canonical_write_performed": canonical_write_performed,
             "human_review_required": True,
@@ -746,7 +663,7 @@ def agent_init(
     context_files: tuple[Path, ...] = (),
     context_texts: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    """Prepare source assets and a deterministic native-text Extraction."""
+    """Prepare source assets and an optional raw reading, not semantic Extraction."""
 
     output = run_dir.expanduser().resolve()
     source, manifest, reused = prepare_or_reuse_source(
@@ -757,7 +674,7 @@ def agent_init(
     )
     context = prepare_authoring_context(output, source, context_files, context_texts)
     context_ref = _context_ref(output, context)
-    extraction = build_native_extraction(output)
+    extraction = build_native_reading(output)
     session_manifest = _session_dir(output) / "session.json"
     write_json(
         session_manifest,
@@ -772,7 +689,7 @@ def agent_init(
             "source_reused": reused,
             "render_dpi": render_dpi,
             "authoring_context": context_ref,
-            "status": "EXTRACTION_PROPOSED",
+            "status": "SOURCE_READY_FOR_AGENT_EXTRACTION",
             "human_review_required": True,
             "created_at": _now(),
         },
@@ -786,7 +703,7 @@ def agent_init(
         "execution_mode": EXECUTION_MODE,
         "provider_api_calls": 0,
         "generation_performed": False,
-        "extraction": extraction,
+        "raw_reading": extraction,
         "session_manifest": str(session_manifest),
         "authoring_context": context_ref,
     }
@@ -987,7 +904,7 @@ def _validate_official_task_prompt_material(
 
     if stage == "extraction":
         instructions, fields = _native_extraction_prompt_fields()
-        expected_instructions = _legacy_extraction_instructions(instructions)
+        expected_instructions = _extraction_instructions(instructions)
         schema = agent_schema("extraction")
     elif stage == "kc":
         bundle_mode = (root / SOURCE_BUNDLE_MANIFEST).is_file()
@@ -1070,9 +987,9 @@ def _kc_input_boundary(
         "inspection_batches": _inspection_batches(root, extracted),
         "inspection_policy": {
             "purpose": "bounded_source_inventory_before_global_kc_reconciliation",
-            "process_in_order": True,
+            "process_in_order": False,
             "batch_boundaries_are_operational_not_semantic_sections": True,
-            "inspect_page_image_only_when_text_is_insufficient": True,
+            "tool_choice": "agent_selected",
         },
         "authoring_context": context.model_dump(mode="json") if context else None,
         "context_base_dir": str(root) if context else None,
@@ -1116,13 +1033,10 @@ def _inspection_batches(
             {
                 "page": page.page_number,
                 "block_ids": list(page.reading_order),
-                "image_locator": str(
-                    source_root / "pages" / f"page-{page.page_number:04d}.png"
-                ),
+                "image_locator": str(source_root / "pages" / f"page-{page.page_number:04d}.png"),
                 "visual_review_recommended": any(
-                    warning.code in {
-                        "NO_NATIVE_TEXT", "TEXT_GEOMETRY_UNRESOLVED", "GRAPHICS_PRESENT"
-                    }
+                    warning.code
+                    in {"NO_NATIVE_TEXT", "TEXT_GEOMETRY_UNRESOLVED", "GRAPHICS_PRESENT"}
                     for warning in page.warnings
                 ),
             }
@@ -1203,10 +1117,10 @@ def _bundle_kc_input_boundary(
         "inspection_batches": inspection_batches,
         "inspection_policy": {
             "purpose": "per_source_bounded_inventory_before_cross_source_reconciliation",
-            "process_in_order": True,
+            "process_in_order": False,
             "batch_boundaries_are_operational_not_semantic_sections": True,
             "never_project_page_ordinals_across_sources": True,
-            "inspect_page_image_only_when_text_is_insufficient": True,
+            "tool_choice": "agent_selected",
         },
         "authoring_context": context.model_dump(mode="json") if context else None,
         "context_base_dir": str(root) if context else None,
@@ -1236,6 +1150,7 @@ def _load_quiz_kc_set(root: Path, raw_kc_set: dict[str, Any]) -> QuizKCSet:
     A bundle root may not silently downgrade to an ambiguous one-PDF KC contract.
     """
 
+    require_current_revision(root, "kc")
     source_ref = raw_kc_set.get("source_ref")
     bundle_artifact = isinstance(source_ref, dict) and (
         source_ref.get("schema_version") == "source-bundle.v1"
@@ -1372,8 +1287,6 @@ def prepare_agent_task(
             },
         )
     if stage == "extraction":
-        # Historical compatibility only. The v3 skill never calls this branch:
-        # agent-init already creates the canonical deterministic Extraction.
         prompt_instructions, prompt_fields = _native_extraction_prompt_fields()
         source = _manifest_source(root)
         artifacts = RunArtifacts(root)
@@ -1389,7 +1302,7 @@ def prepare_agent_task(
         ]
         task = {
             **common,
-            "instructions": _legacy_extraction_instructions(prompt_instructions),
+            "instructions": _extraction_instructions(prompt_instructions),
             **prompt_fields,
             "input_boundary": {
                 "delivery": "native_pdf_primary",
@@ -1399,10 +1312,10 @@ def prepare_agent_task(
                 "source_pdf_sha256": sha256_file(artifacts.source_pdf),
                 "page_images": page_refs,
                 "page_image_policy": {
-                    "role": "targeted_single_page_fallback_locator_only",
-                    "bulk_load_forbidden": True,
+                    "role": "source_representations_for_agent_reading",
+                    "batching": "agent_selected",
                 },
-                "text_audit_role": "diagnostic_only_not_agent_input",
+                "text_audit_role": "optional_raw_reading_not_semantic_extraction",
             },
         }
         return _write_task_package(stage, root, task)
@@ -1498,7 +1411,7 @@ def _validate_source_binding(extracted: ExtractedSource, source: SourceDescripto
 
 def _contract_error(path: Path, exc: Exception, raw_path: Path) -> None:
     errors = (
-        exc.errors(include_url=False, include_context=False)
+        exc.errors(include_url=False, include_context=False, include_input=False)
         if isinstance(exc, ValidationError)
         else None
     )
@@ -1539,7 +1452,7 @@ def import_extraction(
     task: dict[str, Any] | None = None
     attempt: dict[str, Any] | None = None
     try:
-        task = _load_required_import_task("extraction", root, task_package)
+        task = _resolve_import_task("extraction", root, task_package)
         attempt = _start_candidate_attempt("extraction", root, raw_sha256, task)
         source = _manifest_source(root)
         frozen = task["input_boundary"]
@@ -1559,13 +1472,11 @@ def import_extraction(
             run_dir=root,
             raw_path=raw_path,
             raw_sha256=raw_sha256,
-            status=_import_error_status(exc),
+            status="CONTRACT_INVALID",
             error=exc,
             task_fingerprint=task["task_fingerprint"] if task else None,
             task=task,
-            attempt=_error_attempt(exc, attempt),
-            fresh_retry_authorized=_contract_failure_retry_authorized(task, attempt, exc),
-            fresh_retry_reason=_contract_failure_retry_reason(task, attempt, exc),
+            attempt=attempt,
         )
         raise
 
@@ -1579,9 +1490,7 @@ def import_extraction(
         }
     )
     guidance = audit["fresh_candidate_guidance"]
-    promoted = not guidance["recommended"]
-    attempt_number = int(attempt["candidate_attempt_number"]) if attempt else 1
-    status = "PROPOSED" if promoted else ("RETRY_REQUIRED" if attempt_number == 1 else "REVIEW")
+    status = "REVIEW" if guidance["recommended"] else "PROPOSED"
     metadata = {
         "stage": "extract",
         "stage_version": IMPORT_VERSION,
@@ -1598,7 +1507,7 @@ def import_extraction(
         "output_schema_version": extracted.schema_version,
         "human_review_required": True,
         "approval_status": status,
-        "promotion_gate_passed": promoted,
+        "promotion_gate_passed": True,
         "promotion_trigger_codes": guidance["trigger_codes"],
         "created_at": _now(),
     }
@@ -1617,52 +1526,42 @@ def import_extraction(
         "total_elapsed_seconds": round(time.perf_counter() - started, 6),
         "reconstruction_ready": audit["reconstruction_ready"],
         "missing_geometry_block_count": audit["missing_geometry_block_count"],
-        "promotion_gate_passed": promoted,
+        "promotion_gate_passed": True,
         "promotion_trigger_codes": guidance["trigger_codes"],
         "completed_at": _now(),
         **_unavailable_metrics(),
     }
+    _archive_revision(root, "extraction", artifacts.proposed)
+    previous_hash = sha256_file(artifacts.proposed) if artifacts.proposed.is_file() else None
     write_json(artifacts.metadata, metadata)
-    if promoted:
-        write_json(artifacts.proposed, extracted.model_dump(mode="json"))
-    elif attempt_number >= 2:
-        write_bytes(root / "extracted-source.review.json", raw)
+    write_json(artifacts.proposed, extracted.model_dump(mode="json"))
+    record_revision_state(root, "extraction", previous_hash, artifacts.proposed)
     write_json(artifacts.audit, audit)
     write_json(artifacts.metrics, metrics)
     artifacts.contract_errors.unlink(missing_ok=True)
-    review_path = build_review(root) if promoted else None
+    review_path = build_review(root)
     import_record = _write_import_record(
         stage="extraction",
         run_dir=root,
         raw_path=raw_path,
         raw_sha256=raw_sha256,
         status=status,
-        canonical_path=artifacts.proposed if promoted else None,
+        canonical_path=artifacts.proposed,
         task_fingerprint=task["task_fingerprint"],
         task=task,
         attempt=attempt,
-        fresh_retry_authorized=bool(not promoted and attempt_number == 1),
-        fresh_retry_reason=(
-            "deterministic_extraction_promotion_gate"
-            if not promoted and attempt_number == 1
-            else None
-        ),
-        canonical_write_performed=promoted,
+        canonical_write_performed=True,
     )
     return {
         "stage": "extraction",
         "status": status,
-        "proposed": str(artifacts.proposed) if promoted else None,
-        "review_candidate": (
-            str(root / "extracted-source.review.json")
-            if not promoted and attempt_number >= 2
-            else None
-        ),
+        "proposed": str(artifacts.proposed),
+        "review_candidate": None,
         "review": str(review_path) if review_path else None,
         "raw_candidate": str(raw_path),
         "raw_candidate_sha256": raw_sha256,
         "import_record": str(import_record),
-        "promotion_gate_passed": promoted,
+        "promotion_gate_passed": True,
         "promotion_trigger_codes": guidance["trigger_codes"],
         "next_quality_action": guidance["next_action"],
         **_unavailable_metrics(),
@@ -1726,7 +1625,12 @@ def import_kc(
     attempt: dict[str, Any] | None = None
     bundle_mode = (root / SOURCE_BUNDLE_MANIFEST).is_file()
     try:
-        task = _load_required_import_task("kc", root, task_package)
+        task = _resolve_import_task(
+            "kc",
+            root,
+            task_package,
+            allow_proposed_extraction_demo=allow_proposed_extraction_demo,
+        )
         attempt = _start_candidate_attempt("kc", root, raw_sha256, task)
         allow_proposed_extraction_demo = task["input_boundary"]["upstream_extraction"]["demo_only"]
         if bundle_mode:
@@ -1781,13 +1685,11 @@ def import_kc(
             run_dir=root,
             raw_path=raw_path,
             raw_sha256=raw_sha256,
-            status=_import_error_status(exc),
+            status="CONTRACT_INVALID",
             error=exc,
             task_fingerprint=task["task_fingerprint"] if task else None,
             task=task,
-            attempt=_error_attempt(exc, attempt),
-            fresh_retry_authorized=_contract_failure_retry_authorized(task, attempt, exc),
-            fresh_retry_reason=_contract_failure_retry_reason(task, attempt, exc),
+            attempt=attempt,
         )
         raise
 
@@ -1838,8 +1740,11 @@ def import_kc(
         "completed_at": _now(),
         **_unavailable_metrics(),
     }
+    _archive_revision(root, "kc", artifacts.kc_proposed)
+    previous_hash = sha256_file(artifacts.kc_proposed) if artifacts.kc_proposed.is_file() else None
     write_json(artifacts.kc_metadata, metadata)
     write_bytes(artifacts.kc_proposed, raw)
+    record_revision_state(root, "kc", previous_hash, artifacts.kc_proposed)
     write_json(artifacts.kc_metrics, metrics)
     artifacts.kc_contract_errors.unlink(missing_ok=True)
     review = (
@@ -1904,7 +1809,21 @@ def import_quiz(
     task: dict[str, Any] | None = None
     attempt: dict[str, Any] | None = None
     try:
-        task = _load_required_import_task("quiz", root, task_package)
+        task = _resolve_import_task(
+            "quiz",
+            root,
+            task_package,
+            kc_path=kc_path,
+            selected_kc_ids=selected_kc_ids,
+            include_all_kcs=include_all_kcs,
+            variants_per_kc=variants_per_kc,
+            min_slots_per_kc=min_slots_per_kc,
+            max_slots_per_kc=max_slots_per_kc,
+            variants_per_slot=variants_per_slot,
+            max_variants_per_slot=max_variants_per_slot,
+            total_question_budget=total_question_budget,
+            language=language,
+        )
         attempt = _start_candidate_attempt("quiz", root, raw_sha256, task)
         boundary = task["input_boundary"]
         resolved_kc = Path(boundary["kc_set"]["path"]).expanduser().resolve()
@@ -1952,13 +1871,11 @@ def import_quiz(
             run_dir=root,
             raw_path=raw_path,
             raw_sha256=raw_sha256,
-            status=_import_error_status(exc),
+            status="CONTRACT_INVALID",
             error=exc,
             task_fingerprint=task["task_fingerprint"] if task else None,
             task=task,
-            attempt=_error_attempt(exc, attempt),
-            fresh_retry_authorized=_contract_failure_retry_authorized(task, attempt, exc),
-            fresh_retry_reason=_contract_failure_retry_reason(task, attempt, exc),
+            attempt=attempt,
         )
         raise
 
@@ -2034,60 +1951,40 @@ def import_quiz(
     metadata["quality_revision_trigger_codes"] = fresh_candidate_guidance["trigger_codes"]
     metrics["quality_revision_recommended"] = fresh_candidate_guidance["recommended"]
     metrics["quality_revision_trigger_codes"] = fresh_candidate_guidance["trigger_codes"]
-    promoted = not fresh_candidate_guidance["recommended"]
-    attempt_number = int(attempt["candidate_attempt_number"]) if attempt else 1
-    status = (
-        "EXPERIMENTAL_UNAPPROVED"
-        if promoted
-        else ("RETRY_REQUIRED" if attempt_number == 1 else "REVIEW")
-    )
+    status = "REVIEW" if fresh_candidate_guidance["recommended"] else "EXPERIMENTAL_UNAPPROVED"
     metadata["approval_status"] = status
-    metadata["promotion_gate_passed"] = promoted
-    metrics["promotion_gate_passed"] = promoted
+    metadata["promotion_gate_passed"] = True
+    metrics["promotion_gate_passed"] = True
+    _archive_revision(root, "quiz", artifacts.quiz_proposed)
+    previous_hash = (
+        sha256_file(artifacts.quiz_proposed) if artifacts.quiz_proposed.is_file() else None
+    )
     write_json(artifacts.quiz_input, quiz_input)
     write_json(artifacts.quiz_metadata, metadata)
     write_bytes(artifacts.quiz_raw_output, raw)
-    if promoted:
-        write_bytes(artifacts.quiz_proposed, raw)
-    elif attempt_number >= 2:
-        write_bytes(destination / "quiz-review-required.json", raw)
+    write_bytes(artifacts.quiz_proposed, raw)
+    record_revision_state(root, "quiz", previous_hash, artifacts.quiz_proposed)
     write_json(artifacts.quiz_form_audit, form_audit)
     write_json(artifacts.quiz_metrics, metrics)
     artifacts.quiz_contract_errors.unlink(missing_ok=True)
-    review_path = build_quiz_review(root, candidate_dir=destination) if promoted else None
+    review_path = build_quiz_review(root, candidate_dir=destination)
     import_record = _write_import_record(
         stage="quiz",
         run_dir=root,
         raw_path=raw_path,
         raw_sha256=raw_sha256,
         status=status,
-        canonical_path=artifacts.quiz_proposed if promoted else None,
+        canonical_path=artifacts.quiz_proposed,
         task_fingerprint=task["task_fingerprint"],
         task=task,
         attempt=attempt,
-        fresh_retry_authorized=bool(
-            fresh_candidate_guidance["recommended"]
-            and attempt
-            and attempt["candidate_attempt_number"] == 1
-        ),
-        fresh_retry_reason=(
-            "deterministic_quiz_form_guidance"
-            if fresh_candidate_guidance["recommended"]
-            and attempt
-            and attempt["candidate_attempt_number"] == 1
-            else None
-        ),
-        canonical_write_performed=promoted,
+        canonical_write_performed=True,
     )
     return {
         "stage": "quiz",
         "status": status,
-        "proposed": str(artifacts.quiz_proposed) if promoted else None,
-        "review_candidate": (
-            str(destination / "quiz-review-required.json")
-            if not promoted and attempt_number >= 2
-            else None
-        ),
+        "proposed": str(artifacts.quiz_proposed),
+        "review_candidate": None,
         "review": str(review_path) if review_path else None,
         "raw_candidate": str(raw_path),
         "raw_candidate_sha256": raw_sha256,
@@ -2096,7 +1993,7 @@ def import_quiz(
         "quality_revision_recommended": fresh_candidate_guidance["recommended"],
         "quality_revision_trigger_codes": fresh_candidate_guidance["trigger_codes"],
         "next_quality_action": fresh_candidate_guidance["next_action"],
-        "promotion_gate_passed": promoted,
+        "promotion_gate_passed": True,
         **_unavailable_metrics(),
     }
 
@@ -2107,7 +2004,7 @@ def import_quiz_semantic(
     *,
     task_package: Path | None,
 ) -> dict[str, Any]:
-    """Record an independent initial check without editing or approving any teaching output."""
+    """Record a declared review mode without editing or approving teaching output."""
 
     root = run_dir.expanduser().resolve()
     destination = root / "quiz"
@@ -2116,7 +2013,7 @@ def import_quiz_semantic(
     attempt: dict[str, Any] | None = None
     error_path = destination / "quiz-semantic-contract-errors.json"
     try:
-        task = _load_required_import_task("quiz-review", root, task_package)
+        task = _resolve_import_task("quiz-review", root, task_package)
         attempt = _start_candidate_attempt("quiz-review", root, raw_sha256, task)
         material = quiz_review_material(root)
         reviewer_mode = task["input_boundary"]["reviewer_mode"]
@@ -2149,13 +2046,11 @@ def import_quiz_semantic(
             run_dir=root,
             raw_path=raw_path,
             raw_sha256=raw_sha256,
-            status=_import_error_status(exc),
+            status="CONTRACT_INVALID",
             error=exc,
             task_fingerprint=task["task_fingerprint"] if task else None,
             task=task,
-            attempt=_error_attempt(exc, attempt),
-            fresh_retry_authorized=_contract_failure_retry_authorized(task, attempt, exc),
-            fresh_retry_reason=_contract_failure_retry_reason(task, attempt, exc),
+            attempt=attempt,
         )
         raise
 

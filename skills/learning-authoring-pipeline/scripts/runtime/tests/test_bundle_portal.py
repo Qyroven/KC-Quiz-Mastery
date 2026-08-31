@@ -8,7 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from learning_authoring.artifacts import read_json, sha256_bytes, sha256_file, write_json
+from learning_authoring.artifacts import (
+    read_json,
+    record_revision_state,
+    sha256_bytes,
+    sha256_file,
+    write_json,
+)
 from learning_authoring.authoring_context import prepare_bundle_authoring_context
 from learning_authoring.product.bundle_portal import BundlePortalError, build_bundle_portal
 from learning_authoring.quiz import QuizConfig, build_quiz_input
@@ -133,7 +139,9 @@ def _bind_context(
             "reason": "It bounds the shared concept.",
         }
     ]
+    previous_hash = sha256_file(root / "kc-proposed.json")
     write_json(root / "kc-proposed.json", candidate)
+    record_revision_state(root, "kc", previous_hash, root / "kc-proposed.json")
     return context, candidate
 
 

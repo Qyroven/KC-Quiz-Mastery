@@ -20,7 +20,13 @@ from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from learning_authoring.artifacts import read_json, sha256_file, write_json, write_text
+from learning_authoring.artifacts import (
+    read_json,
+    require_current_revision,
+    sha256_file,
+    write_json,
+    write_text,
+)
 from learning_authoring.authoring_context import load_bundle_authoring_context
 from learning_authoring.contracts import ExtractedSource
 from learning_authoring.quiz_contracts import QuizBatch
@@ -362,6 +368,8 @@ def build_bundle_portal(
     """
 
     root = bundle_root.expanduser().resolve()
+    for stage in ("kc", "quiz"):
+        require_current_revision(root, stage)
     requested_destination = output_dir.expanduser()
     if requested_destination.is_symlink():
         raise BundlePortalError("bundle portal output must be a fresh path")

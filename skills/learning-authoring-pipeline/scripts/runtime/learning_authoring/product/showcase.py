@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
+from learning_authoring.artifacts import require_current_revision
 from learning_authoring.authoring_context import load_authoring_context
 from learning_authoring.contracts import SourceDescriptor
 
@@ -1176,6 +1177,8 @@ def build_showcase(
     if not run_dir_input.is_dir():
         raise PublishSafetyError(f"Run directory does not exist: {run_dir_input}")
     run_dir = run_dir_input.resolve(strict=True)
+    for stage in ("kc", "quiz"):
+        require_current_revision(run_dir, stage)
     output_dir = output_dir.resolve()
     template_dir = (template_dir or DEFAULT_TEMPLATE_DIR).resolve()
     review_backend = _validated_review_backend(review_backend)

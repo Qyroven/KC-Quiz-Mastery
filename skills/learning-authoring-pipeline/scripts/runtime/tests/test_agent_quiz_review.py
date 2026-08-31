@@ -198,7 +198,7 @@ def test_invalid_report_is_archived_without_replacing_previous_valid_report(tmp_
     report["questions"][0]["kc_id"] = "KC-999"
     bad_path = run / "bad-report.json"
     raw = _write_raw(bad_path, report)
-    with pytest.raises(ValueError, match="fresh retry is not authorized"):
+    with pytest.raises(ValueError, match="semantic review has a changed KC or slot"):
         agent_import("quiz-review", run, bad_path, task_package=Path(task["task_package"]))
     assert Path(good["report"]).read_bytes() == original
     assert load_quiz_semantic_state(run)["status"] == "PASS"
@@ -208,14 +208,14 @@ def test_invalid_report_is_archived_without_replacing_previous_valid_report(tmp_
     )
 
 
-def test_missing_review_is_gray_and_cli_requires_frozen_review_mode(tmp_path) -> None:
+def test_missing_review_is_gray_and_unbound_review_must_still_match_contract(tmp_path) -> None:
     run = _quiz_run(tmp_path)
     assert load_quiz_semantic_state(run)["status"] == "NOT_REVIEWED"
     with pytest.raises(SystemExit):
         main(["agent-task", "kc", str(run), "--reviewer-mode", "self_review"])
     unbound = run / "unbound-review.json"
     unbound.write_text("{}\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="exact frozen --task-package"):
+    with pytest.raises(ValueError, match="validation errors for QuizSemanticAudit"):
         main(["agent-import", "quiz-review", str(run), str(unbound)])
     assert any(
         path.read_bytes() == b"{}\n"

@@ -1,8 +1,8 @@
 [project]
 name = "learning-authoring-tool"
-version = "3.2.0"
-description = "Deterministic runtime bundled with the portable Learning Authoring Agent Skill"
-readme = {text = "Bundled deterministic runtime for the Learning Authoring Pipeline Agent Skill.", content-type = "text/markdown"}
+version = "4.0.0"
+description = "Optional source, revision, contract and review helpers for agent-led authoring"
+readme = {text = "Optional local helpers for the Learning Authoring Pipeline Agent Skill.", content-type = "text/markdown"}
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "pydantic>=2.10,<3",

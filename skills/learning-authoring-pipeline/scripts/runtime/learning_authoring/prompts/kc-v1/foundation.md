@@ -14,10 +14,10 @@ Merge paraphrases, examples, and inseparable parts of one capability. Do not mer
 merely because they share a slide, heading, or topic. Do not turn decorative details, isolated
 statistics, speaker biography, agenda text, or unsupported interpretation into KCs.
 
-Extraction is a deterministic inventory of PDF-visible text and approximate geometry. Its page
-notes do not supply semantic summaries. Use the actual cited blocks as evidence. Lecturer context
+Extraction is the agent's source-faithful reading of text, visuals, and their relationships.
+Use its actual cited content as evidence; a raw text reading is not a substitute. Lecturer context
 is supplementary and separately cited; it never becomes PDF evidence.
 
 Every positive KC claim must be entailed by evidence cited on that same KC. If a chart, diagram, or
-spatial relation is necessary, inspect only that page image. If the visual is still ambiguous,
+spatial relation is necessary, inspect the relevant source representations. If the visual is still ambiguous,
 narrow the KC or mark the uncertainty; never guess.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -36,9 +37,7 @@ def test_replacing_personal_skill_keeps_backup_outside_discovery(tmp_path: Path)
     discovered = list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))
     assert discovered == [destination / "SKILL.md"]
     backups = list(
-        (tmp_path / ".agents" / "skill-backups").glob(
-            "learning-authoring-pipeline.backup-*"
-        )
+        (tmp_path / ".agents" / "skill-backups").glob("learning-authoring-pipeline.backup-*")
     )
     assert len(backups) == 1
     assert backups[0].joinpath("local-marker.txt").read_text(encoding="utf-8") == (
@@ -62,3 +61,22 @@ def test_replace_symlink_backs_up_discovery_entry_not_its_target(tmp_path: Path)
     backups = list((tmp_path / ".agents/skill-backups").glob("*.backup-*"))
     assert len(backups) == 1 and backups[0].is_symlink()
     assert backups[0].resolve() == canonical
+
+
+def test_instructions_only_package_installs_without_runtime(tmp_path: Path) -> None:
+    source = tmp_path / "portable-skill"
+    (source / "scripts").mkdir(parents=True)
+    (source / "SKILL.md").write_text("A portable instruction-only fixture.\n")
+    installer = source / "scripts/install_skill.py"
+    shutil.copyfile(INSTALLER, installer)
+    home = tmp_path / "recipient"
+    subprocess.run(
+        [sys.executable, str(installer), "both", "--home", str(home)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for host in (".agents", ".claude"):
+        installed = home / host / "skills/learning-authoring-pipeline"
+        assert (installed / "SKILL.md").read_bytes() == (source / "SKILL.md").read_bytes()
+        assert not (installed / "scripts/runtime").exists()

@@ -15,9 +15,9 @@ def _compact(value: str) -> str:
 def test_extraction_prompt_keeps_unresolved_visuals_source_local() -> None:
     instructions = _compact(load_extraction_prompt_package().instructions)
 
-    assert "Resolve instructional visual relationships independently for this PDF" in (instructions)
-    assert "another PDF cannot resolve" in instructions
-    assert "page/block-scoped warning" in instructions
+    assert "actual edge endpoints/directions" in instructions
+    assert "another source does not recover a missing detail in this PDF" in instructions
+    assert "Warnings identify the affected page/block and remaining gap" in instructions
 
 
 def test_kc_prompts_require_minimal_evidence_spans() -> None:

@@ -1,6 +1,6 @@
 # Connected review portal and optional static publishing
 
-Read this reference when building the default local portal, performing later human review or
+Read this reference when using the optional runtime portal, performing later human review or
 approval, or handling an explicitly requested publication.
 
 For separate Teacher/Student deployments, read [teacher-student.md](teacher-student.md).
@@ -17,7 +17,7 @@ The status vocabulary is:
 - KC: `PROPOSED` and human-review-needed.
 - Quiz: `EXPERIMENTAL_UNAPPROVED` and human-review-needed.
 - Quiz semantic review (optional separate axis): `PASS`, `REVIEW`, `REJECT`, `NOT_REVIEWED`, or
-  `STALE`. The default v3 authoring flow leaves this `NOT_REVIEWED`.
+  `STALE`. The default agent-led authoring flow leaves this `NOT_REVIEWED`.
 - Learning/Mastery: `PROVISIONAL_EVIDENCE_MVP` when built with `--with-learning`, otherwise
   `NOT_ENABLED`. This does not certify the course or a learner's competency.
 
@@ -52,13 +52,13 @@ Approve/Edit/Reject events for Extraction, KC, and Quiz. Raw candidates remain i
 these collaborative events never authorize source mutation or create a canonical approved
 pipeline artifact.
 
-Runtime 0.7 can publish an immutable Learning release from explicitly selected current approved
+The optional product runtime can publish an immutable Learning release from explicitly selected current approved
 KC/question revisions. This is a separate human decision, not a replacement AI check or an edit
 of the original candidate. Missing/unpublished assessment coverage must remain visible.
 
 ## Build the matching connected local portal
 
-Use the installed runtime's deterministic matching portal builder after the authoring root has
+If using the bundled renderer, use its matching portal builder after the authoring root has
 produced Extraction, KC, and Quiz artifacts. A single-source run or exact source bundle is one data
 boundary: never combine review files from unrelated runs/bundles or use checked-in demo content as
 a fallback.
@@ -73,15 +73,15 @@ build:
 <la> bundle-portal-build <bundle-root> --output-dir <fresh-portal-dir>
 ```
 
-Use `portal-build --with-learning` for one source. Use `bundle-portal-build` for an exact source
+Use `portal-build` for one source; add `--with-learning` only when learning features are requested. Use `bundle-portal-build` for an exact source
 bundle; its current surface is connected read-only Authoring review, not the Learning MVP. The CLI
 resolves current artifacts; do not pass paths from a prior run/bundle, rewrite candidate content,
-or manually stitch one-source portals. The portal must connect the journey from current data and
+or mix unrelated one-source portals. The portal must connect the journey from current data and
 its generated manifest:
 
 ```text
 one PDF/source identity or PDF 1..N/source-bundle identity
-  -> deterministic Extraction review(s): PROPOSED (or verified HUMAN_APPROVED on a later rebuild)
+  -> agent-authored Extraction review(s): PROPOSED (or verified HUMAN_APPROVED on a later rebuild)
   -> shared KC review: PROPOSED; upstream PROPOSED_DEMO_ONLY in the default journey
   -> Quiz review: EXPERIMENTAL_UNAPPROVED
   -> when enabled by the selected builder:

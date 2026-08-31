@@ -373,8 +373,7 @@ def _validate_agent_runtime_args(
             parser.error("--task-package freezes source and runtime; do not override stage options")
         return
     if args.command == "agent-import":
-        # The importer archives candidate bytes before reporting the required
-        # frozen-task error.  Rejecting here would lose that audit guarantee.
+        # Imports preserve candidate bytes before binding current inputs or reporting errors.
         return
     if args.reviewer_mode is not None and args.stage != "quiz-review":
         parser.error("--reviewer-mode is valid only for a quiz-review task")

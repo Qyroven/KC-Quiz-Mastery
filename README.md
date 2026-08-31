@@ -1,97 +1,56 @@
 # Learning Authoring Pipeline Agent Skill
 
-One portable Agent Skill that turns one or more course PDFs plus optional lecturer context into
-deterministic Extraction, shared Knowledge Components, Quiz variants with hints and scoring,
-deterministic findings, and a connected local portal.
+Read one or more PDFs, including their informative visuals, into faithful Extraction, shared
+Knowledge Components, and Quiz with hints and scoring. Optional lecturer notes/context join at KC
+with separate provenance. The active coding agent authors all three stages; tools support its work.
 
-The active coding agent authors semantic output. The bundled deterministic runtime prepares
-sources, freezes task packages, validates contracts, preserves raw candidates, and renders review
-surfaces. It does not call a model-provider API.
-
-## Repository layout
-
-```text
-skills/
-  learning-authoring-pipeline/
-    SKILL.md
-    agents/openai.yaml
-    references/
-      session-workflow.md
-      review-and-publish.md
-      learning-mvp.md
-      teacher-student.md
-    scripts/
-      install_skill.py
-      runtime/                 deterministic harness bundled with the skill
-```
-
-The repository has one canonical skill package. Runtime code, prompt packages, review assets,
-database contracts, and regression tests live under `scripts/runtime/` because they support that
-skill; they are not separate root-level products. Generated runs, credentials, caches, local
-environments, and deployed output are excluded.
+The skill sets learning and delivery criteria, not a fixed tool sequence. It does not prescribe a
+model, native-text-only reading, page/KC/question quota, or a candidate-attempt cap. It never calls a
+model-provider API. A particular host's tools and file access still determine what it can read;
+unreadable content must be reported rather than invented.
 
 ## Install
 
-Requirements: Python 3.12 and `uv`.
+Clone the repository, then copy the skill into the desired agent's discovery directory:
 
-```bash
-git clone https://github.com/Qyroven/KC-Quiz-Mastery.git
-cd KC-Quiz-Mastery
-python3 skills/learning-authoring-pipeline/scripts/install_skill.py codex
-python3 skills/learning-authoring-pipeline/scripts/install_skill.py claude
-```
+    git clone https://github.com/Qyroven/KC-Quiz-Mastery.git
+    cd KC-Quiz-Mastery
+    python3 skills/learning-authoring-pipeline/scripts/install_skill.py codex
+    python3 skills/learning-authoring-pipeline/scripts/install_skill.py claude
 
-To replace an older personal installation while keeping a recoverable backup outside skill
-discovery:
+To replace both existing installations:
 
-```bash
-python3 skills/learning-authoring-pipeline/scripts/install_skill.py both --replace
-```
+    python3 skills/learning-authoring-pipeline/scripts/install_skill.py both --replace
 
-The installed skill contains its own runtime but omits tests, caches, build output, and local
-virtual environments. Invoke `$learning-authoring-pipeline` in a coding agent and attach one or more
-PDFs plus any optional notes or context.
+Backups stay outside skill discovery. The installer needs Python 3; it does not install or launch
+a runtime. For another Agent Skills-compatible host, copy the learning-authoring-pipeline folder
+into that host's skill directory. Invocation syntax and available tools vary by host.
 
-## Authoring flow
+Invoke the skill and supply the PDFs plus optional notes and the requested outputs. For example:
 
-```text
-PDF 1..N
-  -> deterministic native-text/geometry Extraction per PDF
-  -> one shared Knowledge Component set
-  -> evidence-based Quiz slots and variants
-  -> hints + answer/rubric
-  -> deterministic checks (semantic state remains NOT_REVIEWED)
-  -> connected local review portal
-```
+> Use $learning-authoring-pipeline to read all supplied documents and produce separate Extraction,
+> KC Group/Leaf, and Quiz JSON with hints and answers/rubrics. Preserve sources and revisions,
+> disclose gaps, and provide a connected local review portal.
 
-Optional context joins at KC with separate provenance; it never becomes slide geometry. Counts are
-derived from source-supported capabilities and assessment needs rather than fixed page, KC, Bloom,
-or question quotas. Candidates stay immutable and review states remain honest.
+## Package
 
-Quiz stimuli can combine text, tables, formulas and source-bound page images/crops. The local portal
-embeds the selected PNGs, so a source citation is not mistaken for a figure the learner can see.
-File/contract checks do not establish visual meaning, question quality or learner mastery.
+One canonical skill lives in skills/learning-authoring-pipeline. SKILL.md and
+references/session-workflow.md contain the authoring criteria. Other references are loaded only
+for the optional helpers, publishing, or learning applications.
 
-Long inputs stay in a frozen task package. `agent-read` lists its reading batches, then returns
-only the selected source pages, lecturer context, or KC batches without rewriting them. Extraction
-also supplies geometry-derived `layout_text` alongside the original blocks; neither native text nor
-a graphics flag proves that a diagram, table, or code example has been understood.
+scripts/runtime contains optional existing source/contract/review helpers, their assets and
+technical tests. Using them requires Python 3.12 and uv; using the skill's instructions does not.
+They prepare raw readings, not semantic Extraction, and preserve authored revisions. Their renderer
+contracts are not a universal limit on question types or source content. Do not drop information
+to fit a helper. Generated runs, credentials, local environments and caches are excluded.
 
-Choice counts follow the question rather than a four-option template. An integrated constructed
-response may cover related assessment slots when each slot has its own cited evidence and rubric
-criteria. These items are available for authoring/review; the optional Learning export rejects them
-until it can record per-slot results, rather than treating one whole-question score as evidence for
-every KC. Ordinary single-slot items keep their existing export path.
+## Verify helpers
 
-## Develop and verify
+    cd skills/learning-authoring-pipeline/scripts/runtime
+    uv sync --extra dev
+    uv run pytest -q
+    uv run ruff check .
 
-```bash
-cd skills/learning-authoring-pipeline/scripts/runtime
-uv sync --extra dev
-uv run pytest -q
-uv run ruff check .
-uv run learning-authoring --help
-```
-
-Read [`SKILL.md`](skills/learning-authoring-pipeline/SKILL.md) for the operating boundary and its
-routed references for detailed workflows.
+These tests check software behavior, not pedagogical quality. Author self-checks, independent review,
+human approval, and learner validation are distinct. No claim that the skill beats a baseline
+follows from installation, schema validity, provenance, or passing technical tests.

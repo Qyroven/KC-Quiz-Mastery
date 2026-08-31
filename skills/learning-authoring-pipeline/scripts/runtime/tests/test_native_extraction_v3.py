@@ -10,15 +10,15 @@ from learning_authoring.native_extraction import _Glyph, _layout_text, _page_fro
 from tests.conftest import write_blank_pdf, write_text_pdf
 
 
-def test_agent_init_creates_deterministic_native_text_extraction(tmp_path) -> None:
+def test_agent_init_keeps_native_text_as_raw_reading_only(tmp_path) -> None:
     pdf = tmp_path / "native.pdf"
     run = tmp_path / "run"
     write_text_pdf(pdf)
 
     initialized = agent_init(pdf, run)
-    extracted = ExtractedSource.model_validate(read_json(run / "extracted-source.proposed.json"))
+    extracted = ExtractedSource.model_validate(read_json(run / "native-source.raw.json"))
 
-    assert initialized["extraction"]["method"] == "native-text-geometry.v2"
+    assert initialized["raw_reading"]["method"] == "native-text-geometry.v2"
     assert [block.content for block in extracted.pages[0].blocks] == [
         "Native title",
         "Second source line",
@@ -33,8 +33,9 @@ def test_agent_init_creates_deterministic_native_text_extraction(tmp_path) -> No
         )
         == 2
     )
-    assert read_json(run / "extraction-metadata.json")["semantic_generation_performed"] is False
-    assert (run / "extraction-review.html").is_file()
+    assert read_json(run / "native-source-metadata.json")["semantic_extraction_performed"] is False
+    assert not (run / "extracted-source.proposed.json").exists()
+    assert not (run / "extraction-review.html").exists()
 
 
 def test_blank_native_page_is_explicit_visual_review_not_invented_text(tmp_path) -> None:
@@ -43,14 +44,14 @@ def test_blank_native_page_is_explicit_visual_review_not_invented_text(tmp_path)
     write_blank_pdf(pdf)
 
     agent_init(pdf, run)
-    extracted = ExtractedSource.model_validate(read_json(run / "extracted-source.proposed.json"))
+    extracted = ExtractedSource.model_validate(read_json(run / "native-source.raw.json"))
 
     assert extracted.pages[0].blocks == []
     assert [warning.code for warning in extracted.pages[0].warnings] == ["NO_NATIVE_TEXT"]
-    assert read_json(run / "run-metrics.json")["targeted_visual_review_page_count"] == 1
+    assert read_json(run / "native-source-metadata.json")["pages_with_inspection_findings"] == 1
 
 
-def test_legacy_extraction_task_is_labeled_and_not_part_of_v3_default(tmp_path) -> None:
+def test_extraction_task_is_agent_led_not_a_legacy_only_adapter(tmp_path) -> None:
     pdf = tmp_path / "blank.pdf"
     run = tmp_path / "run"
     write_blank_pdf(pdf)
@@ -59,8 +60,8 @@ def test_legacy_extraction_task_is_labeled_and_not_part_of_v3_default(tmp_path) 
     task = prepare_agent_task("extraction", run)
     package = read_json(Path(task["task_package"]))
 
-    assert package["instructions"].startswith("LEGACY ARTIFACT COMPATIBILITY ONLY")
-    assert (run / "extracted-source.proposed.json").is_file()
+    assert package["input_boundary"]["page_image_policy"]["batching"] == "agent_selected"
+    assert not (run / "extracted-source.proposed.json").exists()
 
 
 def test_layout_keeps_indentation_columns_and_split_punctuation_without_invented_words():

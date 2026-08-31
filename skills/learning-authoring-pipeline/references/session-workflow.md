@@ -1,104 +1,94 @@
-# Session workflow
+# Authoring outcomes
 
-`<la>` means one resolved `learning-authoring` launcher. Keep raw stage outputs unchanged.
+Use the active agent's reading, visual reasoning, coding, and editing capabilities. The stages
+below describe what must survive into the deliverables, not a fixed execution protocol. Work in
+sections when useful; section size and tool choice follow source complexity and host capacity.
 
-## 1. Initialize every PDF
+## Extraction: preserve the source before organizing learning
 
-Use one fresh subrun per PDF:
+Read every page of every supplied document. Inspect visual representations at sufficient
+resolution to read meaningful labels and relationships, even on pages with abundant native text.
+Use PDF reading, text extraction, rendering, zooming, OCR, or scripts as appropriate. A thumbnail
+may help navigation but does not prove its fine details were read.
 
-```bash
-<la> source-preflight <pdf> <source-run>
-<la> agent-init <pdf> <source-run> [--context-file <file>] [--context-text <text>]
-```
+Retain the source's language, terms, numbers, units, signs, conditions, code indentation, and
+meaningful structure: table cell associations, diagram direction/endpoints, chart axes/legends,
+formula structure, grouping and continuation. Preserve visible content instead of replacing it
+with a lesson summary. Keep a source image or region reference where a text representation alone
+would lose information. Do not invent precision, hidden values, or spatial relationships.
 
-`agent-init` hashes/copies the PDF, renders pages, extracts native text plus character-derived
-geometry, writes the proposed Extraction, builds its audit, and creates `extraction-review.html`.
-It performs no semantic summary. Layout text preserves indentation and horizontal gaps where
-geometry supports them; it is not a code/table interpretation. Visual flags are triage hints, not
-proof that other pages contain no meaningful graphics. Do not run `agent-task extraction` in a new
-v3 journey; that adapter exists only to
-open historical v2 task artifacts.
+Keep raw files and machine readings separate from agent-authored Extraction. Identify each source
+and its own page numbers. Each page must be accounted for, including blank or non-teaching pages;
+each unresolved region must say what could not be read. A page list is navigation/accountability,
+not proof of semantic completeness. Compare the extracted content back to the actual source.
 
-Context is stored separately. Sparse notes are valid; do not require one note per page.
+If the source appears wrong, preserve its statement and record the issue separately. Do not
+replace it with background knowledge. External checking, if authorized, stays separately cited.
+Sparse or unstructured notes are accepted as additional context at KC, not injected into PDF
+blocks. Infer note-to-source mapping only when supported; otherwise retain unmapped context.
 
-## 2. Select the KC root
+## Shared KC: organize independently learnable capabilities
 
-For one PDF, use its source run. For multiple PDFs, place all source subruns inside a fresh bundle
-root and freeze their order:
+A Leaf KC is the smallest coherent capability with its own observable learner evidence and
+remediation. Split independent capabilities, not every noun, number, or sentence. Merge paraphrases
+and inseparable parts; repeated subject matter alone does not justify merging. A Group organizes
+related Leaf KCs and is not itself a separate mastery claim.
 
-```bash
-<la> agent-bundle <bundle-root> <source-run-1> ... <source-run-N> \
-  [--context-file <file>] [--context-text <text>]
-```
+For each Leaf KC retain its name, concrete knowledge description, observable claim, included and
+excluded scope, group, and source-qualified evidence. Distinguish pedagogical design (objectives,
+misconceptions, assessment intent) from claims actually made by the sources. Every content claim
+needs supporting evidence, including material conditions and exceptions.
 
-Order establishes identity, not page alignment or semantic priority.
+Across PDFs, keep the distinct source identities, contexts, and disagreements. Another source may
+support a shared KC but does not repair an unreadable figure in the first source. Account for
+meaningful source and lecturer-context content as represented, excluded with a reason, or unresolved.
+If KC work exposes an Extraction omission, return to that source and revise Extraction; do not hide
+the missing source meaning only inside a KC. Do not compress the inventory to fit a schema or count.
 
-## 3. Author shared KC
+## Quiz: elicit the target work
 
-```bash
-<la> agent-task kc <run-or-bundle> --allow-proposed-extraction-demo
-<la> agent-read <task-package.json>
-<la> agent-read <task-package.json> --batch <batch-id>
-# Read the emitted instructions and each indexed source/context batch; author fresh kc.json.
-<la> agent-import kc <run-or-bundle> <kc.json> --task-package <task-package.json>
-<la> kc-review <run-or-bundle> --allow-proposed-extraction-demo
-```
+Choose the evidence target first, then an appropriate response and useful variants. An assessment
+slot describes that target; it need not be produced by a separate planning step. No default total
+question budget, per-KC multiplier, Bloom ladder, or interaction mix is required. Respect quantities
+only when the user supplies them, and disclose any resulting unmeasured targets.
 
-Within the task, read `inspection_batches` in order. Preserve capabilities and their evidence in
-the working inventory before reconciling the complete source set. Read indexed lecturer-context
-items separately with `--context-id`. Inspect page images where layout matters; native text alone
-cannot confirm a table, diagram or code layout.
-Trace every positive claim to evidence cited on that KC. Use `uncovered_content` for meaningful
-source material intentionally excluded or unresolved. The demo flag keeps the journey continuous;
-it does not create approval.
+Provide a clear task, all necessary givens, the answer or rubric, an explanation, and helpful hints
+when possible. Include the actual figure/table/code/formula when the task depends on it. A source
+reference is not learner-visible content. Invented scenarios must supply their assumptions and must
+not masquerade as source observations. Keep the inference being tested out of the givens.
 
-## 4. Author Quiz, hints, and scoring
+Selected responses need plausible alternatives without length, tone, position or wording giveaways.
+Constructed responses need criteria that accept valid equivalent answers and reject consequential
+errors, not mandatory keywords or extra deliverables absent from the question. Integrated tasks
+may cover related targets only when their scored evidence is separable. Do not force calculation,
+visual identification, or programming into prose just because a renderer supports prose.
 
-```bash
-<la> agent-task quiz <run-or-bundle> --include-all-kcs
-<la> agent-read <task-package.json>
-<la> agent-read <task-package.json> --batch <batch-id>
-# --batch can repeat for a coherent case spanning groups. Author fresh quiz.json.
-<la> agent-import quiz <run-or-bundle> <quiz.json> --task-package <task-package.json>
-<la> quiz-review <run-or-bundle>
-```
+Bloom and estimated difficulty describe work left in the **unhinted** question, not its format.
+Difficulty is not calibrated without learner data. Hints are optional: each should enable a next
+step while leaving target work to do, including when earlier hints have already been seen. Required
+facts belong in the question; completed solutions belong in the answer explanation.
 
-Use explicit KC selection, language, or total budget only when the user supplies it. With no budget,
-assessment slots and variants follow the evidence required by each KC. Process `authoring_batches`
-by KC Group. Retain evidence intents across batches and reconcile them against KC boundaries;
-question presence is not full capability coverage. Slot and item counts may differ for integrated
-constructed-response questions, whose rubric criteria are separately bound to their slots.
+Before delivery, actually try the questions from the learner-visible material without hints or
+source-only context. This is an author self-check, not a claim of blinded independence. Recompute
+arithmetic, test code safely where applicable, try competing answers and different valid solutions,
+and check rubric/hint alignment. Record concrete remaining defects, not a self-awarded PASS.
+Compare the bank with KC scope and check that variants add useful evidence rather than cosmetic
+rewording. Do not add another agent or mandatory judge stage to perform these authoring checks.
 
-The task's `media_assets` lists the selected KCs' cited PDF pages. Inspect `image_ref` relative to
-the run root when visual content is needed. A quiz may combine text, table, formula and image blocks
-in one stimulus; image blocks reference a catalog `asset_id`, not an invented path. The runtime
-checks source hashes and embeds selected PNGs/crops in the portal. Verify that essential context
-and labels survive the crop and that the learner can solve the question before opening hints.
-Existing simple stimuli remain valid. This adds no planning stage or fixed media/question quota.
+## Revisions and delivery
 
-Import performs schema, lineage, and deterministic form checks. These checks may recommend a fresh
-candidate for mechanical defects; they never assert that a question is correct or pedagogically
-valuable. The default semantic state is `NOT_REVIEWED`, not a self-issued PASS.
+Drafts can be edited. Once delivered/imported, preserve their bytes and make a new revision with
+the reason for change. Track which source/KC version each downstream output uses; changed upstream
+material makes affected outputs need rechecking, not silent reuse. Correcting a schema error is
+not the only reason a revision is legitimate. Stop revising when checks are satisfied or when no
+further supported progress can be made; disclose unresolved defects instead of looping or guessing.
 
-## 5. Build the connected portal
+Deliver separate JSON for Extraction, KC, and Quiz plus a concise run report. Use an existing user
+contract when provided; otherwise choose a clear structure retaining the content above. Logical
+links and source identity are required; the optional runtime's serialization is not universal.
+Keep originals and actual dependencies, not an additional report for every procedural step.
 
-Single source:
-
-```bash
-<la> portal-build <run>
-```
-
-Bundle:
-
-```bash
-<la> bundle-portal-build <bundle-root> --output-dir <fresh-output>
-```
-
-Verify entrypoints and manifest. Do not deploy, register a database, publish a lesson, or create
-Teacher/Student apps unless the user explicitly asks.
-
-## Stop conditions
-
-Stop for an unreadable source, invalid frozen task, missing permission, unsafe publication request,
-or user cancellation. Semantic uncertainty becomes visible `REVIEW`/`NOT_REVIEWED` output; it is
-not a reason to fabricate certainty or abandon the draft flow.
+If requested, provide a connected local portal: source → Extraction → KC → Quiz. Verify its actual
+learner view, media, hint/answer separation, and navigation. An unsupported interaction must remain
+explicit or get a suitable view, not be dropped or converted to a weaker task. Report technical
+checks separately from author self-checks, human approval, and empirical learner validation.

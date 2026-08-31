@@ -2,7 +2,7 @@
 
 This module deliberately does not infer teaching meaning.  It preserves the PDF's
 native text order, attaches character-derived regions, and marks pages that need
-targeted visual inspection.  Semantic interpretation belongs to the KC stage.
+visual inspection. The agent performs semantic Extraction before KC authoring.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from typing import Any
 import pypdfium2 as pdfium
 
 from learning_authoring.artifacts import RunArtifacts, read_json, sha256_file, write_json
-from learning_authoring.audit import build_audit, validate_extraction_geometry
 from learning_authoring.contracts import (
     ExtractedPage,
     ExtractedSource,
@@ -27,7 +26,6 @@ from learning_authoring.contracts import (
     SourceRegion,
     WarningRecord,
 )
-from learning_authoring.review import build_review
 
 NATIVE_EXTRACTION_VERSION = "native-text-geometry.v2"
 
@@ -68,9 +66,7 @@ def _glyphs(text_page: Any) -> list[_Glyph]:
     glyphs: list[_Glyph] = []
     for index in range(count):
         char = _safe_char(text_page, index)
-        glyphs.append(
-            _Glyph(char, None if char in "\r\n" else _safe_box(text_page, index))
-        )
+        glyphs.append(_Glyph(char, None if char in "\r\n" else _safe_box(text_page, index)))
     return glyphs
 
 
@@ -143,9 +139,9 @@ def _layout_text(glyphs: list[_Glyph]) -> str:
     for glyph in sorted(visible, key=lambda g: -(g.box[3] - g.box[1])):
         matches = [(anchor, row) for anchor, row in rows if not _vertical_break(anchor, glyph)]
         if matches:
-            _, row = min(matches, key=lambda pair: abs(
-                sum(pair[0].box[1::2]) - sum(glyph.box[1::2])
-            ))
+            _, row = min(
+                matches, key=lambda pair: abs(sum(pair[0].box[1::2]) - sum(glyph.box[1::2]))
+            )
             row.append(glyph)
         else:
             rows.append((glyph, [glyph]))
@@ -236,15 +232,18 @@ def _page_from_text_layer(page: Any, page_number: int) -> ExtractedPage:
     ]
     warnings: list[WarningRecord] = []
     # Graphics are a triage signal, not a classifier for meaningful/decorative figures.
-    graphics = list(page.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_IMAGE,
-                                            pdfium.raw.FPDF_PAGEOBJ_PATH]))
+    graphics = list(
+        page.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_IMAGE, pdfium.raw.FPDF_PAGEOBJ_PATH])
+    )
     if graphics:
-        warnings.append(WarningRecord(
-            code="GRAPHICS_PRESENT",
-            message="PDF graphics coexist with text; inspect the page if layout carries meaning.",
-            page=page_number,
-            details={"next_action": "visual_triage", "object_count": len(graphics)},
-        ))
+        warnings.append(
+            WarningRecord(
+                code="GRAPHICS_PRESENT",
+                message="PDF graphics coexist with text; native text cannot capture their meaning.",
+                page=page_number,
+                details={"next_action": "visual_triage", "object_count": len(graphics)},
+            )
+        )
     if not blocks:
         warnings.append(
             WarningRecord(
@@ -275,8 +274,8 @@ def _page_from_text_layer(page: Any, page_number: int) -> ExtractedPage:
         page_note=PageNote(
             summary=f"Native PDF text inventory for source page {page_number}.",
             explanation=(
-                "Semantic summary intentionally deferred to the KC stage; inspect the page image "
-                "when visual relationships matter."
+                "Raw text reading only. The agent must inspect source content and visuals "
+                "before authoring Extraction."
             ),
             evidence_block_ids=evidence_ids,
             uncertainties=(
@@ -290,22 +289,23 @@ def _page_from_text_layer(page: Any, page_number: int) -> ExtractedPage:
     )
 
 
-def build_native_extraction(run_dir: Path) -> dict[str, Any]:
-    """Create or reuse a deterministic proposed Extraction for one prepared PDF."""
+def build_native_reading(run_dir: Path) -> dict[str, Any]:
+    """Prepare a raw reading aid, never promote it to semantic Extraction."""
 
     root = run_dir.expanduser().resolve()
     artifacts = RunArtifacts(root)
     source = SourceDescriptor.model_validate(read_json(artifacts.source_manifest)["source"])
-    if artifacts.proposed.is_file():
-        existing = ExtractedSource.model_validate(read_json(artifacts.proposed))
+    raw_path = root / "native-source.raw.json"
+    metadata_path = root / "native-source-metadata.json"
+    if raw_path.is_file():
+        existing = ExtractedSource.model_validate(read_json(raw_path))
         if existing.source != source:
-            raise RuntimeError("existing Extraction belongs to a different source")
-        metadata = read_json(artifacts.metadata) if artifacts.metadata.is_file() else {}
+            raise RuntimeError("existing native reading belongs to a different source")
         return {
-            "status": "REUSED",
-            "proposed": str(artifacts.proposed),
-            "method": metadata.get("extraction_method", "existing_artifact"),
-            "review": str(build_review(root)),
+            "status": "RAW_REUSED",
+            "raw": str(raw_path),
+            "method": NATIVE_EXTRACTION_VERSION,
+            "semantic_extraction_performed": False,
         }
 
     started = time.perf_counter()
@@ -320,7 +320,7 @@ def build_native_extraction(run_dir: Path) -> dict[str, Any]:
                 page.close()
     finally:
         document.close()
-    extracted = ExtractedSource(
+    reading = ExtractedSource(
         schema_version="extracted-source.v2",
         source=source,
         pages=pages,
@@ -328,64 +328,32 @@ def build_native_extraction(run_dir: Path) -> dict[str, Any]:
             WarningRecord(
                 code="VISUAL_SEMANTICS_NOT_INFERRED",
                 message=(
-                    "Native text and geometry are deterministic; charts, diagrams, images, and "
-                    "spatial relationships still require targeted review."
+                    "Machine reading only; the agent must read the full source, including visuals."
                 ),
-                details={"next_action": "inspect_only_relevant_visual_pages_during_kc_authoring"},
+                details={"next_action": "agent_authored_multimodal_extraction"},
             )
         ],
     )
-    validate_extraction_geometry(extracted)
-    write_json(artifacts.proposed, extracted.model_dump(mode="json"))
-    deterministic_snapshot = (
-        root / "agent-session" / "deterministic" / "extracted-source.native.json"
-    )
-    write_json(deterministic_snapshot, extracted.model_dump(mode="json"))
-    audit = build_audit(extracted, root)
-    write_json(artifacts.audit, audit)
-    elapsed = round(time.perf_counter() - started, 6)
+    write_json(raw_path, reading.model_dump(mode="json"))
     metadata = {
-        "stage": "extract",
-        "stage_version": NATIVE_EXTRACTION_VERSION,
+        "stage": "source_preparation",
         "extraction_method": NATIVE_EXTRACTION_VERSION,
-        "semantic_generation_performed": False,
-        "provider_api_calls": 0,
+        "semantic_extraction_performed": False,
         "source": source.model_dump(mode="json"),
-        "deterministic_snapshot": str(deterministic_snapshot),
-        "deterministic_snapshot_sha256": sha256_file(deterministic_snapshot),
-        "human_review_required": True,
-        "approval_status": "PROPOSED",
-        "promotion_gate_passed": True,
-        "promotion_gate_basis": "deterministic_contract_and_geometry_valid",
-        "audit_findings": audit["fresh_candidate_guidance"],
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-    metrics = {
-        "metrics_version": "native-extraction-run-metrics.v1",
-        "execution_mode": "deterministic_local_runtime",
-        "provider_api_calls": 0,
-        "usage": None,
-        "usage_available": False,
-        "usage_status": "not_applicable_deterministic_extraction",
-        "gateway_reported_cost_usd": None,
-        "cost_available": False,
-        "cost_status": "not_applicable_deterministic_extraction",
-        "source_page_count": source.page_count,
+        "raw_path": str(raw_path),
+        "raw_sha256": sha256_file(raw_path),
         "block_count": sum(len(page.blocks) for page in pages),
         "native_text_page_count": sum(bool(page.blocks) for page in pages),
-        "targeted_visual_review_page_count": sum(bool(page.warnings) for page in pages),
-        "total_elapsed_seconds": elapsed,
-        "human_review_required": True,
-        "approved": False,
+        "pages_with_inspection_findings": sum(bool(page.warnings) for page in pages),
+        "total_elapsed_seconds": round(time.perf_counter() - started, 6),
+        "created_at": datetime.now(UTC).isoformat(),
     }
-    write_json(artifacts.metadata, metadata)
-    write_json(artifacts.metrics, metrics)
-    review = build_review(root)
+    write_json(metadata_path, metadata)
     return {
-        "status": "PROPOSED",
-        "proposed": str(artifacts.proposed),
+        "status": "RAW_READY",
+        "raw": str(raw_path),
         "method": NATIVE_EXTRACTION_VERSION,
-        "block_count": metrics["block_count"],
-        "targeted_visual_review_page_count": metrics["targeted_visual_review_page_count"],
-        "review": str(review),
+        "semantic_extraction_performed": False,
+        "block_count": metadata["block_count"],
+        "pages_with_inspection_findings": metadata["pages_with_inspection_findings"],
     }

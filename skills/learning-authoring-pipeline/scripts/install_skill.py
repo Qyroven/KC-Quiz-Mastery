@@ -48,8 +48,6 @@ def _skill_source() -> Path:
     source = Path(__file__).resolve().parent.parent
     if not (source / "SKILL.md").is_file():
         raise RuntimeError(f"canonical skill is incomplete: {source}")
-    if not (source / "scripts" / "runtime" / "pyproject.toml").is_file():
-        raise RuntimeError(f"canonical skill runtime is incomplete: {source}")
     return source
 
 

@@ -161,8 +161,9 @@ def test_legacy_stimulus_is_not_rewritten(source):
 
 @pytest.mark.parametrize("count", [1, 3, 5])
 def test_catalog_keeps_same_page_numbers_in_different_sources_distinct(tmp_path, count):
-    from learning_authoring.agent_session import agent_init
+    from learning_authoring.agent_session import agent_import, agent_init
     from learning_authoring.source_bundle import prepare_source_bundle
+    from tests.test_agent_session import _extraction_candidate, _write_raw
 
     root = tmp_path / "bundle"
     runs = []
@@ -172,6 +173,9 @@ def test_catalog_keeps_same_page_numbers_in_different_sources_distinct(tmp_path,
         pdf.write_bytes(pdf.read_bytes() + f"\n% source {index}\n".encode())
         run = root / "sources" / str(index)
         agent_init(pdf, run)
+        candidate = run / "synthetic-extraction.json"
+        _write_raw(candidate, _extraction_candidate())
+        agent_import("extraction", run, candidate)
         runs.append(run)
     bundle = prepare_source_bundle(root, runs)
     selected_sources = [entry.source.source_id for entry in bundle.sources]

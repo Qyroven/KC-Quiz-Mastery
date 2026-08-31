@@ -16,7 +16,14 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from learning_authoring.artifacts import read_json, sha256_bytes, write_bytes, write_json
+from learning_authoring.artifacts import (
+    read_json,
+    record_revision_state,
+    sha256_bytes,
+    sha256_file,
+    write_bytes,
+    write_json,
+)
 from learning_authoring.contracts import SourceDescriptor
 
 if TYPE_CHECKING:
@@ -236,12 +243,8 @@ def _verify_raw(run_dir: Path, item: AuthoringContextItem) -> None:
             raise ValueError(f"authoring context text differs from raw input: {item.context_id}")
 
 
-def load_authoring_context(run_dir: Path, source: SourceDescriptor) -> AuthoringContext | None:
-    """Load the current context and verify its source, manifest, and raw bytes.
-
-    Original external files need not still exist: the immutable copied bytes are
-    authoritative. Absence of a context manifest is the legacy PDF-only path.
-    """
+def _load_context_snapshot(run_dir: Path) -> AuthoringContext | None:
+    """Verify copied context bytes before either source binding or explicit rebinding."""
 
     output = Path(run_dir).expanduser().resolve()
     manifest = output / CONTEXT_MANIFEST
@@ -252,7 +255,6 @@ def load_authoring_context(run_dir: Path, source: SourceDescriptor) -> Authoring
     if manifest.is_symlink() or not manifest.is_file():
         raise ValueError("authoring context manifest must be a regular file")
     context = AuthoringContext.model_validate(read_json(manifest))
-    context.validate_against_source(source)
     snapshot = output / "authoring-context" / "manifests" / f"{context.sha256}.json"
     if (
         snapshot.is_symlink()
@@ -266,32 +268,24 @@ def load_authoring_context(run_dir: Path, source: SourceDescriptor) -> Authoring
     return context
 
 
+def load_authoring_context(run_dir: Path, source: SourceDescriptor) -> AuthoringContext | None:
+    """Load context with exact one-PDF identity and immutable raw-byte validation."""
+
+    context = _load_context_snapshot(run_dir)
+    if context is not None:
+        context.validate_against_source(source)
+    return context
+
+
 def load_bundle_authoring_context(
     run_dir: Path,
     bundle: SourceBundle,
 ) -> AuthoringContext | None:
-    """Load context bound to a complete source bundle and verify copied raw bytes."""
+    """Load context bound to an exact source bundle; never silently rebind it."""
 
-    output = Path(run_dir).expanduser().resolve()
-    manifest = output / CONTEXT_MANIFEST
-    if not manifest.exists():
-        if manifest.is_symlink() or (output / "authoring-context").exists():
-            raise ValueError("incomplete authoring context; prepare again with original inputs")
-        return None
-    if manifest.is_symlink() or not manifest.is_file():
-        raise ValueError("authoring context manifest must be a regular file")
-    context = AuthoringContext.model_validate(read_json(manifest))
-    context.validate_against_bundle(bundle)
-    snapshot = output / "authoring-context" / "manifests" / f"{context.sha256}.json"
-    if (
-        snapshot.is_symlink()
-        or not snapshot.resolve().is_relative_to(output)
-        or not snapshot.is_file()
-        or snapshot.read_bytes() != manifest.read_bytes()
-    ):
-        raise ValueError("authoring context manifest differs from its immutable snapshot")
-    for item in context.items:
-        _verify_raw(output, item)
+    context = _load_context_snapshot(run_dir)
+    if context is not None:
+        context.validate_against_bundle(bundle)
     return context
 
 
@@ -366,7 +360,9 @@ def _freeze_context_inputs(
             write_bytes(target, data)
     if not snapshot.exists():
         write_json(snapshot, context.model_dump(mode="json"))
+    previous_hash = sha256_file(manifest) if manifest.exists() else None
     write_bytes(manifest, snapshot.read_bytes())
+    record_revision_state(output, "context", previous_hash, manifest)
     return context
 
 
@@ -414,7 +410,9 @@ def prepare_bundle_authoring_context(
     if not context_files and not context_texts:
         return load_bundle_authoring_context(output, bundle)
     manifest = output / CONTEXT_MANIFEST
-    existing = load_bundle_authoring_context(output, bundle) if manifest.exists() else None
+    # Explicitly supplied notes can be rebound after an Extraction/bundle revision.
+    # Verify the old bytes, but do not demand their previous binding equal the new one.
+    existing = _load_context_snapshot(output) if manifest.exists() else None
     source_ref = AuthoringContextBundleRef(
         source_bundle_sha256=bundle.bundle_sha256,
         sources=[

@@ -1,7 +1,7 @@
 # Shared KC rules
 
-1. Verify the ordered bundle and process `input_boundary.inspection_batches` in order. Build a
-   capability inventory per source window before reconciling within or across sources.
+1. Verify source identities and read the full bundle. Choose useful reading windows and order;
+   retain source-specific capabilities/evidence while reconciling within and across sources.
 2. Emit one source-qualified `page_audit` for every page. Non-learning pages do not require KCs;
    meaningful learning content without a KC needs a specific uncovered reason.
 3. Apply the split/merge rule from the foundation without a target count or page ratio.

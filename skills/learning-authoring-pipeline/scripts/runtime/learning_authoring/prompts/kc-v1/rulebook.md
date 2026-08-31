@@ -1,7 +1,7 @@
 # KC rules
 
-1. Work through `input_boundary.inspection_batches` in order. For each batch, build a capability inventory
-   and record its source blocks before merging anything across batches.
+1. Read the complete source set and retain capabilities with their evidence. Suggested inspection
+   batches are reading aids; choose the sequence and size that preserve understanding.
 2. Account for every page in `page_audit`. Classify non-learning pages honestly. A learning page
    without a KC needs a specific `uncovered_content` reason.
 3. Test each candidate with the split/merge rule in the foundation. Never optimize toward a KC
@@ -16,9 +16,9 @@
 7. For supplementary context, cite the exact context item and excerpt. Account for every material
    context claim as represented, excluded, unresolved, or not assessable. Context never becomes PDF evidence.
    Never invent a page map.
-8. Reconcile source sections only after their local inventories exist. Merge true duplicates across
+8. Reconcile source sections without losing their specific content. Merge true duplicates across
    PDFs; retain conflicts, source-specific variants, and uncertainty explicitly.
-9. Use stable local IDs in source order. IDs carry no meaning and must not encode lesson keywords.
+9. Use stable local IDs to keep references unambiguous. IDs do not determine KC scope or count.
 10. Return schema-valid JSON only. All outputs remain `PROPOSED`; contract validity is not semantic
     approval.
 
